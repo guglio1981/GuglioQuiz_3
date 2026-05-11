@@ -224,6 +224,64 @@ export const AVATAR_ICONS: Record<AvatarId, string> = {
   avatar_10: '🐳',
 }
 
+export const ALL_AVATAR_ICONS = [
+  '🦊', '🐸', '🦁', '🐼', '🦄', '🐷', '🦉', '🐙', '🦜', '🐳', 
+  '🐶', '🐱', '🐭', '🐹', '🐰', '🐻', '🐨', '🐯', '🐮', '🐵', 
+  '🐧', '🦅', '🦆', '🦇', '🐺', '🐗', '🐴', '🐝', '🐛', '🦋', 
+  '🐌', '🐞', '🐢', '🐍', '🦖', '🦕', '🐬', '🐟', '🐡', '🦈', 
+  '🦀', '🦞', '🦐', '🦑'
+]
+
+export const ALL_AVATAR_COLORS = [
+  { bg: 'bg-red-500', text: 'text-white' },
+  { bg: 'bg-blue-500', text: 'text-white' },
+  { bg: 'bg-green-500', text: 'text-white' },
+  { bg: 'bg-yellow-500', text: 'text-black' },
+  { bg: 'bg-purple-500', text: 'text-white' },
+  { bg: 'bg-pink-500', text: 'text-white' },
+  { bg: 'bg-indigo-500', text: 'text-white' },
+  { bg: 'bg-teal-500', text: 'text-white' },
+  { bg: 'bg-orange-500', text: 'text-white' },
+  { bg: 'bg-cyan-500', text: 'text-white' },
+  { bg: 'bg-rose-500', text: 'text-white' },
+  { bg: 'bg-amber-500', text: 'text-black' },
+  { bg: 'bg-lime-500', text: 'text-black' },
+  { bg: 'bg-emerald-500', text: 'text-white' },
+  { bg: 'bg-sky-500', text: 'text-black' },
+  { bg: 'bg-violet-500', text: 'text-white' },
+  { bg: 'bg-fuchsia-500', text: 'text-white' },
+  { bg: 'bg-slate-500', text: 'text-white' },
+  { bg: 'bg-stone-500', text: 'text-white' },
+  { bg: 'bg-neutral-500', text: 'text-white' }
+]
+
+export function parseAvatar(avatarStr: string | null): { icon: string, bg: string, text: string } | null {
+  if (!avatarStr) return null
+  
+  // Backward compatibility with 'avatar_1' format
+  if (AVATAR_ICONS[avatarStr as AvatarId]) {
+    return {
+      icon: AVATAR_ICONS[avatarStr as AvatarId],
+      bg: AVATAR_COLORS[avatarStr as AvatarId].bg,
+      text: AVATAR_COLORS[avatarStr as AvatarId].text,
+    }
+  }
+  
+  // New format: "icon|bg_color" (e.g. "🦊|bg-red-500")
+  const parts = avatarStr.split('|')
+  if (parts.length === 2) {
+    // Look up text color if possible, default to white
+    const colorObj = ALL_AVATAR_COLORS.find(c => c.bg === parts[1])
+    return {
+      icon: parts[0],
+      bg: parts[1],
+      text: colorObj ? colorObj.text : 'text-white'
+    }
+  }
+  
+  return null
+}
+
 // Scoring constants
 export const SCORING = {
   CORRECT_MIN: 200,

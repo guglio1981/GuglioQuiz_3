@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { AVATAR_COLORS, AVATAR_ICONS, type AvatarId } from '@/lib/types'
+import { parseAvatar } from '@/lib/types'
 import { toast } from 'sonner'
 import { UserPlus, Users, Check, Send } from 'lucide-react'
 
@@ -128,21 +128,12 @@ export function InviteFriendsModal({ gameCode }: InviteFriendsModalProps) {
     setIsSending(false)
   }
 
-  const renderAvatar = (userObj: AppUser) => {
-    if (userObj.avatar && AVATAR_COLORS[userObj.avatar as AvatarId]) {
-      const emoji = AVATAR_ICONS[userObj.avatar as AvatarId]
-      const colors = AVATAR_COLORS[userObj.avatar as AvatarId]
-      return (
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${colors.bg}`}>
-          {emoji}
-        </div>
-      )
+  const getAvatarColors = (userObj: any) => {
+    if (userObj.avatar) {
+      const parsed = parseAvatar(userObj.avatar)
+      if (parsed) return parsed.bg
     }
-    return (
-      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-        <Users className="h-5 w-5 text-muted-foreground" />
-      </div>
-    )
+    return 'bg-muted'
   }
 
   return (
@@ -193,7 +184,15 @@ export function InviteFriendsModal({ gameCode }: InviteFriendsModalProps) {
                         }`}
                     >
                       <div className="flex items-center gap-3">
-                        {renderAvatar(friend)}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 ${getAvatarColors(friend)}`}>
+                            {friend.avatar_url ? (
+                              <img src={friend.avatar_url} alt={friend.username} className="w-full h-full rounded-full object-cover" />
+                            ) : friend.avatar ? (
+                              parseAvatar(friend.avatar)?.icon
+                            ) : (
+                              <Users className="w-5 h-5 text-muted-foreground" />
+                            )}
+                        </div>
                         <span className="font-medium">{friend.username}</span>
                       </div>
                       {isSelected && (

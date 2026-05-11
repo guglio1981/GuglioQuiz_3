@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AVATARS, AVATAR_COLORS, AVATAR_ICONS, type AvatarId, type PlayerProfile } from '@/lib/types'
+import { AVATARS, AVATAR_COLORS, AVATAR_ICONS, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, parseAvatar, type AvatarId, type PlayerProfile } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Upload, User, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -32,15 +32,57 @@ export function ProfileDialog({
   lockedName,
   lockedAvatar = false,
 }: ProfileDialogProps) {
-  // Capitalize first letter of name
   const formatName = (n: string) => n.charAt(0).toUpperCase() + n.slice(1)
   const [name, setName] = useState(lockedName ? formatName(lockedName) : (initialProfile?.name || ''))
-  const [selectedAvatar, setSelectedAvatar] = useState<AvatarId | null>((initialProfile?.avatar as AvatarId) || null)
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(initialProfile?.avatar || null)
   const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(initialProfile?.avatarUrl || null)
   const [isChecking, setIsChecking] = useState(false)
+  const [availableAvatars, setAvailableAvatars] = useState<string[]>([])
+  const [isLoadingAvatars, setIsLoadingAvatars] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Update state when initialProfile or lockedName changes
+  // Generate unique avatars
+  useEffect(() => {
+    if (!open || lockedAvatar) {
+      if (!open) setAvailableAvatars([])
+      return
+    }
+    
+    // Only fetch if we haven't generated them yet for this dialog open
+    if (availableAvatars.length > 0) return
+
+    setIsLoadingAvatars(true)
+    fetch('/api/avatars/used')
+      .then(res => res.json())
+      .then(data => {
+        const used = new Set<string>(data.used || [])
+        const generated: string[] = []
+        const usedColors = new Set<string>()
+        const usedIcons = new Set<string>()
+
+        // Generate 10 unique avatars
+        while (generated.length < 10) {
+          const randomIcon = ALL_AVATAR_ICONS[Math.floor(Math.random() * ALL_AVATAR_ICONS.length)]
+          const randomColor = ALL_AVATAR_COLORS[Math.floor(Math.random() * ALL_AVATAR_COLORS.length)]
+          const combination = `${randomIcon}|${randomColor.bg}`
+
+          if (!used.has(combination) && !usedIcons.has(randomIcon) && !usedColors.has(randomColor.bg)) {
+            generated.push(combination)
+            usedIcons.add(randomIcon)
+            usedColors.add(randomColor.bg)
+          }
+        }
+        setAvailableAvatars(generated)
+        setIsLoadingAvatars(false)
+      })
+      .catch(err => {
+        console.error('Failed to fetch used avatars:', err)
+        // Fallback to static if error
+        setAvailableAvatars([...AVATARS])
+        setIsLoadingAvatars(false)
+      })
+  }, [open, lockedAvatar, availableAvatars.length])
+
   useEffect(() => {
     if (lockedName) {
       setName(formatName(lockedName))
@@ -48,7 +90,7 @@ export function ProfileDialog({
       setName(initialProfile.name || '')
     }
     if (initialProfile) {
-      setSelectedAvatar((initialProfile.avatar as AvatarId) || null)
+      setSelectedAvatar(initialProfile.avatar || null)
       setCustomAvatarUrl(initialProfile.avatarUrl || null)
     }
   }, [initialProfile, lockedName])
@@ -150,7 +192,7 @@ export function ProfileDialog({
                 <div
                   className={cn(
                     'w-16 h-16 rounded-full flex items-center justify-center text-3xl',
-                    initialProfile?.avatar ? AVATAR_COLORS[initialProfile.avatar as AvatarId].bg : 'bg-border'
+                    initialProfile?.avatar ? parseAvatar(initialProfile.avatar)?.bg : 'bg-border'
                   )}
                 >
                   {initialProfile?.avatarUrl ? (
@@ -160,7 +202,7 @@ export function ProfileDialog({
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : initialProfile?.avatar ? (
-                    AVATAR_ICONS[initialProfile.avatar as AvatarId]
+                    parseAvatar(initialProfile.avatar)?.icon
                   ) : null}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -169,29 +211,38 @@ export function ProfileDialog({
               </div>
             ) : (
               <div className="grid grid-cols-5 gap-3">
-                {AVATARS.map((avatarId) => (
-                  <button
-                    key={avatarId}
-                    type="button"
-                    onClick={() => {
-                      if (!lockedAvatar) {
-                        setSelectedAvatar(avatarId)
-                        setCustomAvatarUrl(null)
-                      }
-                    }}
-                    disabled={lockedAvatar}
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all',
-                      AVATAR_COLORS[avatarId].bg,
-                      selectedAvatar === avatarId
-                        ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
-                        : 'hover:scale-105',
-                      lockedAvatar && 'cursor-not-allowed opacity-50'
-                    )}
-                  >
-                    {AVATAR_ICONS[avatarId]}
-                  </button>
-                ))}
+                {isLoadingAvatars ? (
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className="w-12 h-12 rounded-full bg-muted animate-pulse" />
+                  ))
+                ) : (
+                  availableAvatars.map((avatarStr) => {
+                    const parsed = parseAvatar(avatarStr)
+                    return (
+                      <button
+                        key={avatarStr}
+                        type="button"
+                        onClick={() => {
+                          if (!lockedAvatar) {
+                            setSelectedAvatar(avatarStr)
+                            setCustomAvatarUrl(null)
+                          }
+                        }}
+                        disabled={lockedAvatar}
+                        className={cn(
+                          'w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all',
+                          parsed?.bg,
+                          selectedAvatar === avatarStr
+                            ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
+                            : 'hover:scale-105',
+                          lockedAvatar && 'cursor-not-allowed opacity-50'
+                        )}
+                      >
+                        {parsed?.icon}
+                      </button>
+                    )
+                  })
+                )}
               </div>
             )}
           </div>
@@ -235,7 +286,7 @@ export function ProfileDialog({
             <div
               className={cn(
                 'w-16 h-16 rounded-full flex items-center justify-center text-3xl',
-                selectedAvatar ? AVATAR_COLORS[selectedAvatar].bg : 'bg-border'
+                selectedAvatar ? parseAvatar(selectedAvatar)?.bg : 'bg-border'
               )}
             >
               {customAvatarUrl ? (
@@ -245,7 +296,7 @@ export function ProfileDialog({
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : selectedAvatar ? (
-                AVATAR_ICONS[selectedAvatar]
+                parseAvatar(selectedAvatar)?.icon
               ) : (
                 <User className="w-8 h-8 text-muted-foreground" />
               )}

@@ -35,6 +35,7 @@ import {
 } from '@/lib/game-store'
 import {
   TOPIC_LABELS,
+  parseAvatar,
   AVATAR_COLORS,
   AVATAR_ICONS,
   SCORING,

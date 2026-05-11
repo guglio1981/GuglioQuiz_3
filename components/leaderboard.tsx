@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { AVATAR_COLORS, AVATAR_ICONS, type Player, type AvatarId } from '@/lib/types'
+import { parseAvatar, type Player } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Trophy, Medal, Award, ArrowRight } from 'lucide-react'
 import { AbstentionDots } from '@/components/abstention-dots'
@@ -80,22 +80,16 @@ export function Leaderboard({
 
             {/* Avatar */}
             <div
-              className={cn(
-                'w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0',
-                player.avatar
-                  ? AVATAR_COLORS[player.avatar as AvatarId]?.bg || 'bg-muted'
-                  : 'bg-muted'
-              )}
-            >
-              {player.avatar_url ? (
-                <img
-                  src={player.avatar_url}
-                  alt={player.name}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : player.avatar ? (
-                AVATAR_ICONS[player.avatar as AvatarId]
-              ) : (
+                className={cn(
+                  'w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0',
+                  player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted')
+                )}
+              >
+                {player.avatar_url ? (
+                  <img src={player.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                ) : player.avatar ? (
+                  parseAvatar(player.avatar)?.icon
+                ) : (
                 '?'
               )}
             </div>

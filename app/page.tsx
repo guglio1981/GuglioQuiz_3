@@ -9,8 +9,8 @@ import { ProfileDialog } from '@/components/profile-dialog'
 import { RulesDialog } from '@/components/rules-dialog'
 import { IOSInstallPrompt } from '@/components/ios-install-prompt'
 import { createGame, addPlayer, getGameByCode, getPlayers } from '@/lib/game-store'
-import type { PlayerProfile, AvatarId } from '@/lib/types'
-import { AVATAR_COLORS, AVATAR_ICONS, AVATARS } from '@/lib/types'
+import type { PlayerProfile } from '@/lib/types'
+import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS } from '@/lib/types'
 import { compressImage } from '@/lib/image-utils'
 import { toast } from 'sonner'
 import { Zap, Users, Trophy, Brain, Loader2, LogIn, Bell, BellOff, LogOut, Upload } from 'lucide-react'
@@ -41,10 +41,52 @@ function HomePageContent() {
   const [resetStep, setResetStep] = useState<'request' | 'confirm'>('request')
   const [newPassword, setNewPassword] = useState('')
   const [signupEmail, setSignupEmail] = useState('')
-  const [signupAvatar, setSignupAvatar] = useState<AvatarId | null>(null)
+  const [signupAvatar, setSignupAvatar] = useState<string | null>(null)
   const [signupAvatarUrl, setSignupAvatarUrl] = useState<string | null>(null)
   const [signupAvatarFile, setSignupAvatarFile] = useState<File | null>(null)
   const signupFileInputRef = useRef<HTMLInputElement>(null)
+  const [availableAvatars, setAvailableAvatars] = useState<string[]>([])
+  const [isLoadingAvatars, setIsLoadingAvatars] = useState(false)
+
+  // Generate unique avatars for signup
+  useEffect(() => {
+    if (!showSignUp) {
+      setAvailableAvatars([])
+      return
+    }
+    
+    // Only fetch if we haven't generated them yet
+    if (availableAvatars.length > 0) return
+
+    setIsLoadingAvatars(true)
+    fetch('/api/avatars/used')
+      .then(res => res.json())
+      .then(data => {
+        const used = new Set<string>(data.used || [])
+        const generated: string[] = []
+        const usedColors = new Set<string>()
+        const usedIcons = new Set<string>()
+
+        while (generated.length < 10) {
+          const randomIcon = ALL_AVATAR_ICONS[Math.floor(Math.random() * ALL_AVATAR_ICONS.length)]
+          const randomColor = ALL_AVATAR_COLORS[Math.floor(Math.random() * ALL_AVATAR_COLORS.length)]
+          const combination = `${randomIcon}|${randomColor.bg}`
+
+          if (!used.has(combination) && !usedIcons.has(randomIcon) && !usedColors.has(randomColor.bg)) {
+            generated.push(combination)
+            usedIcons.add(randomIcon)
+            usedColors.add(randomColor.bg)
+          }
+        }
+        setAvailableAvatars(generated)
+        setIsLoadingAvatars(false)
+      })
+      .catch(err => {
+        console.error('Failed to fetch used avatars:', err)
+        setAvailableAvatars([...AVATARS])
+        setIsLoadingAvatars(false)
+      })
+  }, [showSignUp, availableAvatars.length])
 
 // Read code from URL when searchParams changes
   useEffect(() => {
@@ -124,12 +166,22 @@ function HomePageContent() {
         // Verify session is still valid (not logged in elsewhere) - async check
         if (userData.id && userData.session_token) {
           const checkSession = () => {
+            const currentStoredUser = localStorage.getItem('guglioquiz_user')
+            if (!currentStoredUser) return // Already logged out locally or via another tab
+            
+            let currentUserData;
+            try {
+              currentUserData = JSON.parse(currentStoredUser)
+            } catch {
+              return
+            }
+
             fetch('/api/auth/verify-session', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
-                userId: userData.id, 
-                sessionToken: userData.session_token 
+                userId: currentUserData.id, 
+                sessionToken: currentUserData.session_token 
               })
             })
             .then(res => res.json())
@@ -617,9 +669,9 @@ function HomePageContent() {
                       <div className="w-16 h-16 rounded-full overflow-hidden">
                         <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                       </div>
-                    ) : user.avatar && AVATAR_COLORS[user.avatar as AvatarId] ? (
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${AVATAR_COLORS[user.avatar as AvatarId].bg}`}>
-                        {AVATAR_ICONS[user.avatar as AvatarId]}
+                    ) : user.avatar ? (
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${parseAvatar(user.avatar)?.bg}`}>
+                        {parseAvatar(user.avatar)?.icon}
                       </div>
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -713,24 +765,33 @@ function HomePageContent() {
                           Scegli il tuo avatar <span className="text-destructive">*</span>
                         </label>
                         <div className="grid grid-cols-5 gap-2 mt-3">
-                          {AVATARS.map((avatarId) => (
-                            <button
-                              key={avatarId}
-                              type="button"
-                              onClick={() => {
-                                setSignupAvatar(avatarId)
-                                setSignupAvatarUrl(null)
-                                setSignupAvatarFile(null)
-                              }}
-                              className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${AVATAR_COLORS[avatarId].bg} ${
-                                signupAvatar === avatarId && !signupAvatarUrl
-                                  ? 'ring-2 ring-primary ring-offset-1 ring-offset-card scale-110'
-                                  : 'hover:scale-105'
-                              }`}
-                            >
-                              {AVATAR_ICONS[avatarId]}
-                            </button>
-                          ))}
+                          {isLoadingAvatars ? (
+                            Array.from({ length: 10 }).map((_, i) => (
+                              <div key={i} className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+                            ))
+                          ) : (
+                            availableAvatars.map((avatarStr) => {
+                              const parsed = parseAvatar(avatarStr)
+                              return (
+                                <button
+                                  key={avatarStr}
+                                  type="button"
+                                  onClick={() => {
+                                    setSignupAvatar(avatarStr)
+                                    setSignupAvatarUrl(null)
+                                    setSignupAvatarFile(null)
+                                  }}
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${parsed?.bg} ${
+                                    signupAvatar === avatarStr && !signupAvatarUrl
+                                      ? 'ring-2 ring-primary ring-offset-1 ring-offset-card scale-110'
+                                      : 'hover:scale-105'
+                                  }`}
+                                >
+                                  {parsed?.icon}
+                                </button>
+                              )
+                            })
+                          )}
                         </div>
                       </div>
                       

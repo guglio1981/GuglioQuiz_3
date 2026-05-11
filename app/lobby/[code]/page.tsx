@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { getGameByCode, getPlayers, updatePlayerReady, subscribeToGame, subscribeToPlayers, unsubscribe, updateGameStatus, deletePlayer, clearGameSettingsForNewManche, updateGameTopics, setPlayerTopicsConfirmed, toggleGameTopic, updatePlayerTopics } from '@/lib/game-store'
-import { TOPIC_LABELS, AVATAR_COLORS, AVATAR_ICONS, ARCADE_GAME_LABELS, TOPICS, type Game, type Player, type AvatarId, type ArcadeGame, type Topic } from '@/lib/types'
+import { TOPIC_LABELS, parseAvatar, ARCADE_GAME_LABELS, TOPICS, type Game, type Player, type AvatarId, type ArcadeGame, type Topic } from '@/lib/types'
 import { toast } from 'sonner'
 import { 
   Copy, Check, Users, Play, Crown, MessageCircle, X, Bell, Loader2, Settings2, Gamepad2,
@@ -743,22 +743,16 @@ setIsStarting(true)
                   )}
                 >
                   {/* Avatar */}
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0',
-                      player.avatar
-                        ? AVATAR_COLORS[player.avatar as AvatarId]?.bg || 'bg-muted'
-                        : 'bg-muted'
-                    )}
-                  >
+                    <div
+                      className={cn(
+                        'w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0',
+                        player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted')
+                      )}
+                    >
                     {player.avatar_url ? (
-                      <img
-                        src={player.avatar_url}
-                        alt={player.name}
-                        className="w-full h-full rounded-full object-cover"
-                      />
+                      <img src={player.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
                     ) : player.avatar ? (
-                      AVATAR_ICONS[player.avatar as AvatarId]
+                      parseAvatar(player.avatar)?.icon
                     ) : (
                       '?'
                     )}
@@ -876,20 +870,16 @@ setIsStarting(true)
                           : 'bg-muted/50 hover:bg-muted'
                       )}
                     >
-                      <div className={cn(
-                        'w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0',
-                        user.avatar && AVATAR_COLORS[user.avatar as AvatarId]?.bg
-                          ? AVATAR_COLORS[user.avatar as AvatarId].bg
-                          : 'bg-muted'
-                      )}>
+                      <div
+                        className={cn(
+                          'w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm transition-transform group-hover:scale-110',
+                          user.avatar_url ? 'bg-transparent' : (user.avatar ? parseAvatar(user.avatar)?.bg || 'bg-muted' : 'bg-muted')
+                        )}
+                      >
                         {user.avatar_url ? (
-                          <img
-                            src={user.avatar_url}
-                            alt={user.username}
-                            className="w-full h-full rounded-full object-cover"
-                          />
+                          <img src={user.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
                         ) : user.avatar ? (
-                          AVATAR_ICONS[user.avatar as AvatarId]
+                          parseAvatar(user.avatar)?.icon
                         ) : (
                           <Users className="h-5 w-5 text-muted-foreground" />
                         )}

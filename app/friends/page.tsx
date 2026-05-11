@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { AVATAR_COLORS, AVATAR_ICONS, AVATARS, type AvatarId } from '@/lib/types'
+import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS } from '@/lib/types'
 
 const pb = getPocketBase();
 // @ts-ignore - stubbed
@@ -38,7 +38,9 @@ export default function FriendsPage() {
   const [user, setUser] = useState<AppUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isEditingAvatar, setIsEditingAvatar] = useState(false)
-  const [selectedAvatar, setSelectedAvatar] = useState<AvatarId | null>(null)
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null)
+  const [availableAvatars, setAvailableAvatars] = useState<string[]>([])
+  const [isLoadingAvatars, setIsLoadingAvatars] = useState(false)
   const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null)
   const [customAvatarFile, setCustomAvatarFile] = useState<File | null>(null)
   const [isSavingAvatar, setIsSavingAvatar] = useState(false)
@@ -67,6 +69,46 @@ export default function FriendsPage() {
       router.push('/')
     }
   }, [router])
+
+  // Generate unique avatars
+  useEffect(() => {
+    if (!isEditingAvatar) {
+      setAvailableAvatars([])
+      return
+    }
+    
+    // Only fetch if we haven't generated them yet
+    if (availableAvatars.length > 0) return
+
+    setIsLoadingAvatars(true)
+    fetch('/api/avatars/used')
+      .then(res => res.json())
+      .then(data => {
+        const used = new Set<string>(data.used || [])
+        const generated: string[] = []
+        const usedColors = new Set<string>()
+        const usedIcons = new Set<string>()
+
+        while (generated.length < 10) {
+          const randomIcon = ALL_AVATAR_ICONS[Math.floor(Math.random() * ALL_AVATAR_ICONS.length)]
+          const randomColor = ALL_AVATAR_COLORS[Math.floor(Math.random() * ALL_AVATAR_COLORS.length)]
+          const combination = `${randomIcon}|${randomColor.bg}`
+
+          if (!used.has(combination) && !usedIcons.has(randomIcon) && !usedColors.has(randomColor.bg)) {
+            generated.push(combination)
+            usedIcons.add(randomIcon)
+            usedColors.add(randomColor.bg)
+          }
+        }
+        setAvailableAvatars(generated)
+        setIsLoadingAvatars(false)
+      })
+      .catch(err => {
+        console.error('Failed to fetch used avatars:', err)
+        setAvailableAvatars([...AVATARS])
+        setIsLoadingAvatars(false)
+      })
+  }, [isEditingAvatar, availableAvatars.length])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -265,9 +307,9 @@ export default function FriendsPage() {
                     <div className="w-16 h-16 rounded-full overflow-hidden">
                       <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                     </div>
-                  ) : user?.avatar && AVATAR_COLORS[user.avatar as AvatarId] ? (
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${AVATAR_COLORS[user.avatar as AvatarId].bg}`}>
-                      {AVATAR_ICONS[user.avatar as AvatarId]}
+                  ) : user?.avatar ? (
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${parseAvatar(user.avatar)?.bg}`}>
+                      {parseAvatar(user.avatar)?.icon}
                     </div>
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -297,24 +339,33 @@ export default function FriendsPage() {
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">Scegli un avatar:</p>
                 <div className="grid grid-cols-5 gap-3">
-                  {AVATARS.map((avatarId) => (
-                    <button
-                      key={avatarId}
-                      type="button"
-                      onClick={() => {
-                        setSelectedAvatar(avatarId)
-                        setCustomAvatarUrl(null)
-                        setCustomAvatarFile(null)
-                      }}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all ${AVATAR_COLORS[avatarId].bg} ${
-                        selectedAvatar === avatarId && !customAvatarUrl
-                          ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
-                          : 'hover:scale-105'
-                      }`}
-                    >
-                      {AVATAR_ICONS[avatarId]}
-                    </button>
-                  ))}
+                  {isLoadingAvatars ? (
+                    Array.from({ length: 10 }).map((_, i) => (
+                      <div key={i} className="w-12 h-12 rounded-full bg-muted animate-pulse" />
+                    ))
+                  ) : (
+                    availableAvatars.map((avatarStr) => {
+                      const parsed = parseAvatar(avatarStr)
+                      return (
+                        <button
+                          key={avatarStr}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAvatar(avatarStr)
+                            setCustomAvatarUrl(null)
+                            setCustomAvatarFile(null)
+                          }}
+                          className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all ${parsed?.bg} ${
+                            selectedAvatar === avatarStr && !customAvatarUrl
+                              ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
+                              : 'hover:scale-105'
+                          }`}
+                        >
+                          {parsed?.icon}
+                        </button>
+                      )
+                    })
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-3">
