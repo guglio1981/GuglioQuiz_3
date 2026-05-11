@@ -203,7 +203,7 @@ export function ProfileDialog({
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : initialProfile?.avatar ? (
-                    <span className={cn(initialProfile.avatar.startsWith('initial:') ? 'text-6xl font-black leading-none' : 'text-3xl')}>
+                    <span className={cn(initialProfile.avatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[52px]')}>
                       {parseAvatar(initialProfile.avatar)?.icon}
                     </span>
                   ) : null}
@@ -233,7 +233,8 @@ export function ProfileDialog({
                         }}
                         disabled={lockedAvatar}
                         className={cn(
-                          'w-12 h-12 rounded-full flex items-center justify-center text-5xl transition-all',
+                          'w-12 h-12 rounded-full flex items-center justify-center transition-all',
+                          avatarStr.startsWith('initial:') ? 'text-[38px] font-black leading-none' : 'text-[38px]',
                           parsed?.bg,
                           parsed?.text,
                           selectedAvatar === avatarStr
@@ -268,7 +269,7 @@ export function ProfileDialog({
                         setCustomAvatarUrl(null)
                       }}
                       className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center text-5xl font-black leading-none transition-all',
+                        'w-12 h-12 rounded-full flex items-center justify-center text-[38px] font-black leading-none transition-all',
                         colorObj.bg,
                         colorObj.text,
                         selectedAvatar === avatarStr
@@ -334,7 +335,7 @@ export function ProfileDialog({
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : selectedAvatar ? (
-                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-5xl font-black leading-none' : 'text-4xl')}>
+                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[52px]')}>
                   {parseAvatar(selectedAvatar)?.icon}
                 </span>
               ) : (
