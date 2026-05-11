@@ -173,6 +173,17 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
         setPlayers(updatedPlayers)
       }
     }
+    
+    // We don't need to poll players anymore since we have realtime subscriptions,
+    // but we might need to refresh occasionally just to be safe
+    pollInterval = setInterval(async () => {
+      // Just refresh players every 30 seconds as a fallback
+      const updatedPlayers = await getPlayers(game.id)
+      if (updatedPlayers && updatedPlayers.length > 0) {
+        setPlayers(updatedPlayers)
+      }
+    }, 30000)
+    
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     const gameChannel = subscribeToGame(game.id, (updatedGame) => {
