@@ -102,13 +102,19 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
         router.push('/')
         return
       }
-      setGame(gameData)
-      
       const playersData = await getPlayers(gameData.id)
-      setPlayers(playersData)
-
+      
       // Check if current player exists in the list
       const currentPlayer = playersData.find(p => p.id === playerId)
+      if (!currentPlayer) {
+        toast.error('Errore: non sei stato registrato correttamente in questa partita')
+        router.push('/')
+        return
+      }
+
+      // Update both states together
+      setPlayers(playersData)
+      setGame(gameData)
       if (currentPlayer) {
         if (currentPlayer.ready) {
           setHasAcceptedRules(true)
@@ -475,11 +481,14 @@ setIsStarting(true)
   isHostRef.current = isHost
   const allPlayersReady = players.every(p => p.is_host || p.ready)
 
-  if (!game) {
+  if (!game || !currentPlayerId || players.length === 0) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Caricamento...</div>
-      </main>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground text-lg">Caricamento lobby...</p>
+        </div>
+      </div>
     )
   }
 

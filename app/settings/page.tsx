@@ -344,9 +344,12 @@ function SettingsPageContent() {
         if (player) {
           sessionStorage.setItem('guglioquiz_playerId', player.id)
           sessionStorage.setItem('guglioquiz_gameCode', newGame.code)
+          router.push(`/lobby/${newGame.code}`)
+        } else {
+          toast.error('Errore durante la creazione del giocatore host')
+          setIsCreating(false)
+          return
         }
-
-        router.push(`/lobby/${newGame.code}`)
       }
     } catch (error) {
       console.error('[v0] Error creating game:', error)
