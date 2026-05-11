@@ -128,19 +128,17 @@ function HomePageContent() {
   
   // Load profile / auth
   useEffect(() => {
-    // Clear any legacy saved profile for guests
+    // Check auth status from localStorage
     const storedUser = localStorage.getItem('guglioquiz_user')
     if (!storedUser) {
+      // Clear any legacy saved profile for guests
       localStorage.removeItem('guglioquiz_saved_profile')
       setSavedProfile(null)
       setUser(null)
       return
     }
 
-    // Check auth status from localStorage
-    const storedUser = localStorage.getItem('guglioquiz_user')
-    if (storedUser) {
-      try {
+    try {
         const userData = JSON.parse(storedUser)
         
         // Set user immediately
@@ -206,7 +204,6 @@ function HomePageContent() {
       } catch {
         // Invalid JSON, ignore
       }
-    }
   }, [])
 
   const handleCreateGame = () => {
