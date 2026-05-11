@@ -111,7 +111,7 @@ function HomePageContent() {
         setSavedProfile({
           name: capitalizedName,
           avatar: savedProfileData?.avatar || userData.avatar as any,
-          avatarUrl: savedProfileData?.avatarUrl || null
+          avatarUrl: savedProfileData?.avatarUrl || userData.avatar_url || null
         })
         
         // Force update service worker and check push status
@@ -162,7 +162,15 @@ function HomePageContent() {
 
   const handleCreateGame = () => {
     setIsHost(true)
-    setShowProfile(true)
+    if (user) {
+      handleProfileSubmit({
+        name: user.username.charAt(0).toUpperCase() + user.username.slice(1),
+        avatar: user.avatar as any,
+        avatarUrl: user.avatar_url || null
+      })
+    } else {
+      setShowProfile(true)
+    }
   }
 
   const handleLogout = async () => {
@@ -239,7 +247,7 @@ function HomePageContent() {
       setSavedProfile({
         name: data.user.username,
         avatar: data.user.avatar as any,
-        avatarUrl: null
+        avatarUrl: data.user.avatar_url || null
       })
       toast.success('Accesso effettuato!')
       setLoginUsername('')
@@ -424,7 +432,16 @@ function HomePageContent() {
     setPendingGameCode(game.code)
     setPendingGameProfile((game.game_profile as 'timed' | 'untimed') || 'timed')
     setIsHost(false)
-    setShowProfile(true)
+    
+    if (user) {
+      handleProfileSubmit({
+        name: user.username.charAt(0).toUpperCase() + user.username.slice(1),
+        avatar: user.avatar as any,
+        avatarUrl: user.avatar_url || null
+      })
+    } else {
+      setShowProfile(true)
+    }
   }
 
   const handleProfileSubmit = async (profile: PlayerProfile) => {
