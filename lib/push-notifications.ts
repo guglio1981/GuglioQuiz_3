@@ -96,25 +96,20 @@ export async function savePushSubscription(subscription: PushSubscription): Prom
 
 export async function unsubscribeFromPush(): Promise<boolean> {
   const storedUser = localStorage.getItem('guglioquiz_user')
-  if (!storedUser) return false
-
-  let userId: string
-  try {
-    const userData = JSON.parse(storedUser)
-    userId = userData.id
-  } catch {
-    return false
-  }
-
-  const pb = getPocketBase();
-  try {
-    const existing = await pb.collection('push_subscriptions').getFullList({ filter: `user_id="${userId}"` })
-    for (const sub of existing) {
-      await pb.collection('push_subscriptions').delete(sub.id)
+  if (storedUser) {
+    try {
+      const userData = JSON.parse(storedUser)
+      const userId = userData.id
+      const pb = getPocketBase();
+      const existing = await pb.collection('push_subscriptions').getFullList({ filter: `user_id="${userId}"` })
+      for (const sub of existing) {
+        await pb.collection('push_subscriptions').delete(sub.id)
+      }
+    } catch(e) {
+      // ignore
     }
-  } catch(e) {
-    // ignore
   }
+
 
   // Unsubscribe from browser
   const registration = await navigator.serviceWorker.ready
@@ -128,10 +123,15 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 
 export type PushSetupResult = {
   success: boolean
-  error?: 'denied' | 'unsupported' | 'registration_failed' | 'subscription_failed' | 'save_failed'
+  error?: 'denied' | 'unsupported' | 'registration_failed' | 'subscription_failed' | 'save_failed' | 'not_logged_in'
 }
 
 export async function setupPushNotifications(): Promise<PushSetupResult> {
+  const storedUser = localStorage.getItem('guglioquiz_user')
+  if (!storedUser) {
+    return { success: false, error: 'not_logged_in' }
+  }
+
   // Check if permission was previously denied by system
   if ('Notification' in window && Notification.permission === 'denied') {
     return { success: false, error: 'denied' }

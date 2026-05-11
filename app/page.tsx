@@ -201,6 +201,9 @@ function HomePageContent() {
           'Le notifiche sono state bloccate dalle impostazioni del dispositivo. Per attivarle, vai nelle Impostazioni del browser o del telefono e consenti le notifiche per questo sito.',
           { duration: 8000 }
         )
+      } else if (result.error === 'not_logged_in') {
+        toast.error('Devi effettuare il login per attivare le notifiche di invito alle partite')
+        setShowSignUp(true)
       } else {
         toast.error('Non è stato possibile attivare le notifiche')
       }
