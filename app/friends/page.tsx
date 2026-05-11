@@ -302,8 +302,10 @@ export default function FriendsPage() {
                       <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                     </div>
                   ) : user?.avatar ? (
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-5xl font-black ${parseAvatar(user.avatar)?.bg} ${parseAvatar(user.avatar)?.text}`}>
-                      {parseAvatar(user.avatar)?.icon}
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center ${parseAvatar(user.avatar)?.bg} ${parseAvatar(user.avatar)?.text}`}>
+                      <span className={cn(user.avatar.startsWith('initial:') ? 'text-5xl font-black' : 'text-3xl')}>
+                        {parseAvatar(user.avatar)?.icon}
+                      </span>
                     </div>
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">

@@ -312,7 +312,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const handleShareWhatsApp = () => {
     const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${code.toUpperCase()}` : ''
-    const message = `Vieni a giocare a GuglioQuiz! 🏆\nCodice partita: *${code.toUpperCase()}*\n\nEntra qui: ${joinUrl}`
+    const message = `Vieni a giocare a GuglioQuiz!\n\nCodice partita: *${code.toUpperCase()}*\n\nClicca qui per entrare:\n${joinUrl}`
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
@@ -745,7 +745,8 @@ setIsStarting(true)
                   {/* Avatar */}
                     <div
                       className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center text-4xl font-black shrink-0',
+                        'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
+                        player.avatar?.startsWith('initial:') ? 'text-4xl font-black' : 'text-3xl',
                         player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted'),
                         player.avatar && parseAvatar(player.avatar)?.text
                       )}

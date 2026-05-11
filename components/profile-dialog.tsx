@@ -191,8 +191,9 @@ export function ProfileDialog({
               <div className="flex flex-col items-center gap-2">
                 <div
                   className={cn(
-                    'w-16 h-16 rounded-full flex items-center justify-center text-3xl',
-                    initialProfile?.avatar ? parseAvatar(initialProfile.avatar)?.bg : 'bg-border'
+                    'w-16 h-16 rounded-full flex items-center justify-center text-5xl font-black',
+                    initialProfile?.avatar ? parseAvatar(initialProfile.avatar)?.bg : 'bg-border',
+                    initialProfile?.avatar ? parseAvatar(initialProfile.avatar)?.text : 'text-foreground'
                   )}
                 >
                   {initialProfile?.avatarUrl ? (
@@ -202,7 +203,9 @@ export function ProfileDialog({
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : initialProfile?.avatar ? (
-                    parseAvatar(initialProfile.avatar)?.icon
+                    <span className={cn(initialProfile.avatar.startsWith('initial:') ? 'text-5xl font-black' : 'text-3xl')}>
+                      {parseAvatar(initialProfile.avatar)?.icon}
+                    </span>
                   ) : null}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -230,8 +233,9 @@ export function ProfileDialog({
                         }}
                         disabled={lockedAvatar}
                         className={cn(
-                          'w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all',
+                          'w-12 h-12 rounded-full flex items-center justify-center text-4xl font-black transition-all',
                           parsed?.bg,
+                          parsed?.text,
                           selectedAvatar === avatarStr
                             ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
                             : 'hover:scale-105',
