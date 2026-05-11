@@ -167,7 +167,7 @@ function HomePageContent() {
         name: user.username.charAt(0).toUpperCase() + user.username.slice(1),
         avatar: user.avatar as any,
         avatarUrl: user.avatar_url || null
-      })
+      }, true)
     } else {
       setShowProfile(true)
     }
@@ -438,14 +438,17 @@ function HomePageContent() {
         name: user.username.charAt(0).toUpperCase() + user.username.slice(1),
         avatar: user.avatar as any,
         avatarUrl: user.avatar_url || null
-      })
+      }, false, game.code)
     } else {
       setShowProfile(true)
     }
   }
 
-  const handleProfileSubmit = async (profile: PlayerProfile) => {
+  const handleProfileSubmit = async (profile: PlayerProfile, overrideIsHost?: boolean, overrideGameCode?: string | null) => {
     setIsLoading(true)
+
+    const actualIsHost = overrideIsHost !== undefined ? overrideIsHost : isHost;
+    const actualGameCode = overrideGameCode !== undefined ? overrideGameCode : pendingGameCode;
 
     // Save profile to localStorage for future use
     localStorage.setItem('guglioquiz_saved_profile', JSON.stringify(profile))
@@ -458,14 +461,14 @@ function HomePageContent() {
     }
 
     try {
-      if (isHost) {
+      if (actualIsHost) {
         // Store profile in session and redirect to settings
         sessionStorage.setItem('guglioquiz_profile', JSON.stringify(profile))
         sessionStorage.setItem('guglioquiz_isHost', 'true')
         router.push('/settings')
-      } else if (pendingGameCode) {
+      } else if (actualGameCode) {
         // Join existing game
-        const game = await getGameByCode(pendingGameCode)
+        const game = await getGameByCode(actualGameCode)
         if (!game) {
           toast.error('Partita non trovata')
           setIsLoading(false)
