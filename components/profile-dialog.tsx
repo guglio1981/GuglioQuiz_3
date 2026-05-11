@@ -57,7 +57,7 @@ export function ProfileDialog({
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        toast.error('L\\'immagine deve essere inferiore a 10MB')
+        toast.error("L'immagine deve essere inferiore a 10MB")
         return
       }
       try {
@@ -66,7 +66,7 @@ export function ProfileDialog({
         setSelectedAvatar(null)
       } catch (error) {
         console.error('Error compressing image:', error)
-        toast.error('Errore durante l\\'elaborazione dell\\'immagine')
+        toast.error("Errore durante l'elaborazione dell'immagine")
       }
     }
   }

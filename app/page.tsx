@@ -265,7 +265,7 @@ function HomePageContent() {
         setSignupAvatarUrl(compressedBase64)
       } catch (error) {
         console.error('Error compressing image:', error)
-        toast.error('Errore durante l\\'elaborazione dell\\'immagine')
+        toast.error("Errore durante l'elaborazione dell'immagine")
       }
     }
   }
