@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { Zap, Users, Trophy, Brain, Loader2, LogIn, Bell, BellOff, LogOut, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { setupPushNotifications, isPushEnabled, forceUpdateServiceWorker, isNotificationDenied, unsubscribeFromPush } from '@/lib/push-notifications'
+import { cn } from '@/lib/utils'
 
 function HomePageContent() {
   const router = useRouter()
