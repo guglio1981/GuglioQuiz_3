@@ -367,6 +367,34 @@ export default function FriendsPage() {
                     })
                   )}
                 </div>
+
+                <div className="mt-4">
+                  <p className="text-sm text-muted-foreground mb-2">Oppure usa la tua iniziale:</p>
+                  <div className="grid grid-cols-10 gap-2">
+                    {ALL_AVATAR_COLORS.map((colorObj, idx) => {
+                      const initial = user?.username ? user.username.charAt(0).toUpperCase() : '?'
+                      const avatarStr = `initial:${initial}|${colorObj.bg}`
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAvatar(avatarStr)
+                            setCustomAvatarUrl(null)
+                            setCustomAvatarFile(null)
+                          }}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${colorObj.bg} ${colorObj.text} ${
+                            selectedAvatar === avatarStr && !customAvatarUrl
+                              ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
+                              : 'hover:scale-110'
+                          }`}
+                        >
+                          {initial}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
                 
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground">oppure carica un&apos;immagine:</span>

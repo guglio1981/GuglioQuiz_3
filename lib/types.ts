@@ -267,13 +267,18 @@ export function parseAvatar(avatarStr: string | null): { icon: string, bg: strin
     }
   }
   
-  // New format: "icon|bg_color" (e.g. "🦊|bg-red-500")
+  // New format: "icon|bg_color" (e.g. "🦊|bg-red-500") or "initial:A|bg-red-500"
   const parts = avatarStr.split('|')
   if (parts.length === 2) {
+    let icon = parts[0]
+    if (icon.startsWith('initial:')) {
+      icon = icon.substring(8) // Get the letter after 'initial:'
+    }
+    
     // Look up text color if possible, default to white
     const colorObj = ALL_AVATAR_COLORS.find(c => c.bg === parts[1])
     return {
-      icon: parts[0],
+      icon: icon,
       bg: parts[1],
       text: colorObj ? colorObj.text : 'text-white'
     }

@@ -247,6 +247,39 @@ export function ProfileDialog({
             )}
           </div>
 
+          {/* Initial-based avatar section */}
+          {!lockedAvatar && (
+            <div className="space-y-3">
+              <Label className="text-foreground">Oppure usa la tua iniziale</Label>
+              <div className="grid grid-cols-10 gap-2">
+                {ALL_AVATAR_COLORS.map((colorObj, idx) => {
+                  const initial = name.trim() ? name.trim().charAt(0).toUpperCase() : '?'
+                  const avatarStr = `initial:${initial}|${colorObj.bg}`
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAvatar(avatarStr)
+                        setCustomAvatarUrl(null)
+                      }}
+                      className={cn(
+                        'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all',
+                        colorObj.bg,
+                        colorObj.text,
+                        selectedAvatar === avatarStr
+                          ? 'ring-2 ring-primary ring-offset-1 ring-offset-card scale-110'
+                          : 'hover:scale-110'
+                      )}
+                    >
+                      {initial}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Custom photo upload - hidden if avatar is locked */}
           {!lockedAvatar && (
             <div className="space-y-3">
