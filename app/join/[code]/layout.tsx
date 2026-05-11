@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: 'GuglioQuiz',
       images: [
         {
-          url: '/social-preview.png',
+          url: '/social-preview.png?v=2',
           width: 1200,
           height: 630,
           alt: 'GuglioQuiz Social Preview',
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: 'summary_large_image',
       title: `GuglioQuiz - Codice: ${code.toUpperCase()}`,
       description: 'Sfida i tuoi amici a GuglioQuiz!',
-      images: ['/social-preview.png'],
+      images: ['/social-preview.png?v=2'],
     },
   }
 }

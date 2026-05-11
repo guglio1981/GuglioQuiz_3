@@ -203,7 +203,7 @@ export function ProfileDialog({
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : initialProfile?.avatar ? (
-                    <span className={cn(initialProfile.avatar.startsWith('initial:') ? 'text-5xl font-black' : 'text-3xl')}>
+                    <span className={cn(initialProfile.avatar.startsWith('initial:') ? 'text-6xl font-black leading-none' : 'text-3xl')}>
                       {parseAvatar(initialProfile.avatar)?.icon}
                     </span>
                   ) : null}
@@ -322,8 +322,9 @@ export function ProfileDialog({
           <div className="flex items-center justify-center gap-4 p-4 bg-muted rounded-xl">
             <div
               className={cn(
-                'w-16 h-16 rounded-full flex items-center justify-center text-3xl',
-                selectedAvatar ? parseAvatar(selectedAvatar)?.bg : 'bg-border'
+                'w-16 h-16 rounded-full flex items-center justify-center',
+                selectedAvatar ? parseAvatar(selectedAvatar)?.bg : 'bg-border',
+                selectedAvatar ? parseAvatar(selectedAvatar)?.text : 'text-foreground'
               )}
             >
               {customAvatarUrl ? (
@@ -333,7 +334,9 @@ export function ProfileDialog({
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : selectedAvatar ? (
-                parseAvatar(selectedAvatar)?.icon
+                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-6xl font-black leading-none' : 'text-3xl')}>
+                  {parseAvatar(selectedAvatar)?.icon}
+                </span>
               ) : (
                 <User className="w-8 h-8 text-muted-foreground" />
               )}
