@@ -1,0 +1,876 @@
+'use client'
+
+import { getPocketBase } from '@/lib/pocketbase'
+import type { Game, Player, Question, Answer, GameSettings, GameProfile } from '@/lib/types'
+import { generateGameCode, calculateCorrectPoints, calculateWrongPoints, SCORING } from '@/lib/types'
+
+// Game operations
+export async function createGame(hostId: string, settings: GameSettings): Promise<Game | null> {
+  const code = generateGameCode()
+  const pb = getPocketBase()
+  
+  try {
+    const record = await pb.collection('games').create({
+      code,
+      host_id: hostId,
+      topics: settings.topics,
+      question_count: settings.questionCount,
+      difficulty: settings.difficulty,
+      max_abstentions: settings.maxAbstentions,
+      game_profile: settings.gameProfile || 'timed',
+      arcade_games: settings.arcadeGames || null,
+      arcade_frequency: settings.arcadeFrequency || null,
+      status: 'lobby',
+      manche_ready: true,  // First manche is ready by default
+      manche: 1,
+      current_question: 0
+    })
+    return record as unknown as Game
+  } catch (error) {
+    console.error('Error creating game:', error)
+    return null
+  }
+}
+
+export async function clearGameSettingsForNewManche(gameId: string): Promise<boolean> {
+  const pb = getPocketBase()
+  
+  try {
+    // Clear topics and arcade state to indicate "waiting for host to configure new manche"
+    await pb.collection('games').update(gameId, { 
+      topics: [],
+      current_arcade_game: '',
+      current_arcade_round: 0,
+      manche_ready: false,
+      topic_selection_mode: '',
+    })
+    
+    // Delete all arcade_results for this game to start fresh in new manche
+    const results = await pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
+    for (const r of results) {
+      await pb.collection('arcade_results').delete(r.id)
+    }
+    
+    return true
+  } catch (error) {
+    console.error('Error clearing game settings:', error)
+    return false
+  }
+}
+
+export async function updateGameSettings(gameId: string, settings: GameSettings): Promise<boolean> {
+  const pb = getPocketBase()
+  
+  try {
+    // Delete old questions first
+    const questions = await pb.collection('questions').getFullList({ filter: `game_id="${gameId}"` })
+    for (const q of questions) {
+      await pb.collection('questions').delete(q.id)
+    }
+    
+    // First read current manche to increment properly
+    const currentGame = await pb.collection('games').getOne(gameId)
+    const nextManche = (currentGame.manche || 0) + 1
+
+    // Update game settings and increment manche
+    await pb.collection('games').update(gameId, {
+      topics: settings.topics,
+      question_count: settings.questionCount,
+      difficulty: settings.difficulty,
+      max_abstentions: settings.maxAbstentions,
+      game_profile: settings.gameProfile || 'timed',
+      arcade_games: settings.arcadeGames || null,
+      arcade_frequency: settings.arcadeFrequency || null,
+      current_question: 0,
+      topic_selection_mode: '',
+      manche: nextManche,
+    })
+    
+    return true
+  } catch (error) {
+    console.error('Error updating game settings:', error)
+    return false
+  }
+}
+
+export async function updateGameTopics(gameId: string, topics: string[]): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, { topics })
+    return true
+  } catch (error) {
+    console.error('Error updating game topics:', error)
+    return false
+  }
+}
+
+/**
+ * Toggles a topic in the game's topic list.
+ * This helper tries to minimize race conditions by fetching the latest state before update.
+ */
+export async function toggleGameTopic(gameId: string, topic: string, action: 'add' | 'remove'): Promise<string[] | null> {
+  const pb = getPocketBase()
+  try {
+    // 1. Get latest game state
+    const game = await pb.collection('games').getOne(gameId)
+    const currentTopics = (game.topics as string[]) || []
+    
+    let newTopics: string[]
+    if (action === 'add') {
+      if (currentTopics.includes(topic)) return currentTopics
+      newTopics = [...currentTopics, topic]
+    } else {
+      if (!currentTopics.includes(topic)) return currentTopics
+      newTopics = currentTopics.filter(t => t !== topic)
+    }
+    
+    // 2. Update with new list
+    await pb.collection('games').update(gameId, { topics: newTopics })
+    return newTopics
+  } catch (error) {
+    console.error('Error toggling game topic:', error)
+    return null
+  }
+}
+
+export async function setPlayerTopicsConfirmed(playerId: string, confirmed: boolean): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('players').update(playerId, { topics_confirmed: confirmed })
+    return true
+  } catch (error) {
+    console.error('Error setting player topics_confirmed:', error)
+    return false
+  }
+}
+
+export async function resetAllPlayersTopicsConfirmed(gameId: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    const players = await pb.collection('players').getFullList({ filter: `game_id="${gameId}"` })
+    for (const player of players) {
+      await pb.collection('players').update(player.id, { topics_confirmed: false, selected_topics: [] })
+    }
+    return true
+  } catch (error) {
+    console.error('Error resetting players topics_confirmed:', error)
+    return false
+  }
+}
+
+export async function setTopicSelectionMode(gameId: string, mode: string | null): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, { topic_selection_mode: mode || '' })
+    return true
+  } catch (error) {
+    console.error('Error setting topic selection mode:', error)
+    return false
+  }
+}
+
+export async function setMancheReady(gameId: string, ready: boolean): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, { manche_ready: ready })
+    return true
+  } catch (error) {
+    console.error('Error setting manche_ready:', error)
+    return false
+  }
+}
+
+export async function getGameByCode(code: string): Promise<Game | null> {
+  const pb = getPocketBase()
+  try {
+    const record = await pb.collection('games').getFirstListItem(`code="${code.toUpperCase()}"`)
+    return record as unknown as Game
+  } catch (error) {
+    console.error('Error fetching game:', error)
+    return null
+  }
+}
+
+export async function updateGameStatus(gameId: string, status: Game['status']): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, { status })
+    return true
+  } catch (error) {
+    console.error('Error updating game status:', error)
+    return false
+  }
+}
+
+export async function updateCurrentQuestion(gameId: string, questionNumber: number, resetTopicSelectionMode: boolean = false): Promise<boolean> {
+  const pb = getPocketBase()
+  const updateData: any = { current_question: questionNumber }
+  if (resetTopicSelectionMode) {
+    updateData.topic_selection_mode = ''
+  }
+  try {
+    await pb.collection('games').update(gameId, updateData)
+    return true
+  } catch (error) {
+    console.error('Error updating current question:', error)
+    return false
+  }
+}
+
+// Helper to capitalize first letter of name
+function capitalizeFirstLetter(str: string): string {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+}
+
+// Player operations
+export async function addPlayer(
+  gameId: string,
+  name: string,
+  avatar: string | null,
+  avatarUrl: string | null,
+  isHost: boolean
+): Promise<Player | null> {
+  const pb = getPocketBase()
+  const capitalizedName = capitalizeFirstLetter(name.trim())
+  try {
+    const record = await pb.collection('players').create({
+      game_id: gameId,
+      name: capitalizedName,
+      avatar,
+      avatar_url: avatarUrl,
+      is_host: isHost,
+      score: 0,
+      abstentions_used: 0,
+      ready: false,
+      topics_confirmed: false,
+      selected_topics: []
+    })
+    return record as unknown as Player
+  } catch (error) {
+    console.error('Error adding player:', error)
+    return null
+  }
+}
+
+export async function getPlayers(gameId: string): Promise<Player[]> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb.collection('players').getFullList({
+      filter: `game_id="${gameId}"`,
+      sort: 'created'
+    })
+    return records as unknown as Player[]
+  } catch (error) {
+    console.error('Error fetching players:', error)
+    return []
+  }
+}
+
+export async function updatePlayerReady(playerId: string, ready: boolean): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('players').update(playerId, { ready })
+    return true
+  } catch (error) {
+    console.error('Error updating player ready status:', error)
+    return false
+  }
+}
+
+export async function updatePlayerTopics(playerId: string, topics: string[]): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('players').update(playerId, { selected_topics: topics })
+    return true
+  } catch (error) {
+    console.error('Error updating player topics:', error)
+    return false
+  }
+}
+
+export async function updatePlayerScore(playerId: string, scoreChange: number): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    // PocketBase allows atomic increments using the "fieldName+" syntax
+    await pb.collection('players').update(playerId, {
+      "score+": scoreChange
+    })
+    return true
+  } catch (error) {
+    console.error('Error updating player score:', error)
+    return false
+  }
+}
+
+export async function updatePlayerAbstentions(playerId: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('players').update(playerId, {
+      "abstentions_used+": 1
+    })
+    return true
+  } catch (error) {
+    console.error('Error updating player abstentions:', error)
+    return false
+  }
+}
+
+export async function deletePlayer(playerId: string, gameId?: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('players').delete(playerId)
+    return true
+  } catch (error) {
+    console.error('Error deleting player:', error)
+    return false
+  }
+}
+
+export async function removeDuplicatePlayers(gameId: string): Promise<void> {
+  const pb = getPocketBase()
+  const players = await getPlayers(gameId)
+  
+  // Group players by name
+  const playersByName = new Map<string, Player[]>()
+  for (const player of players) {
+    const existing = playersByName.get(player.name) || []
+    existing.push(player)
+    playersByName.set(player.name, existing)
+  }
+  
+  // For each name with duplicates, keep only the first (oldest) one
+  for (const [, duplicates] of playersByName) {
+    if (duplicates.length > 1) {
+      // Sort by created, keep the first one
+      duplicates.sort((a, b) => new Date(a.created_at || (a as any).created).getTime() - new Date(b.created_at || (b as any).created).getTime())
+      const toDelete = duplicates.slice(1)
+      
+      for (const player of toDelete) {
+        await pb.collection('players').delete(player.id)
+      }
+    }
+  }
+}
+
+export async function resetPlayersForNewManche(gameId: string, resetScores: boolean): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    const players = await pb.collection('players').getFullList({ filter: `game_id="${gameId}"` })
+    
+    for (const player of players) {
+      const updates: any = {
+        abstentions_used: 0,
+        ready: false,
+        topics_confirmed: false,
+        selected_topics: []
+      }
+      if (resetScores) {
+        updates.score = 0
+      }
+      await pb.collection('players').update(player.id, updates)
+    }
+    return true
+  } catch (error) {
+    console.error('Error resetting players:', error)
+    return false
+  }
+}
+
+// Question operations
+export async function saveQuestions(gameId: string, questions: Omit<Question, 'id' | 'game_id' | 'created_at'>[]): Promise<Question[]> {
+  const pb = getPocketBase()
+  
+  const savePromises = questions.map(async (q, index) => {
+    let questionType: 'multiple' | 'true_false' = 'multiple'
+    const qt = String(q.question_type || '').toLowerCase()
+    if (qt.includes('true') || qt.includes('false') || qt.includes('vero') || qt === 'true_false') {
+      questionType = 'true_false'
+    }
+    
+    const questionData: Record<string, unknown> = {
+      game_id: gameId,
+      question_number: index + 1,
+      topic: q.topic,
+      question_text: q.question_text,
+      question_type: questionType,
+      options: q.options,
+      correct_answer: q.correct_answer,
+    }
+    if (q.image_url) {
+      questionData.image_url = q.image_url
+    }
+    
+    try {
+      return await pb.collection('questions').create(questionData)
+    } catch (error) {
+      console.error(`Error saving question ${index + 1}:`, error)
+      return null
+    }
+  })
+
+  const results = await Promise.all(savePromises)
+  return results.filter(r => r !== null) as unknown as Question[]
+}
+
+export async function getQuestions(gameId: string): Promise<Question[]> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb.collection('questions').getFullList({
+      filter: `game_id="${gameId}"`,
+      sort: 'question_number'
+    })
+    return records as unknown as Question[]
+  } catch (error) {
+    console.error('Error fetching questions:', error)
+    return []
+  }
+}
+
+// Answer operations
+export async function submitAnswerV3(
+  questionId: string,
+  playerId: string,
+  answer: string | null,
+  isAbstention: boolean,
+  responseTimeMs: number | null
+): Promise<Answer | null> {
+  const pb = getPocketBase()
+  try {
+    // Check if answer already exists (PocketBase doesn't have upsert out of the box based on two columns)
+    let existingAnswer = null;
+    try {
+      existingAnswer = await pb.collection('answers').getFirstListItem(`question_id="${questionId}" && player_id="${playerId}"`)
+    } catch (e) {
+      // not found, which is fine
+    }
+
+    const payload = {
+      question_id: questionId,
+      player_id: playerId,
+      answer: answer || '',
+      is_abstention: isAbstention,
+      response_time_ms: responseTimeMs,
+    };
+
+    let record;
+    if (existingAnswer) {
+      record = await pb.collection('answers').update(existingAnswer.id, payload)
+    } else {
+      record = await pb.collection('answers').create(payload)
+    }
+
+    return record as unknown as Answer
+  } catch (error) {
+    console.error('Error submitting answer:', error)
+    return null
+  }
+}
+
+export async function getAnswersForQuestion(questionId: string): Promise<Answer[]> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb.collection('answers').getFullList({
+      filter: `question_id="${questionId}"`
+    })
+    return records as unknown as Answer[]
+  } catch (error) {
+    console.error('Error fetching answers:', error)
+    return []
+  }
+}
+
+export async function processAnswers(
+  gameId: string,
+  questionId: string,
+  correctAnswer: string,
+  maxAbstentions: number,
+  isFirstQuestion: boolean,
+  gameProfile: GameProfile = 'timed'
+): Promise<void> {
+
+  const pb = getPocketBase()
+  const [answers, players] = await Promise.all([
+    getAnswersForQuestion(questionId),
+    getPlayers(gameId),
+  ])
+  
+  // Sort players by score for position calculation
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
+  const normalizedCorrect = correctAnswer.trim().toLowerCase()
+
+  // Build a list of all update operations to run in parallel
+  const ops: Promise<unknown>[] = []
+
+  for (const answer of answers) {
+    // Skip answers already processed
+    if ((answer as any).points_processed) continue
+
+    const player = players.find(p => p.id === answer.player_id)
+    if (!player) continue
+
+    const position = sortedPlayers.findIndex(p => p.id === player.id) + 1
+    let points = 0
+    let isCorrect = false
+    let needsAbstentionIncrement = false
+
+    const playerAnswer = (answer.answer || '').trim().toLowerCase()
+
+    if (playerAnswer === normalizedCorrect) {
+      isCorrect = true
+      points = gameProfile === 'untimed'
+        ? SCORING.CORRECT_UNTIMED
+        : calculateCorrectPoints(answer.response_time_ms || 15000)
+    } else if (answer.is_abstention || !answer.answer) {
+      if (player.abstentions_used >= maxAbstentions) {
+        points = gameProfile === 'untimed'
+          ? SCORING.WRONG_UNTIMED
+          : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined)
+      }
+      needsAbstentionIncrement = true
+    } else {
+      points = gameProfile === 'untimed'
+        ? SCORING.WRONG_UNTIMED
+        : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined)
+    }
+
+    // Collect all DB writes for this answer
+    ops.push(
+      pb.collection('answers').update(answer.id, {
+        is_correct: isCorrect,
+        points_earned: points,
+        points_processed: true,
+      }).catch(e => console.error('Error updating answer:', e))
+    )
+    if (points !== 0) {
+      ops.push(
+        updatePlayerScore(player.id, points)
+      )
+    }
+    if (needsAbstentionIncrement) {
+      ops.push(
+        updatePlayerAbstentions(player.id)
+      )
+    }
+  }
+
+  // Fire all writes in parallel — much faster and avoids SSE flooding
+  await Promise.all(ops)
+}
+
+// Realtime subscriptions
+
+// PocketBase SSE uses a single connection per collection with '*' key.
+// Multiple callers subscribing to '*' on the same collection will SHARE the handler,
+// so unsubscribing '*' removes ALL handlers. We work around this by using the
+// record id as the topic when possible, and by tracking active subscriptions manually
+// so that unsubscribe only removes the specific callback.
+
+const _playerCallbacks = new Map<string, Set<(players: Player[]) => void>>()
+const _answerCallbacks = new Map<string, Set<(answers: Answer[]) => void>>()
+
+let _playersSubscribed = false
+let _answersSubscribed = false
+
+export function subscribeToGame(gameId: string, callback: (game: Game) => void) {
+  const pb = getPocketBase()
+  // PocketBase lets us subscribe to a specific record by its ID — no collision risk.
+  pb.collection('games').subscribe(gameId, (e) => {
+    callback(e.record as unknown as Game)
+  })
+  return () => pb.collection('games').unsubscribe(gameId)
+}
+
+export function subscribeToPlayers(gameId: string, callback: (players: Player[]) => void) {
+  const pb = getPocketBase()
+
+  // Register callback
+  if (!_playerCallbacks.has(gameId)) {
+    _playerCallbacks.set(gameId, new Set())
+  }
+  _playerCallbacks.get(gameId)!.add(callback)
+
+  // Initial fetch
+  getPlayers(gameId).then(callback)
+
+  // Open the global subscription only once
+  const _playerDebounce = new Map<string, ReturnType<typeof setTimeout>>()
+  if (!_playersSubscribed) {
+    _playersSubscribed = true
+    pb.collection('players').subscribe('*', (e) => {
+      const gid: string = e.record.game_id
+      const cbs = _playerCallbacks.get(gid)
+      if (!cbs || cbs.size === 0) return
+      // Debounce: if multiple player records change in quick succession (e.g. after processAnswers),
+      // wait 150ms and only fire once with the latest data.
+      const existing = _playerDebounce.get(gid)
+      if (existing) clearTimeout(existing)
+      _playerDebounce.set(gid, setTimeout(async () => {
+        _playerDebounce.delete(gid)
+        const latestCbs = _playerCallbacks.get(gid)
+        if (!latestCbs || latestCbs.size === 0) return
+        const players = await getPlayers(gid)
+        latestCbs.forEach(cb => cb(players))
+      }, 150))
+    }).catch(() => { _playersSubscribed = false })
+  }
+
+  // Return an unsubscribe that only removes this callback
+  return () => {
+    const cbs = _playerCallbacks.get(gameId)
+    if (cbs) {
+      cbs.delete(callback)
+      if (cbs.size === 0) _playerCallbacks.delete(gameId)
+    }
+    // Tear down the global subscription only when no one is listening
+    if (_playerCallbacks.size === 0) {
+      _playersSubscribed = false
+      pb.collection('players').unsubscribe('*').catch(() => {})
+    }
+  }
+}
+
+export function subscribeToAnswers(questionId: string, callback: (answers: Answer[]) => void) {
+  const pb = getPocketBase()
+
+  if (!_answerCallbacks.has(questionId)) {
+    _answerCallbacks.set(questionId, new Set())
+  }
+  _answerCallbacks.get(questionId)!.add(callback)
+
+  if (!_answersSubscribed) {
+    _answersSubscribed = true
+    pb.collection('answers').subscribe('*', async (e) => {
+      const qid: string = e.record.question_id
+      const cbs = _answerCallbacks.get(qid)
+      if (cbs && cbs.size > 0) {
+        const answers = await getAnswersForQuestion(qid)
+        cbs.forEach(cb => cb(answers))
+      }
+    }).catch(() => { _answersSubscribed = false })
+  }
+
+  return () => {
+    const cbs = _answerCallbacks.get(questionId)
+    if (cbs) {
+      cbs.delete(callback)
+      if (cbs.size === 0) _answerCallbacks.delete(questionId)
+    }
+    if (_answerCallbacks.size === 0) {
+      _answersSubscribed = false
+      pb.collection('answers').unsubscribe('*').catch(() => {})
+    }
+  }
+}
+
+// Unsubscribe is handled directly by returning the unsub function in the new design,
+// but for backward compatibility with the components:
+export function unsubscribe(unsubscribeFunc: any) {
+  if (typeof unsubscribeFunc === 'function') {
+    unsubscribeFunc()
+  } else if (unsubscribeFunc && typeof unsubscribeFunc.unsubscribe === 'function') {
+    unsubscribeFunc.unsubscribe()
+  }
+}
+
+// Arcade game sync functions
+export async function setCurrentArcadeGameInDb(
+  gameId: string,
+  arcadeGame: string,
+  arcadeRound: number
+): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, {
+      current_arcade_game: arcadeGame,
+      current_arcade_round: arcadeRound,
+      topic_selection_mode: '',
+    })
+    return true
+  } catch (error) {
+    console.error('Error setting current arcade game:', error)
+    return false
+  }
+}
+
+export async function clearCurrentArcadeGame(gameId: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, {
+      current_arcade_game: null,
+      current_arcade_round: 0,
+    })
+    return true
+  } catch (error) {
+    console.error('Error clearing current arcade game:', error)
+    return false
+  }
+}
+
+// Arcade game functions
+export interface ArcadeResult {
+  id: string
+  game_id: string
+  player_id: string
+  game_type: string
+  arcade_round: number
+  raw_score: number
+  points_earned: number
+  position: number | null
+  completed_at: string
+}
+
+export async function submitArcadeResult(
+  gameId: string,
+  playerId: string,
+  gameType: string,
+  arcadeRound: number,
+  rawScore: number
+): Promise<ArcadeResult | null> {
+  const pb = getPocketBase()
+  try {
+    const record = await pb.collection('arcade_results').create({
+      game_id: gameId,
+      player_id: playerId,
+      game_type: gameType,
+      arcade_round: arcadeRound,
+      raw_score: rawScore,
+    })
+    return record as unknown as ArcadeResult
+  } catch (error) {
+    console.error('Error submitting arcade result:', error)
+    return null
+  }
+}
+
+export async function getArcadeResults(gameId: string, arcadeRound: number): Promise<ArcadeResult[]> {
+  const pb = getPocketBase()
+  try {
+    const records = await pb.collection('arcade_results').getFullList({
+      filter: `game_id="${gameId}" && arcade_round=${arcadeRound}`,
+      sort: 'raw_score'
+    })
+    return records as unknown as ArcadeResult[]
+  } catch (error) {
+    console.error('Error getting arcade results:', error)
+    return []
+  }
+}
+
+export async function processArcadeResults(
+  gameId: string,
+  arcadeRound: number,
+  gameType: string,
+  isLowerBetter: boolean = true
+): Promise<void> {
+  const pb = getPocketBase()
+  
+  // Get all results for this round
+  const results = await getArcadeResults(gameId, arcadeRound)
+  if (results.length === 0) return
+
+  // Sort by score (lower better for time-based, higher better for level-based)
+  const sorted = [...results].sort((a, b) => 
+    isLowerBetter ? a.raw_score - b.raw_score : b.raw_score - a.raw_score
+  )
+
+  // Max points per game (scaled by difficulty)
+  const MAX_POINTS: Record<string, number> = {
+    puzzle_slider: 1000,
+    memory_cards: 700,
+    simon_says: 700,
+    speed_typing: 500,
+    sequenza_numerica: 400,
+    reaction_time: 300,
+  }
+
+  const maxPoints = MAX_POINTS[gameType] || 500
+  const validResults = sorted.filter(r => r.raw_score !== 999999 && r.raw_score !== -1)
+  const bestScore = validResults.length > 0 ? validResults[0].raw_score : 0
+
+  // Update each result with position and points (percentage-based)
+  for (let i = 0; i < sorted.length; i++) {
+    const position = i + 1
+    let pointsEarned = 0
+
+    // Only process if points_earned is 0 (prevents double scoring)
+    if (sorted[i].points_earned > 0) {
+      continue
+    }
+
+    // Check if the player abstained
+    if (sorted[i].raw_score === 999999 || sorted[i].raw_score === -1) {
+      pointsEarned = 0
+    }
+    else if (bestScore > 0) {
+      const performanceRatio = isLowerBetter 
+        ? bestScore / sorted[i].raw_score  
+        : sorted[i].raw_score / bestScore  
+      
+      pointsEarned = Math.round(maxPoints * performanceRatio)
+    }
+
+    try {
+      await pb.collection('arcade_results').update(sorted[i].id, { position, points_earned: pointsEarned })
+      await updatePlayerScore(sorted[i].player_id, pointsEarned)
+    } catch(e) {
+      console.error("Error updating arcade result", e)
+    }
+  }
+}
+
+const _arcadeCallbacks = new Map<string, Set<() => void>>()
+let _arcadeSubscribed = false
+
+export function subscribeToArcadeResults(
+  gameId: string, 
+  arcadeRound: number, 
+  callback: (results: ArcadeResult[]) => void
+) {
+  const pb = getPocketBase()
+  const key = `${gameId}:${arcadeRound}`
+  
+  // Wrap the callback so it fetches and returns arcade results
+  const wrappedCb = async () => {
+    const results = await getArcadeResults(gameId, arcadeRound)
+    callback(results)
+  }
+
+  if (!_arcadeCallbacks.has(key)) {
+    _arcadeCallbacks.set(key, new Set())
+  }
+  _arcadeCallbacks.get(key)!.add(wrappedCb)
+
+  if (!_arcadeSubscribed) {
+    _arcadeSubscribed = true
+    pb.collection('arcade_results').subscribe('*', async (e) => {
+      const k = `${e.record.game_id}:${e.record.arcade_round}`
+      const cbs = _arcadeCallbacks.get(k)
+      if (cbs && cbs.size > 0) {
+        cbs.forEach(cb => cb())
+      }
+    }).catch(() => { _arcadeSubscribed = false })
+  }
+
+  return () => {
+    const cbs = _arcadeCallbacks.get(key)
+    if (cbs) {
+      cbs.delete(wrappedCb)
+      if (cbs.size === 0) _arcadeCallbacks.delete(key)
+    }
+    if (_arcadeCallbacks.size === 0) {
+      _arcadeSubscribed = false
+      pb.collection('arcade_results').unsubscribe('*').catch(() => {})
+    }
+  }
+}
+
+export async function syncLeaderboardPhase(gameId: string, isLeaderboard: boolean | string): Promise<void> {
+  const pb = getPocketBase()
+  const state = typeof isLeaderboard === 'string' ? isLeaderboard : (isLeaderboard ? 'leaderboard' : '')
+  try {
+    await pb.collection('games').update(gameId, { topic_selection_mode: state })
+  } catch(e) {
+     console.error("Error syncing leaderboard phase", e)
+  }
+}
