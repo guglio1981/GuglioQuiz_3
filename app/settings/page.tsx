@@ -127,12 +127,9 @@ function SettingsPageContent() {
         }
       })
       
-      // Try to load profile from sessionStorage first, then localStorage
+      // Try to load profile from sessionStorage (must exist for host)
       if (storedProfile) {
         setProfile(JSON.parse(storedProfile))
-      } else if (savedProfile) {
-        setProfile(JSON.parse(savedProfile))
-        sessionStorage.setItem('guglioquiz_profile', savedProfile)
       } else {
         router.push('/')
         return

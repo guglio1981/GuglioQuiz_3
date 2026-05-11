@@ -126,19 +126,15 @@ function HomePageContent() {
     }
   }, [joinCode])
   
-  // Load saved profile from localStorage
+  // Load profile / auth
   useEffect(() => {
-
-    // Load saved profile from localStorage
-    const storedProfile = localStorage.getItem('guglioquiz_saved_profile')
-    let savedProfileData: PlayerProfile | null = null
-    if (storedProfile) {
-      try {
-        savedProfileData = JSON.parse(storedProfile)
-        setSavedProfile(savedProfileData)
-      } catch {
-        // Invalid JSON, ignore
-      }
+    // Clear any legacy saved profile for guests
+    const storedUser = localStorage.getItem('guglioquiz_user')
+    if (!storedUser) {
+      localStorage.removeItem('guglioquiz_saved_profile')
+      setSavedProfile(null)
+      setUser(null)
+      return
     }
 
     // Check auth status from localStorage
@@ -149,12 +145,12 @@ function HomePageContent() {
         
         // Set user immediately
         setUser(userData)
-        // Combine user data with saved profile (keep avatar from saved profile if exists)
+        // Combine user data with saved profile
         const capitalizedName = userData.username.charAt(0).toUpperCase() + userData.username.slice(1)
         setSavedProfile({
           name: capitalizedName,
-          avatar: savedProfileData?.avatar || userData.avatar as any,
-          avatarUrl: savedProfileData?.avatarUrl || userData.avatar_url || null
+          avatar: userData.avatar as any,
+          avatarUrl: userData.avatar_url || null
         })
         
         // Force update service worker and check push status
@@ -482,8 +478,8 @@ function HomePageContent() {
   const handleProfileSubmit = async (profile: PlayerProfile) => {
     setIsLoading(true)
 
-    // Save profile to localStorage for future use
-    localStorage.setItem('guglioquiz_saved_profile', JSON.stringify(profile))
+    // Set the profile in state for the current session
+    setSavedProfile(profile)
     
     // Also update avatar in user record if logged in
     if (user) {

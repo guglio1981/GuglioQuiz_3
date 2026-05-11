@@ -219,14 +219,8 @@ export default function FriendsPage() {
       setUser(updatedUser)
       localStorage.setItem('guglioquiz_user', JSON.stringify(updatedUser))
       
-      // Also update saved profile if exists
-      const savedProfile = localStorage.getItem('guglioquiz_saved_profile')
-      if (savedProfile) {
-        const profile = JSON.parse(savedProfile)
-        profile.avatar = selectedAvatar || null
-        profile.avatarUrl = uploadedAvatarUrl || null
-        localStorage.setItem('guglioquiz_saved_profile', JSON.stringify(profile))
-      }
+      // Logged in user update is enough
+
       
       toast.success('Profilo aggiornato!')
       setIsEditingAvatar(false)

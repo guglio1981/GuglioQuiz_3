@@ -30,25 +30,27 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
       return
     }
 
-    // Load saved profile
-    const storedProfile = localStorage.getItem('guglioquiz_saved_profile')
-    if (storedProfile) {
-      try {
-        setSavedProfile(JSON.parse(storedProfile))
-      } catch {
-        // Invalid JSON
-      }
-    }
-
-    // Check if logged in
+    // Load profile from user data if logged in
     const storedUser = localStorage.getItem('guglioquiz_user')
+    let userData = null
     if (storedUser) {
       try {
-        const userData = JSON.parse(storedUser)
+        userData = JSON.parse(storedUser)
         setUser(userData)
+        const capitalizedName = userData.username.charAt(0).toUpperCase() + userData.username.slice(1)
+        setSavedProfile({
+          name: capitalizedName,
+          avatar: userData.avatar as any,
+          avatarUrl: userData.avatar_url || null
+        })
       } catch {
         // Invalid JSON
       }
+    } else {
+      // Guest -> No memory
+      setSavedProfile(null)
+      setUser(null)
+      localStorage.removeItem('guglioquiz_saved_profile')
     }
 
     // Load game
@@ -85,8 +87,8 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         avatarUrl: user.avatar_url || profile.avatarUrl
       } : profile
       
-      // Save profile
-      localStorage.setItem('guglioquiz_saved_profile', JSON.stringify(finalProfile))
+      // Profile is only in state/session for this session
+      setSavedProfile(finalProfile)
       
       // Join the game
       const player = await addPlayer(game.id, finalProfile.name, finalProfile.avatar, finalProfile.avatarUrl || null, false)
