@@ -233,7 +233,7 @@ export function ProfileDialog({
                         }}
                         disabled={lockedAvatar}
                         className={cn(
-                          'w-12 h-12 rounded-full flex items-center justify-center text-4xl font-black transition-all',
+                          'w-12 h-12 rounded-full flex items-center justify-center text-5xl transition-all',
                           parsed?.bg,
                           parsed?.text,
                           selectedAvatar === avatarStr
@@ -268,7 +268,7 @@ export function ProfileDialog({
                         setCustomAvatarUrl(null)
                       }}
                       className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center text-3xl font-black transition-all',
+                        'w-12 h-12 rounded-full flex items-center justify-center text-5xl font-black leading-none transition-all',
                         colorObj.bg,
                         colorObj.text,
                         selectedAvatar === avatarStr
@@ -334,7 +334,7 @@ export function ProfileDialog({
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : selectedAvatar ? (
-                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-6xl font-black leading-none' : 'text-3xl')}>
+                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-6xl font-black leading-none' : 'text-5xl')}>
                   {parseAvatar(selectedAvatar)?.icon}
                 </span>
               ) : (
