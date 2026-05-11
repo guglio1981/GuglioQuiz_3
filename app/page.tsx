@@ -789,7 +789,7 @@ function HomePageContent() {
                         
                         <div className="mt-4">
                           <label className="text-sm font-medium text-foreground">Oppure usa la tua iniziale</label>
-                          <div className="grid grid-cols-10 gap-1.5 mt-2">
+                          <div className="grid grid-cols-5 gap-2 mt-2">
                             {ALL_AVATAR_COLORS.slice(0, 10).map((colorObj, idx) => {
                               const initial = loginUsername.trim() ? loginUsername.trim().charAt(0).toUpperCase() : '?'
                               const avatarStr = `initial:${initial}|${colorObj.bg}`
@@ -802,7 +802,7 @@ function HomePageContent() {
                                     setSignupAvatarUrl(null)
                                     setSignupAvatarFile(null)
                                   }}
-                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-lg font-black transition-all ${colorObj.bg} ${colorObj.text} ${
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center text-2xl font-black transition-all ${colorObj.bg} ${colorObj.text} ${
                                     signupAvatar === avatarStr && !signupAvatarUrl
                                       ? 'ring-2 ring-primary ring-offset-1 ring-offset-card scale-110'
                                       : 'hover:scale-110'

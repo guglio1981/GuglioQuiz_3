@@ -364,7 +364,7 @@ export default function FriendsPage() {
 
                 <div className="mt-4">
                   <p className="text-sm text-muted-foreground mb-2">Oppure usa la tua iniziale:</p>
-                  <div className="grid grid-cols-10 gap-2">
+                  <div className="grid grid-cols-5 gap-3">
                     {ALL_AVATAR_COLORS.slice(0, 10).map((colorObj, idx) => {
                       const initial = user?.username ? user.username.charAt(0).toUpperCase() : '?'
                       const avatarStr = `initial:${initial}|${colorObj.bg}`
@@ -377,7 +377,7 @@ export default function FriendsPage() {
                             setCustomAvatarUrl(null)
                             setCustomAvatarFile(null)
                           }}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xl font-black transition-all ${colorObj.bg} ${colorObj.text} ${
+                          className={`w-12 h-12 rounded-full flex items-center justify-center text-3xl font-black transition-all ${colorObj.bg} ${colorObj.text} ${
                             selectedAvatar === avatarStr && !customAvatarUrl
                               ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
                               : 'hover:scale-110'

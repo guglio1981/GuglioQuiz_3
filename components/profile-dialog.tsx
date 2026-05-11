@@ -251,7 +251,7 @@ export function ProfileDialog({
           {!lockedAvatar && (
             <div className="space-y-3">
               <Label className="text-foreground">Oppure usa la tua iniziale</Label>
-              <div className="grid grid-cols-10 gap-2">
+              <div className="grid grid-cols-5 gap-3">
                 {ALL_AVATAR_COLORS.slice(0, 10).map((colorObj, idx) => {
                   const initial = name.trim() ? name.trim().charAt(0).toUpperCase() : '?'
                   const avatarStr = `initial:${initial}|${colorObj.bg}`
@@ -264,11 +264,11 @@ export function ProfileDialog({
                         setCustomAvatarUrl(null)
                       }}
                       className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center text-xl font-black transition-all',
+                        'w-12 h-12 rounded-full flex items-center justify-center text-3xl font-black transition-all',
                         colorObj.bg,
                         colorObj.text,
                         selectedAvatar === avatarStr
-                          ? 'ring-2 ring-primary ring-offset-1 ring-offset-card scale-110'
+                          ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
                           : 'hover:scale-110'
                       )}
                     >
