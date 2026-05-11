@@ -184,7 +184,7 @@ export function InviteFriendsModal({ gameCode }: InviteFriendsModalProps) {
                         }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl font-black flex-shrink-0 ${getAvatarColors(friend)} ${friend.avatar ? parseAvatar(friend.avatar)?.text : ''}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-2xl font-black flex-shrink-0 ${getAvatarColors(friend)} ${friend.avatar ? parseAvatar(friend.avatar)?.text : ''}`}>
                             {friend.avatar_url ? (
                               <img src={friend.avatar_url} alt={friend.username} className="w-full h-full rounded-full object-cover" />
                             ) : friend.avatar ? (

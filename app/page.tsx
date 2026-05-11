@@ -666,7 +666,7 @@ function HomePageContent() {
                         <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                       </div>
                     ) : user.avatar ? (
-                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-4xl font-black ${parseAvatar(user.avatar)?.bg} ${parseAvatar(user.avatar)?.text}`}>
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center text-5xl font-black ${parseAvatar(user.avatar)?.bg} ${parseAvatar(user.avatar)?.text}`}>
                         {parseAvatar(user.avatar)?.icon}
                       </div>
                     ) : (
@@ -805,7 +805,7 @@ function HomePageContent() {
                                     setSignupAvatarUrl(null)
                                     setSignupAvatarFile(null)
                                   }}
-                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-base font-black transition-all ${colorObj.bg} ${colorObj.text} ${
+                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-lg font-black transition-all ${colorObj.bg} ${colorObj.text} ${
                                     signupAvatar === avatarStr && !signupAvatarUrl
                                       ? 'ring-2 ring-primary ring-offset-1 ring-offset-card scale-110'
                                       : 'hover:scale-110'
