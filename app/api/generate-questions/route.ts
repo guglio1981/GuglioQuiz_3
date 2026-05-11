@@ -53,37 +53,13 @@ const LOGO_DATA = [
   { name: 'Microsoft', url: 'https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg' },
   { name: 'Coca-Cola', url: 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Coca-Cola_logo.svg' },
   { name: 'Adidas', url: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  { name: 'Ferrari', url: 'https://upload.wikimedia.org/wikipedia/it/thumb/d/d1/Logo_Ferrari.svg/512px-Logo_Ferrari.svg.png' },
-  { name: 'BMW', url: 'https://upload.wikimedia.org/wikipedia/commons/4/44/BMW.svg' },
-  { name: 'Mercedes-Benz', url: 'https://upload.wikimedia.org/wikipedia/commons/9/90/Mercedes-Logo.svg' },
-  { name: 'Pepsi', url: 'https://upload.wikimedia.org/wikipedia/commons/0/0f/Pepsi_logo_2014.svg' },
-  { name: 'Spotify', url: 'https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg' },
-  { name: 'Netflix', url: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg' },
-  { name: 'YouTube', url: 'https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Logo_2017.svg' },
-  { name: 'Instagram', url: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg' },
-  { name: 'Facebook', url: 'https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg' },
-  { name: 'Twitter/X', url: 'https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg' },
-  { name: 'WhatsApp', url: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg' },
-  { name: 'Starbucks', url: 'https://upload.wikimedia.org/wikipedia/en/d/d3/Starbucks_Corporation_Logo_2011.svg' },
-  { name: 'Tesla', url: 'https://upload.wikimedia.org/wikipedia/commons/b/bd/Tesla_Motors.svg' },
-  { name: 'Rolex', url: 'https://upload.wikimedia.org/wikipedia/it/thumb/d/d5/Logo_Rolex.svg/512px-Logo_Rolex.svg.png' },
-  { name: 'IKEA', url: 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Ikea_logo.svg' },
-  { name: 'LEGO', url: 'https://upload.wikimedia.org/wikipedia/commons/2/24/LEGO_logo.svg' },
-  { name: 'Nintendo', url: 'https://upload.wikimedia.org/wikipedia/commons/0/0d/Nintendo.svg' },
-  { name: 'PlayStation', url: 'https://upload.wikimedia.org/wikipedia/commons/0/00/PlayStation_logo.svg' },
-  { name: 'Red Bull', url: 'https://upload.wikimedia.org/wikipedia/it/thumb/3/30/Red_Bull_logo.svg/512px-Red_Bull_logo.svg.png' },
-  { name: 'Porsche', url: 'https://upload.wikimedia.org/wikipedia/it/thumb/3/3a/Logo_Porsche.svg/512px-Logo_Porsche.svg.png' },
-  { name: 'Lamborghini', url: 'https://upload.wikimedia.org/wikipedia/it/thumb/d/df/Lamborghini_Logo.svg/512px-Lamborghini_Logo.svg.png' },
-  { name: 'Airbnb', url: 'https://upload.wikimedia.org/wikipedia/commons/6/69/Airbnb_Logo_B%C3%A9lo.svg' },
-  { name: 'Uber', url: 'https://upload.wikimedia.org/wikipedia/commons/5/58/Uber_logo_2018.svg' },
-  { name: 'TikTok', url: 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg' },
-  { name: 'Mastercard', url: 'https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg' },
-  { name: 'Visa', url: 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg' },
-  { name: 'Nvidia', url: 'https://upload.wikimedia.org/wikipedia/sco/2/21/Nvidia_logo.svg' },
+  { name: 'IBM', url: 'https://upload.wikimedia.org/wikipedia/commons/5/51/IBM_logo.svg' },
+  { name: 'Toyota', url: 'https://upload.wikimedia.org/wikipedia/commons/9/9d/Toyota_carlogo.svg' },
+  { name: 'Ford', url: 'https://upload.wikimedia.org/wikipedia/commons/a/a0/Ford_Motor_Company_Logo.svg' },
+  { name: 'Sony', url: 'https://upload.wikimedia.org/wikipedia/commons/c/ca/Sony_logo.svg' },
+  { name: 'Dell', url: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Dell_logo_2016.svg' },
   { name: 'Slack', url: 'https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg' },
   { name: 'Android', url: 'https://upload.wikimedia.org/wikipedia/commons/d/d7/Android_robot.svg' },
-  { name: 'Shell', url: 'https://upload.wikimedia.org/wikipedia/en/e/e8/Shell_logo.svg' },
-  { name: 'BP', url: 'https://upload.wikimedia.org/wikipedia/en/d/d2/BP_Logo.svg' },
   { name: 'Cisco', url: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Cisco_logo_blue_2016.svg' },
 ]
 
@@ -365,12 +341,12 @@ RISPONDI SOLO CON L'ARRAY JSON TRADOTTO (inizia con [ e finisci con ]):`
       prompt,
     })
     const jsonMatch = text.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) return questions
+    if (!jsonMatch) return [] // Return empty array to force AI generation fallback
     const translated: GeneratedQuestion[] = JSON.parse(jsonMatch[0])
     return translated.filter(q => q.options && q.correct_answer && q.options.includes(q.correct_answer))
   } catch (e) {
-    console.error('Translation failed, using original:', e)
-    return questions
+    console.error('Translation failed, discarding questions to fallback to AI:', e)
+    return [] // Discard english questions so we fallback to generating native italian ones
   }
 }
 
@@ -386,7 +362,7 @@ async function generateAIQuestions(
   const difficultyText = difficulty === 'difficile' ? 'difficili e sfidanti' : 'di media difficoltà'
   const randomSeed = seed || Date.now()
 
-  const prompt = `Genera esattamente ${count} domande quiz ORIGINALI e UNICHE in italiano per un gioco a quiz multiplayer.
+  const prompt = `Genera esattamente ${count} domande quiz ORIGINALI e UNICHE TASSATIVAMENTE IN LINGUA ITALIANA per un gioco a quiz multiplayer. È ASSOLUTAMENTE VIETATO USARE L'INGLESE. Tutte le domande e le opzioni devono essere in un italiano perfetto.
 Usa questo seed per variare le domande: ${randomSeed}
 
 ARGOMENTI: ${topicsList}
