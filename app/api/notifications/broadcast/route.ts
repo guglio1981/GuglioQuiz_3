@@ -3,9 +3,6 @@ import { NextResponse } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
 import webpush from 'web-push'
 
-const pb = getPocketBase();
-// @ts-ignore - stubbed
-
 // Configure web-push
 webpush.setVapidDetails(
   'mailto:admin@guglioquiz.com',
@@ -24,20 +21,13 @@ export async function POST(request: Request) {
       )
     }
 
+    const pb = getPocketBase();
+    
     // Get all push subscriptions for registered users (except the host)
-    const { data: subscriptions, error } = await supabase
-      .from('push_subscriptions')
-      .select('subscription, user_id')
-      .not('user_id', 'is', null)
-      .neq('user_id', hostId)
-
-    if (error) {
-      console.error('Error fetching subscriptions:', error)
-      return NextResponse.json(
-        { error: 'Errore nel recupero delle iscrizioni' },
-        { status: 500 }
-      )
-    }
+    const filter = hostId ? `user_id != "${hostId}"` : '';
+    const subscriptions = await pb.collection('push_subscriptions').getFullList({
+      filter: filter
+    });
 
     if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json({ 
@@ -65,7 +55,13 @@ export async function POST(request: Request) {
       subscriptions.map(async (sub) => {
         try {
           await webpush.sendNotification(
-            JSON.parse(sub.subscription),
+            {
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.p256dh,
+                auth: sub.auth
+              }
+            },
             payload
           )
           sent++
@@ -73,12 +69,13 @@ export async function POST(request: Request) {
           console.error('Push notification error:', err)
           failed++
           
-          // Remove invalid subscriptions
+          // Remove invalid subscriptions from PocketBase
           if (err.statusCode === 410 || err.statusCode === 404) {
-            await supabase
-              .from('push_subscriptions')
-              .delete()
-              .eq('subscription', sub.subscription)
+            try {
+              await pb.collection('push_subscriptions').delete(sub.id);
+            } catch (delError) {
+              console.error('Error deleting stale subscription:', delError);
+            }
           }
         }
       })

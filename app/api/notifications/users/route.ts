@@ -2,20 +2,15 @@
 import { NextResponse } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
 
-const pb = getPocketBase();
-// @ts-ignore - stubbed
-
 export async function GET() {
   try {
-    // Get all users who have push subscriptions (notifications enabled)
-    const { data: subscriptions, error: subError } = await supabase
-      .from('push_subscriptions')
-      .select('user_id')
+    const pb = getPocketBase();
     
-    if (subError) {
-      console.error('Error fetching subscriptions:', subError)
-      return NextResponse.json({ users: [] })
-    }
+    // Get all push subscriptions (bypass auth if needed, ideally admin but for now assume public read)
+    // In production, you'd use a service account or admin token
+    const subscriptions = await pb.collection('push_subscriptions').getFullList({
+      fields: 'user_id'
+    });
     
     if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json({ users: [] })
@@ -28,16 +23,11 @@ export async function GET() {
       return NextResponse.json({ users: [] })
     }
     
-    // Get user details
-    const { data: users, error: userError } = await supabase
-      .from('app_users')
-      .select('id, username, avatar, avatar_url')
-      .in('id', userIds)
-    
-    if (userError) {
-      console.error('Error fetching users:', userError)
-      return NextResponse.json({ users: [] })
-    }
+    // Get user details for those who have subscriptions
+    const users = await pb.collection('users').getFullList({
+      filter: userIds.map(id => `id="${id}"`).join(' || '),
+      fields: 'id,username,avatar,avatar_url'
+    });
     
     return NextResponse.json({ users: users || [] })
   } catch (error) {

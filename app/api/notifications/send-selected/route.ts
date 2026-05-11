@@ -3,9 +3,6 @@ import { NextResponse } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
 import webpush from 'web-push'
 
-const pb = getPocketBase();
-// @ts-ignore - stubbed
-
 webpush.setVapidDetails(
   'mailto:info@guglioquiz.com',
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
@@ -30,19 +27,13 @@ export async function POST(request: Request) {
       )
     }
     
-    // Get subscriptions for selected users
-    const { data: subscriptions, error } = await supabase
-      .from('push_subscriptions')
-      .select('*')
-      .in('user_id', userIds)
+    const pb = getPocketBase();
     
-    if (error) {
-      console.error('Error fetching subscriptions:', error)
-      return NextResponse.json(
-        { error: 'Errore nel recupero delle sottoscrizioni' },
-        { status: 500 }
-      )
-    }
+    // Get subscriptions for selected users
+    const filter = userIds.map(id => `user_id="${id}"`).join(' || ');
+    const subscriptions = await pb.collection('push_subscriptions').getFullList({
+      filter: filter
+    });
     
     if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json(
@@ -50,9 +41,6 @@ export async function POST(request: Request) {
         { status: 404 }
       )
     }
-    
-    // Get the origin from the request headers
-    const origin = request.headers.get('origin') || request.headers.get('referer')?.replace(/\/$/, '').split('/').slice(0, 3).join('/') || ''
     
     const payload = JSON.stringify({
       title: 'Invito a GuglioQuiz!',
@@ -86,12 +74,13 @@ export async function POST(request: Request) {
         console.error('Error sending notification:', error)
         failCount++
         
-        // Remove invalid subscriptions
+        // Remove invalid subscriptions from PocketBase
         if (error.statusCode === 410 || error.statusCode === 404) {
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('endpoint', sub.endpoint)
+          try {
+            await pb.collection('push_subscriptions').delete(sub.id);
+          } catch (delError) {
+            console.error('Error deleting stale subscription:', delError);
+          }
         }
       }
     })

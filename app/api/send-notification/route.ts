@@ -24,19 +24,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Push notifications not configured' }, { status: 500 })
     }
 
-    // Get subscriptions for the users
     const pb = getPocketBase();
-// @ts-ignore - stubbed
-
-    const { data: subscriptions, error } = await supabase
-      .from('push_subscriptions')
-      .select('*')
-      .in('user_id', userIds)
-
-    if (error) {
-      console.error('Error fetching subscriptions:', error)
-      return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 })
-    }
+    
+    // Get subscriptions for the users
+    const filter = userIds.map(id => `user_id="${id}"`).join(' || ');
+    const subscriptions = await pb.collection('push_subscriptions').getFullList({
+      filter: filter
+    });
 
     if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json({ sent: 0, message: 'No subscriptions found' })
@@ -68,12 +62,13 @@ export async function POST(request: NextRequest) {
         console.error('Push failed for subscription:', err)
         failed++
         
-        // Remove invalid subscriptions
+        // Remove invalid subscriptions from PocketBase
         if (err.statusCode === 410 || err.statusCode === 404) {
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('id', sub.id)
+          try {
+            await pb.collection('push_subscriptions').delete(sub.id);
+          } catch (delError) {
+            console.error('Error deleting stale subscription:', delError);
+          }
         }
       }
     }
