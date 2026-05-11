@@ -308,7 +308,7 @@ export default function FriendsPage() {
                       <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                     </div>
                   ) : user?.avatar ? (
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${parseAvatar(user.avatar)?.bg}`}>
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-4xl font-black ${parseAvatar(user.avatar)?.bg} ${parseAvatar(user.avatar)?.text}`}>
                       {parseAvatar(user.avatar)?.icon}
                     </div>
                   ) : (
@@ -383,7 +383,7 @@ export default function FriendsPage() {
                             setCustomAvatarUrl(null)
                             setCustomAvatarFile(null)
                           }}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${colorObj.bg} ${colorObj.text} ${
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-lg font-black transition-all ${colorObj.bg} ${colorObj.text} ${
                             selectedAvatar === avatarStr && !customAvatarUrl
                               ? 'ring-4 ring-primary ring-offset-2 ring-offset-card scale-110'
                               : 'hover:scale-110'

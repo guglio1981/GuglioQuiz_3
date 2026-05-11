@@ -81,8 +81,9 @@ export function Leaderboard({
             {/* Avatar */}
             <div
                 className={cn(
-                  'w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0',
-                  player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted')
+                  'w-12 h-12 rounded-full flex items-center justify-center text-3xl font-black shrink-0',
+                  player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted'),
+                  player.avatar && parseAvatar(player.avatar)?.text
                 )}
               >
                 {player.avatar_url ? (

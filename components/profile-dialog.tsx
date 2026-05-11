@@ -264,7 +264,7 @@ export function ProfileDialog({
                         setCustomAvatarUrl(null)
                       }}
                       className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all',
+                        'w-8 h-8 rounded-full flex items-center justify-center text-lg font-black transition-all',
                         colorObj.bg,
                         colorObj.text,
                         selectedAvatar === avatarStr
