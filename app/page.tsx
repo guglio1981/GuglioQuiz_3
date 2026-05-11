@@ -253,8 +253,8 @@ function HomePageContent() {
   const handleSignupFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 500 * 1024) {
-        toast.error('L\'immagine deve essere inferiore a 500KB')
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('L\'immagine deve essere inferiore a 5MB')
         return
       }
       setSignupAvatarFile(file)

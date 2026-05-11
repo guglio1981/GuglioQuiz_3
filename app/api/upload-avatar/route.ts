@@ -20,10 +20,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate file size (max 500KB for base64 storage in database)
-    if (file.size > 500 * 1024) {
+    // Validate file size (max 5MB for base64 storage in database)
+    if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'L\'immagine deve essere inferiore a 500KB' },
+        { error: 'L\'immagine deve essere inferiore a 5MB' },
         { status: 400 }
       )
     }
