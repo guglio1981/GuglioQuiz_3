@@ -320,6 +320,7 @@ function SettingsPageContent() {
         await updateGameStatus(existingGame.id, 'lobby')
         await setMancheReady(existingGame.id, true)
         
+        sessionStorage.setItem('guglioquiz_gameCode', existingGameCode)
         router.push(`/lobby/${existingGameCode}`)
       } else {
         // Create new game - generate a unique host ID
@@ -342,6 +343,7 @@ function SettingsPageContent() {
 
         if (player) {
           sessionStorage.setItem('guglioquiz_playerId', player.id)
+          sessionStorage.setItem('guglioquiz_gameCode', newGame.code)
         }
 
         router.push(`/lobby/${newGame.code}`)

@@ -9,6 +9,7 @@ import { AVATARS, AVATAR_COLORS, AVATAR_ICONS, type AvatarId, type PlayerProfile
 import { cn } from '@/lib/utils'
 import { Upload, User, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { compressImage } from '@/lib/image-utils'
 
 interface ProfileDialogProps {
   open: boolean
@@ -52,15 +53,21 @@ export function ProfileDialog({
     }
   }, [initialProfile, lockedName])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setCustomAvatarUrl(reader.result as string)
-        setSelectedAvatar(null)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('L\\'immagine deve essere inferiore a 10MB')
+        return
       }
-      reader.readAsDataURL(file)
+      try {
+        const compressedBase64 = await compressImage(file, 400, 400, 0.7)
+        setCustomAvatarUrl(compressedBase64)
+        setSelectedAvatar(null)
+      } catch (error) {
+        console.error('Error compressing image:', error)
+        toast.error('Errore durante l\\'elaborazione dell\\'immagine')
+      }
     }
   }
 

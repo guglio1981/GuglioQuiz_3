@@ -11,6 +11,7 @@ import { IOSInstallPrompt } from '@/components/ios-install-prompt'
 import { createGame, addPlayer, getGameByCode, getPlayers } from '@/lib/game-store'
 import type { PlayerProfile, AvatarId } from '@/lib/types'
 import { AVATAR_COLORS, AVATAR_ICONS, AVATARS } from '@/lib/types'
+import { compressImage } from '@/lib/image-utils'
 import { toast } from 'sonner'
 import { Zap, Users, Trophy, Brain, Loader2, LogIn, Bell, BellOff, LogOut, Upload } from 'lucide-react'
 import Link from 'next/link'
@@ -250,20 +251,22 @@ function HomePageContent() {
     setLoginLoading(false)
   }
 
-  const handleSignupFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSignupFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('L\'immagine deve essere inferiore a 5MB')
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('L\'immagine deve essere inferiore a 10MB')
         return
       }
       setSignupAvatarFile(file)
       setSignupAvatar(null) // Clear emoji avatar
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setSignupAvatarUrl(reader.result as string)
+      try {
+        const compressedBase64 = await compressImage(file, 400, 400, 0.7)
+        setSignupAvatarUrl(compressedBase64)
+      } catch (error) {
+        console.error('Error compressing image:', error)
+        toast.error('Errore durante l\\'elaborazione dell\\'immagine')
       }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -279,21 +282,9 @@ function HomePageContent() {
     try {
       let avatarUrl = null
       
-      // If user uploaded a custom image, upload it first
-      if (signupAvatarFile) {
-        const formData = new FormData()
-        formData.append('file', signupAvatarFile)
-        formData.append('username', loginUsername)
-        
-        const uploadRes = await fetch('/api/upload-avatar', {
-          method: 'POST',
-          body: formData
-        })
-        
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json()
-          avatarUrl = uploadData.url
-        }
+      // Use the pre-compressed base64 URL directly
+      if (signupAvatarFile && signupAvatarUrl) {
+        avatarUrl = signupAvatarUrl
       }
       
       const res = await fetch('/api/auth/register', {

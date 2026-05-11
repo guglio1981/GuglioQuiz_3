@@ -10,7 +10,7 @@ async function test() {
     headers: { 'Authorization': authData.token }
   }).then(res => res.json());
 
-  console.log("GAMES COLLECTION:");
-  console.log(JSON.stringify(collections.items.find(c => c.name === 'games'), null, 2));
+  console.log("APP USERS COLLECTION:");
+  console.log(JSON.stringify(collections.items.find(c => c.name === 'app_users'), null, 2));
 }
 test();
