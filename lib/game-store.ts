@@ -257,8 +257,7 @@ export async function getPlayers(gameId: string): Promise<Player[]> {
   const pb = getPocketBase()
   try {
     const records = await pb.collection('players').getFullList({
-      filter: `game_id="${gameId}"`,
-      sort: 'created'
+      filter: `game_id="${gameId}"`
     })
     return records as unknown as Player[]
   } catch (error) {

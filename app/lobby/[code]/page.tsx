@@ -102,10 +102,20 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
         router.push('/')
         return
       }
-      const playersData = await getPlayers(gameData.id)
+      let playersData = await getPlayers(gameData.id)
       
       // Check if current player exists in the list
-      const currentPlayer = playersData.find(p => p.id === playerId)
+      let currentPlayer = playersData.find(p => p.id === playerId)
+      
+      // Retry fetching players if current player is not found (PocketBase consistency delay)
+      let playerRetries = 5
+      while (!currentPlayer && playerRetries > 0) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        playersData = await getPlayers(gameData.id)
+        currentPlayer = playersData.find(p => p.id === playerId)
+        playerRetries--
+      }
+
       if (!currentPlayer) {
         toast.error('Errore: non sei stato registrato correttamente in questa partita')
         router.push('/')
