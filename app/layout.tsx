@@ -8,7 +8,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://guglioquiz.vercel.app'),
+  metadataBase: new URL('https://guglioquiz.vercel.app'),
   title: 'GuglioQuiz - Sfida i tuoi amici!',
   description: 'Il quiz multiplayer dove la conoscenza incontra la velocita. Sfida i tuoi amici su storia, geografia, tecnologia e molto altro!',
   generator: 'v0.app',
@@ -23,10 +23,11 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/social-preview.png?v=2',
-        width: 1200,
-        height: 630,
-        alt: 'GuglioQuiz Social Preview',
+        url: '/wa-preview.png?v=3',
+        width: 600,
+        height: 315,
+        type: 'image/png',
+        alt: 'GuglioQuiz',
       },
     ],
   },
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'GuglioQuiz - Sfida i tuoi amici!',
     description: 'Il quiz multiplayer dove la conoscenza incontra la velocita. Sfida i tuoi amici!',
-    images: ['/social-preview.png?v=2'],
+    images: ['/wa-preview.png?v=3'],
   },
 }
 

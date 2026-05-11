@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   
   // Definizione del dominio base (necessario per WhatsApp)
   // Se hai un dominio diverso in produzione, Next.js userà quello configurato nel deploy
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://guglioquiz.vercel.app'
+  const baseUrl = 'https://guglioquiz.vercel.app'
   
   return {
     metadataBase: new URL(baseUrl),
@@ -22,10 +22,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: 'GuglioQuiz',
       images: [
         {
-          url: '/social-preview.png?v=2',
-          width: 1200,
-          height: 630,
-          alt: 'GuglioQuiz Social Preview',
+          url: '/wa-preview.png?v=3',
+          width: 600,
+          height: 315,
+          type: 'image/png',
+          alt: 'GuglioQuiz',
         },
       ],
       type: 'website',
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: 'summary_large_image',
       title: `GuglioQuiz - Codice: ${code.toUpperCase()}`,
       description: 'Sfida i tuoi amici a GuglioQuiz!',
-      images: ['/social-preview.png?v=2'],
+      images: ['/wa-preview.png?v=3'],
     },
   }
 }
