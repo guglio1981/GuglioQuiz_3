@@ -89,7 +89,7 @@ export function Leaderboard({
                 {player.avatar_url ? (
                   <img src={player.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
                 ) : player.avatar ? (
-                  <span className={cn(player.avatar.startsWith('initial:') ? 'text-[38px] font-black leading-none' : 'text-[38px]')}>
+                  <span className={cn(player.avatar.startsWith('initial:') ? 'text-[38px] font-black leading-none' : 'text-[30px]')}>
                     {parseAvatar(player.avatar)?.icon}
                   </span>
                 ) : (

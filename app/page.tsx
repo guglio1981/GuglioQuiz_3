@@ -665,7 +665,7 @@ function HomePageContent() {
                       </div>
                     ) : user.avatar ? (
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center ${parseAvatar(user.avatar)?.bg} ${parseAvatar(user.avatar)?.text}`}>
-                        <span className={cn(user.avatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[52px]')}>
+                        <span className={cn(user.avatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[42px]')}>
                           {parseAvatar(user.avatar)?.icon}
                         </span>
                       </div>

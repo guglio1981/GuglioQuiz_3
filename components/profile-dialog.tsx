@@ -203,7 +203,7 @@ export function ProfileDialog({
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : initialProfile?.avatar ? (
-                    <span className={cn(initialProfile.avatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[52px]')}>
+                    <span className={cn(initialProfile.avatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[42px]')}>
                       {parseAvatar(initialProfile.avatar)?.icon}
                     </span>
                   ) : null}
@@ -234,7 +234,7 @@ export function ProfileDialog({
                         disabled={lockedAvatar}
                         className={cn(
                           'w-12 h-12 rounded-full flex items-center justify-center transition-all',
-                          avatarStr.startsWith('initial:') ? 'text-[38px] font-black leading-none' : 'text-[38px]',
+                          avatarStr.startsWith('initial:') ? 'text-[38px] font-black leading-none' : 'text-[30px]',
                           parsed?.bg,
                           parsed?.text,
                           selectedAvatar === avatarStr
@@ -335,7 +335,7 @@ export function ProfileDialog({
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : selectedAvatar ? (
-                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[52px]')}>
+                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-[52px] font-black leading-none' : 'text-[42px]')}>
                   {parseAvatar(selectedAvatar)?.icon}
                 </span>
               ) : (
