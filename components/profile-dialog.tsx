@@ -252,7 +252,7 @@ export function ProfileDialog({
             <div className="space-y-3">
               <Label className="text-foreground">Oppure usa la tua iniziale</Label>
               <div className="grid grid-cols-10 gap-2">
-                {ALL_AVATAR_COLORS.map((colorObj, idx) => {
+                {ALL_AVATAR_COLORS.slice(0, 10).map((colorObj, idx) => {
                   const initial = name.trim() ? name.trim().charAt(0).toUpperCase() : '?'
                   const avatarStr = `initial:${initial}|${colorObj.bg}`
                   return (

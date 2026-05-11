@@ -310,9 +310,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     setTimeout(() => setCopied(false), 2000)
   }
 
-const handleShareWhatsApp = () => {
-    const gameUrl = typeof window !== 'undefined' ? `${window.location.origin}?code=${code}` : ''
-    const message = `Unisciti a GuglioQuiz! Sfidami in un quiz multiplayer.\n\nCodice partita: ${code}\n\nEntra qui: ${gameUrl}`
+  const handleShareWhatsApp = () => {
+    const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${code.toUpperCase()}` : ''
+    const message = `Vieni a giocare a GuglioQuiz!\n\nCodice partita: *${code.toUpperCase()}*\n\nClicca qui per entrare:\n${joinUrl}`
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
