@@ -22,10 +22,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: 'GuglioQuiz',
       images: [
         {
-          url: '/apple-icon.png',
-          width: 180,
-          height: 180,
-          alt: 'GuglioQuiz Logo',
+          url: '/social-preview.png',
+          width: 1200,
+          height: 630,
+          alt: 'GuglioQuiz Social Preview',
         },
       ],
       type: 'website',
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: 'summary_large_image',
       title: `GuglioQuiz - Codice: ${code.toUpperCase()}`,
       description: 'Sfida i tuoi amici a GuglioQuiz!',
-      images: ['/apple-icon.png'],
+      images: ['/social-preview.png'],
     },
   }
 }

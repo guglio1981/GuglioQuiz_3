@@ -312,7 +312,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const handleShareWhatsApp = () => {
     const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${code.toUpperCase()}` : ''
-    const message = `Vieni a giocare a GuglioQuiz!\n\nCodice partita: *${code.toUpperCase()}*\n\nClicca qui per entrare:\n${joinUrl}`
+    const message = `Vieni a giocare a GuglioQuiz! 🏆\nCodice partita: *${code.toUpperCase()}*\n\nEntra qui: ${joinUrl}`
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
