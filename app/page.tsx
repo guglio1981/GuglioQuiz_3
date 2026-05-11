@@ -162,15 +162,7 @@ function HomePageContent() {
 
   const handleCreateGame = () => {
     setIsHost(true)
-    if (user) {
-      handleProfileSubmit({
-        name: user.username.charAt(0).toUpperCase() + user.username.slice(1),
-        avatar: user.avatar as any,
-        avatarUrl: user.avatar_url || null
-      }, true)
-    } else {
-      setShowProfile(true)
-    }
+    setShowProfile(true)
   }
 
   const handleLogout = async () => {
@@ -434,21 +426,15 @@ function HomePageContent() {
     setIsHost(false)
     
     if (user) {
-      handleProfileSubmit({
-        name: user.username.charAt(0).toUpperCase() + user.username.slice(1),
-        avatar: user.avatar as any,
-        avatarUrl: user.avatar_url || null
-      }, false, game.code)
+      // Just auto-fill the profile dialog by opening it
+      setShowProfile(true)
     } else {
       setShowProfile(true)
     }
   }
 
-  const handleProfileSubmit = async (profile: PlayerProfile, overrideIsHost?: boolean, overrideGameCode?: string | null) => {
+  const handleProfileSubmit = async (profile: PlayerProfile) => {
     setIsLoading(true)
-
-    const actualIsHost = overrideIsHost !== undefined ? overrideIsHost : isHost;
-    const actualGameCode = overrideGameCode !== undefined ? overrideGameCode : pendingGameCode;
 
     // Save profile to localStorage for future use
     localStorage.setItem('guglioquiz_saved_profile', JSON.stringify(profile))
@@ -461,14 +447,14 @@ function HomePageContent() {
     }
 
     try {
-      if (actualIsHost) {
+      if (isHost) {
         // Store profile in session and redirect to settings
         sessionStorage.setItem('guglioquiz_profile', JSON.stringify(profile))
         sessionStorage.setItem('guglioquiz_isHost', 'true')
         router.push('/settings')
-      } else if (actualGameCode) {
+      } else if (pendingGameCode) {
         // Join existing game
-        const game = await getGameByCode(actualGameCode)
+        const game = await getGameByCode(pendingGameCode)
         if (!game) {
           toast.error('Partita non trovata')
           setIsLoading(false)
