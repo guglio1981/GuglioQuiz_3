@@ -334,7 +334,7 @@ export function ProfileDialog({
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : selectedAvatar ? (
-                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-6xl font-black leading-none' : 'text-5xl')}>
+                <span className={cn(selectedAvatar.startsWith('initial:') ? 'text-5xl font-black leading-none' : 'text-4xl')}>
                   {parseAvatar(selectedAvatar)?.icon}
                 </span>
               ) : (

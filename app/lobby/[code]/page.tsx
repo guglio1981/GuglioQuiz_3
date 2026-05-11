@@ -744,17 +744,19 @@ setIsStarting(true)
                 >
                   {/* Avatar */}
                     <div
-                      className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
-                        player.avatar?.startsWith('initial:') ? 'text-5xl font-black leading-none' : 'text-3xl',
-                        player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted'),
-                        player.avatar && parseAvatar(player.avatar)?.text
-                      )}
-                    >
+                  <div
+                    className={cn(
+                      'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
+                      player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted'),
+                      player.avatar && parseAvatar(player.avatar)?.text
+                    )}
+                  >
                     {player.avatar_url ? (
                       <img src={player.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
                     ) : player.avatar ? (
-                      parseAvatar(player.avatar)?.icon
+                      <span className={cn(player.avatar.startsWith('initial:') ? 'text-5xl font-black leading-none' : 'text-3xl')}>
+                        {parseAvatar(player.avatar)?.icon}
+                      </span>
                     ) : (
                       '?'
                     )}
