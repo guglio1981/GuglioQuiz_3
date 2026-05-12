@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // @ts-nocheck
 import { NextResponse } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
@@ -56,3 +57,4 @@ export async function POST(request: Request) {
     )
   }
 }
+

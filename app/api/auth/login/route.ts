@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { getPocketBase } from '@/lib/pocketbase'
@@ -60,3 +61,4 @@ export async function POST(request: Request) {
     )
   }
 }
+

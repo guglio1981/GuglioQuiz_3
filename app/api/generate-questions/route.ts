@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { createGroq } from '@ai-sdk/groq'
 import { generateText, generateObject } from 'ai'
 import { z } from 'zod'
@@ -578,3 +579,4 @@ export async function POST(request: Request) {
     )
   }
 }
+

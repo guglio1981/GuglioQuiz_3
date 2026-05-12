@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
 
@@ -25,3 +26,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ exists: false })
   }
 }
+
