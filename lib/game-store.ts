@@ -541,6 +541,9 @@ export async function processAnswers(
       ops.push(
         updatePlayerAbstentions(player.id)
       )
+    }
+  }
+
   // Fire all writes in parallel — much faster and avoids SSE flooding
   await Promise.all(ops)
 }
