@@ -24,8 +24,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS } from '@/lib/types'
 
-const pb = getPocketBase();
-// @ts-ignore - stubbed
 
 interface AppUser {
   id: string
