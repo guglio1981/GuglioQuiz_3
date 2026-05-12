@@ -23,6 +23,7 @@ import {
   unsubscribe,
   updateCurrentQuestion,
   updateGameStatus,
+  setQuestionsReady,
   resetPlayersForNewManche,
   syncLeaderboardPhase,
   clearGameSettingsForNewManche,
@@ -267,6 +268,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           
           questionsData = await saveQuestions(gameData.id, questions)
+          await setQuestionsReady(gameData.id, true)
         } catch (err) {
           toast.error(`Errore: ${err instanceof Error ? err.message : 'Generazione domande fallita'}`)
           router.push('/')
@@ -275,8 +277,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         setIsGenerating(false)
       }
 
-      // If we have questions, start the game
-      if (questionsData.length > 0) {
+      // If we have questions AND they are ready, start the game
+      if (questionsData.length > 0 && gameData.questions_ready) {
         setQuestions(questionsData)
         setPhase('question')
         setIsTimerActive(true)
@@ -287,41 +289,26 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     loadGame()
   }, [code, router])
 
-  // Subscribe to questions if they are empty (for non-host clients waiting for generation)
+  // Wait for questions to be ready (for non-host clients)
   useEffect(() => {
     if (!game?.id || questions.length > 0) return
-
-    // If we're stuck for too long (45s), try one last fetch and force start if we have something
-    const safetyTimeout = setTimeout(async () => {
-      if (questions.length === 0) {
-        const fallbackQuestions = await getQuestions(game.id)
-        if (fallbackQuestions.length > 0) {
-          setQuestions(fallbackQuestions)
+    
+    // If questions are already ready in the game object, load them
+    if (game.questions_ready) {
+      getQuestions(game.id).then(qs => {
+        if (qs.length > 0) {
+          setQuestions(qs)
           setPhase('question')
           setIsTimerActive(true)
           setQuestionStartTime(Date.now())
-        } else {
-          toast.error("Errore nel caricamento domande. Riprova.")
         }
-      }
-    }, 45000)
-
-    const questionsSub = subscribeToQuestions(game.id, (updatedQuestions) => {
-      // Start game as soon as we have enough questions
-      // or at least more than we had before
-      if (updatedQuestions.length >= (game?.question_count || 1)) {
-        setQuestions(updatedQuestions)
-        setPhase('question')
-        setIsTimerActive(true)
-        setQuestionStartTime(Date.now())
-      }
-    })
-
-    return () => {
-      unsubscribe(questionsSub)
-      clearTimeout(safetyTimeout)
+      })
     }
-  }, [game?.id, questions.length, game?.question_count])
+    
+    // We already have a subscribeToGame in the main logic (below) 
+    // that will update the 'game' state, so this effect will re-run 
+    // when game.questions_ready changes.
+  }, [game?.id, game?.questions_ready, questions.length])
 
   // Remove player when browser closes
   useEffect(() => {

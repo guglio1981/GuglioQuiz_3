@@ -73,6 +73,7 @@ async function setup() {
         { name: 'topic_selection_mode', type: 'text' },
         { name: 'current_arcade_game', type: 'text' },
         { name: 'current_arcade_round', type: 'number' },
+        { name: 'questions_ready', type: 'bool' },
       ]
     });
 

@@ -22,7 +22,8 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       status: 'lobby',
       manche_ready: true,  // First manche is ready by default
       manche: 1,
-      current_question: 0
+      current_question: 0,
+      questions_ready: false
     })
     return record as unknown as Game
 }
@@ -212,6 +213,17 @@ export async function updateCurrentQuestion(gameId: string, questionNumber: numb
   }
 }
 
+export async function setQuestionsReady(gameId: string, ready: boolean): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, { questions_ready: ready })
+    return true
+  } catch (error) {
+    console.error('Error setting questions_ready:', error)
+    return false
+  }
+}
+
 // Helper to capitalize first letter of name
 function capitalizeFirstLetter(str: string): string {
   if (!str) return str
@@ -370,8 +382,11 @@ export async function resetPlayersForNewManche(gameId: string, resetScores: bool
 // Question operations
 export async function saveQuestions(gameId: string, questions: Omit<Question, 'id' | 'game_id' | 'created_at'>[]): Promise<Question[]> {
   const pb = getPocketBase()
+  const savedQuestions: Question[] = []
   
-  const savePromises = questions.map(async (q, index) => {
+  // Sequential save to avoid rate limits (429)
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i]
     let questionType: 'multiple' | 'true_false' = 'multiple'
     const qt = String(q.question_type || '').toLowerCase()
     if (qt.includes('true') || qt.includes('false') || qt.includes('vero') || qt === 'true_false') {
@@ -380,7 +395,7 @@ export async function saveQuestions(gameId: string, questions: Omit<Question, 'i
     
     const questionData: Record<string, unknown> = {
       game_id: gameId,
-      question_number: index + 1,
+      question_number: i + 1,
       topic: q.topic,
       question_text: q.question_text,
       question_type: questionType,
@@ -392,15 +407,18 @@ export async function saveQuestions(gameId: string, questions: Omit<Question, 'i
     }
     
     try {
-      return await pb.collection('questions').create(questionData)
+      const record = await pb.collection('questions').create(questionData)
+      savedQuestions.push(record as unknown as Question)
+      // Small delay every few questions to breathe
+      if (i % 3 === 0 && i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
     } catch (error) {
-      console.error(`Error saving question ${index + 1}:`, error)
-      return null
+      console.error(`Error saving question ${i + 1}:`, error)
     }
-  })
+  }
 
-  const results = await Promise.all(savePromises)
-  return results.filter(r => r !== null) as unknown as Question[]
+  return savedQuestions
 }
 
 export async function getQuestions(gameId: string): Promise<Question[]> {
