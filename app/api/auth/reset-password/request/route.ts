@@ -21,8 +21,6 @@ export async function POST(request: Request) {
       )
     }
 
-    const pb = getPocketBase()
-
     // Find user by username or email
     let user;
     try {
