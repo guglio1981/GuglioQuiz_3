@@ -1,4 +1,5 @@
 'use client'
+import { memo } from 'react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,7 @@ interface LeaderboardProps {
   children?: React.ReactNode
 }
 
-export function Leaderboard({
+export const Leaderboard = memo(function Leaderboard({
   players,
   currentPlayerId,
   questionNumber,

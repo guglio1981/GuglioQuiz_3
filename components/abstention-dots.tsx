@@ -1,5 +1,5 @@
 'use client'
-
+import { memo } from 'react'
 import { cn } from '@/lib/utils'
 
 interface AbstentionDotsProps {
@@ -7,7 +7,7 @@ interface AbstentionDotsProps {
   used: number
 }
 
-export function AbstentionDots({ total, used }: AbstentionDotsProps) {
+export const AbstentionDots = memo(function AbstentionDots({ total, used }: AbstentionDotsProps) {
   if (total === 0) return null
 
   return (

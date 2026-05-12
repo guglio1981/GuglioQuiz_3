@@ -90,6 +90,22 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [lastManche, setLastManche] = useState(0)
   const [isClickable, setIsClickable] = useState(false) // Previene click accidentali su iOS
   
+  // Memoize player calculations to avoid expensive filter/find on every render
+  const sortedPlayers = useMemo(() => {
+    return [...players].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return a.created_at.localeCompare(b.created_at)
+    })
+  }, [players])
+
+  const currentPlayer = useMemo(() => {
+    return players.find((p) => p.id === currentPlayerId)
+  }, [players, currentPlayerId])
+
+  const isHost = useMemo(() => {
+    return currentPlayer?.is_host || false
+  }, [currentPlayer])
+
   // Gestione del ritardo di sicurezza per i click
   useEffect(() => {
     if (phase === 'question') {
@@ -357,7 +373,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     if (!gameIdForSub) return
 
     const gameChannel = subscribeToGame(gameIdForSub, (updatedGame) => {
-      setGame(updatedGame)
+      setGame(prev => {
+        // Deep compare to avoid unnecessary re-renders
+        if (prev && JSON.stringify(prev) === JSON.stringify(updatedGame)) return prev
+        return updatedGame
+      })
       
       const { isHost: latestIsHost, currentQuestionIndex: latestQIdx, questions: latestQuestions } = latestRef.current
       
@@ -415,7 +435,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       }
     })
     const playersChannel = subscribeToPlayers(gameIdForSub, (updatedPlayers) => {
-      setPlayers(updatedPlayers)
+      setPlayers(prev => {
+        if (prev && JSON.stringify(prev) === JSON.stringify(updatedPlayers)) return prev
+        return updatedPlayers
+      })
     })
 
     // PWA/mobile: force refresh when app comes back to foreground or goes back online
