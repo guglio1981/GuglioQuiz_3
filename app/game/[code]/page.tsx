@@ -400,32 +400,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         setPlayers(updatedPlayers)
       }
     }
-    // PWA/mobile: force refresh when app comes back to foreground
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        const updatedGame = await getGameByCode(code)
-        if (updatedGame) setGame(updatedGame)
-        const updatedPlayers = await getPlayers(gameIdForSub)
-        if (updatedPlayers) setPlayers(updatedPlayers)
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    const gameSub = subscribeToGame(gameIdForSub, (updatedGame) => {
-      setGame(updatedGame)
-      if (updatedGame.status === 'lobby' && !latestRef.current.isHost) {
-        sessionStorage.setItem('guglioquiz_redirecting', 'true')
-        window.location.href = `/lobby/${updatedGame.code}`
-      }
-    })
-
-    const playersSub = subscribeToPlayers(gameIdForSub, (updatedPlayers) => {
-      setPlayers(updatedPlayers)
-    })
-
     return () => {
-      unsubscribe(gameSub)
-      unsubscribe(playersSub)
+      unsubscribe(gameChannel)
+      unsubscribe(playersChannel)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [gameIdForSub, code])
