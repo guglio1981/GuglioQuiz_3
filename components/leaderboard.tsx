@@ -151,4 +151,4 @@ export const Leaderboard = memo(function Leaderboard({
       </CardContent>
     </Card>
   )
-}
+})

@@ -26,4 +26,4 @@ export const AbstentionDots = memo(function AbstentionDots({ total, used }: Abst
       </div>
     </div>
   )
-}
+})

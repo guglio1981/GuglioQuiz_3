@@ -305,6 +305,6 @@ export const ArcadeGameWrapper = memo(function ArcadeGameWrapper({
       )}
     </div>
   )
-}
+})
 
 export { MAX_ARCADE_POINTS as ARCADE_SCORES }
