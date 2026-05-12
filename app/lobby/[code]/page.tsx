@@ -175,13 +175,16 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       }
     }
     
-    // We don't need to poll players anymore since we have realtime subscriptions,
-    // but we might need to refresh occasionally just to be safe
+    // Slow fallback polling (every 30s) just to be safe for mobile/background scenarios
     pollInterval = setInterval(async () => {
-      // Just refresh players every 30 seconds as a fallback
-      const updatedPlayers = await getPlayers(game.id)
-      if (updatedPlayers && updatedPlayers.length > 0) {
-        setPlayers(updatedPlayers)
+      if (!game?.id || isRedirecting) return
+      try {
+        const updatedPlayers = await getPlayers(game.id)
+        if (updatedPlayers && updatedPlayers.length > 0) {
+          setPlayers(updatedPlayers)
+        }
+      } catch (e) {
+        console.error("Slow poll failed:", e)
       }
     }, 30000)
     
@@ -195,7 +198,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
         setHasAcceptedRules(false)
       }
       
-      if (updatedGame.status === 'playing') {
+      if (updatedGame.status === 'playing' && !isRedirecting) {
         // Stop polling and remove beforeunload handler before redirect
         isRedirecting = true
         if (pollInterval) clearInterval(pollInterval)
@@ -219,81 +222,37 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       }
     })
 
+    let disconnectRetries = 0
+    const MAX_DISCONNECT_RETRIES = 3
+
     const playersChannel = subscribeToPlayers(game.id, (updatedPlayers) => {
       setPlayers(updatedPlayers)
       const me = updatedPlayers.find(p => p.id === currentPlayerId)
       if (me && me.selected_topics) {
         setMySelectedTopics(me.selected_topics as Topic[])
       }
-    })
-
-    // Poll to check if current player still exists (fallback since DELETE events don't work)
-    let disconnectRetries = 0
-    const MAX_DISCONNECT_RETRIES = 3
-    
-    pollInterval = setInterval(async () => {
-      // Don't check if we're redirecting to game or coming from new manche
-      if (isRedirecting) return
-      if (sessionStorage.getItem('guglioquiz_redirecting') === 'true') {
-        // Clear the flag now that we're in lobby
-        sessionStorage.removeItem('guglioquiz_redirecting')
-        return
-      }
-      
-      // Fallback polling for game state (helps mobile clients that miss realtime updates)
-      const updatedGame = await getGameByCode(code)
-      if (updatedGame) {
-        setGame(updatedGame)
-        
-        // Check if game started (fallback for mobile that missed realtime)
-        if (updatedGame.status === 'playing') {
-          isRedirecting = true
-          if (pollInterval) clearInterval(pollInterval)
-          window.removeEventListener('beforeunload', handleBeforeUnload)
-          window.location.href = `/game/${updatedGame.code}`
-          return
-        }
-        
-        // Handle topic selection modal — only reopen if not yet submitted
-        if (updatedGame.topic_selection_mode && !isHostRef.current && !hasSubmittedTopicsRef.current) {
-          setShowTopicSelectionModal(true)
-        }
-        if (!updatedGame.topic_selection_mode) {
-          setShowTopicSelectionModal(false)
-          hasSubmittedTopicsRef.current = false
-        }
-      }
-      
-      const updatedPlayers = await getPlayers(game.id)
-      setPlayers(updatedPlayers)
       
       // Check if current player was removed
       const stillExists = updatedPlayers.some(p => p.id === currentPlayerId)
-      if (!stillExists && currentPlayerId) {
+      if (!stillExists && currentPlayerId && !isRedirecting) {
         // Double-check the redirecting flag before removing
         if (sessionStorage.getItem('guglioquiz_redirecting') === 'true') {
-          disconnectRetries = 0
           return
         }
         
-        // Increment retry counter - only disconnect after multiple consecutive failures
+        // Only error out if player is truly gone
         disconnectRetries++
-        if (disconnectRetries < MAX_DISCONNECT_RETRIES) {
-          return
+        if (disconnectRetries >= MAX_DISCONNECT_RETRIES) {
+          sessionStorage.clear()
+          toast.error('Sei stato rimosso dalla partita')
+          setTimeout(() => {
+            window.location.href = '/'
+          }, 1500)
         }
-        
-        if (pollInterval) clearInterval(pollInterval)
-        sessionStorage.clear()
-        toast.error('Sei stato rimosso dalla partita')
-        // Delay redirect to show toast
-        setTimeout(() => {
-          window.location.href = '/'
-        }, 1500)
       } else {
-        // Reset counter if player exists
         disconnectRetries = 0
       }
-    }, 1500)
+    })
 
     return () => {
       unsubscribe(gameChannel)
@@ -302,7 +261,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [game?.id, currentPlayerId])
+  }, [game?.id, currentPlayerId, code])
 
   const handleCopyCode = async () => {
     await navigator.clipboard.writeText(code)

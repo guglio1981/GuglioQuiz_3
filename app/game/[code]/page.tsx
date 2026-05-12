@@ -296,7 +296,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           } finally {
             isPollingQuestions = false
           }
-        }, 1500)
+        }, 5000) // Much slower poll (5s) to prevent 429 errors
 
         // Cleanup on unmount
         const cleanup = () => clearInterval(pollInterval)
