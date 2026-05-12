@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import webPush from 'web-push'
 import { getPocketBase } from '@/lib/pocketbase'
 

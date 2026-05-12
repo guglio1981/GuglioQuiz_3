@@ -1,13 +1,17 @@
 // @ts-nocheck
 import { NextResponse, NextRequest } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { getPocketBase } from '@/lib/pocketbase'
 import webpush from 'web-push'
 
-webpush.setVapidDetails(
-  'mailto:info@guglioquiz.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+// Configure web-push
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:info@guglioquiz.com',
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  )
+}
 
 export async function POST(request: NextRequest) {
   try {
