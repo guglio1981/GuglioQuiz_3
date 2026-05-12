@@ -400,103 +400,46 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         setPlayers(updatedPlayers)
       }
     }
+    // PWA/mobile: force refresh when app comes back to foreground
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const updatedGame = await getGameByCode(code)
+        if (updatedGame) setGame(updatedGame)
+        const updatedPlayers = await getPlayers(gameIdForSub)
+        if (updatedPlayers) setPlayers(updatedPlayers)
+      }
+    }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Poll to check if current player still exists
-    let disconnectRetries = 0
-    const MAX_DISCONNECT_RETRIES = 3
-    
-    let isPollingPlayers = false
-    const pollInterval = setInterval(async () => {
-      if (isPollingPlayers) return
-      if (sessionStorage.getItem('guglioquiz_redirecting') === 'true') {
-        disconnectRetries = 0
-        return
+    const gameSub = subscribeToGame(gameIdForSub, (updatedGame) => {
+      setGame(updatedGame)
+      if (updatedGame.status === 'lobby' && !latestRef.current.isHost) {
+        sessionStorage.setItem('guglioquiz_redirecting', 'true')
+        window.location.href = `/lobby/${updatedGame.code}`
       }
-      
-      isPollingPlayers = true
-      try {
-        const updatedGame = await getGameByCode(code)
-        if (updatedGame) {
-          setGame(updatedGame)
-          
-          if (updatedGame.status === 'lobby' && !latestRef.current.isHost) {
-            sessionStorage.setItem('guglioquiz_redirecting', 'true')
-            clearInterval(pollInterval)
-            window.location.href = `/lobby/${updatedGame.code}`
-            return
-          }
-        }
-        
-        const updatedPlayers = await getPlayers(gameIdForSub)
-      if (updatedPlayers && updatedPlayers.length > 0) {
-        setPlayers(updatedPlayers)
-        
-        const latestPlayerId = latestRef.current.currentPlayerId
-        const stillExists = updatedPlayers.some(p => p.id === latestPlayerId)
-        if (!stillExists && latestPlayerId) {
-          if (sessionStorage.getItem('guglioquiz_redirecting') === 'true') {
-            disconnectRetries = 0
-            return
-          }
-          
-          disconnectRetries++
-          if (disconnectRetries < MAX_DISCONNECT_RETRIES) {
-            return
-          }
-          
-          clearInterval(pollInterval)
-          sessionStorage.clear()
-          toast.error('Sei stato rimosso dalla partita')
-          setTimeout(() => {
-            window.location.href = '/'
-          }, 1500)
-        } else {
-          disconnectRetries = 0
-        }
-      }
-      } catch (err) {
-        console.error("Error polling players:", err)
-      } finally {
-        isPollingPlayers = false
-      }
-    }, 1500)
+    })
+
+    const playersSub = subscribeToPlayers(gameIdForSub, (updatedPlayers) => {
+      setPlayers(updatedPlayers)
+    })
 
     return () => {
-      unsubscribe(gameChannel)
-      unsubscribe(playersChannel)
-      clearInterval(pollInterval)
+      unsubscribe(gameSub)
+      unsubscribe(playersSub)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [gameIdForSub, code])
 
-  // Poll answers for current question (more reliable than SSE subscriptions which break on HMR)
+  // Subscribe to answers for current question
   useEffect(() => {
-    if (!currentQuestion || phase !== 'question') return
+    if (!currentQuestion?.id || phase !== 'question') return
 
-    let cancelled = false
-    let isPolling = false
-
-    const poll = async () => {
-      if (cancelled || isPolling) return
-      isPolling = true
-      try {
-        const freshAnswers = await getAnswersForQuestion(currentQuestion.id)
-        if (!cancelled) setAnswers(freshAnswers)
-      } catch (e) {
-        console.error('[POLL] Error fetching answers:', e)
-      } finally {
-        isPolling = false
-      }
-    }
-
-    // Poll immediately, then every 500ms
-    poll()
-    const interval = setInterval(poll, 500)
+    const sub = subscribeToAnswers(currentQuestion.id, (freshAnswers) => {
+      setAnswers(freshAnswers)
+    })
 
     return () => {
-      cancelled = true
-      clearInterval(interval)
+      unsubscribe(sub)
     }
   }, [currentQuestion?.id, phase])
 
