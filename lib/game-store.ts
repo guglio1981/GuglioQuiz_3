@@ -227,7 +227,8 @@ export async function addPlayer(
   isHost: boolean
 ): Promise<Player | null> {
   const pb = getPocketBase()
-  const capitalizedName = capitalizeFirstLetter(name.trim())
+  const safeName = (name || 'Giocatore').trim()
+  const capitalizedName = capitalizeFirstLetter(safeName)
     const record = await pb.collection('players').create({
       game_id: gameId,
       name: capitalizedName,
