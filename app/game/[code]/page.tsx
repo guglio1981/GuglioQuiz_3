@@ -232,43 +232,47 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       if (questionsData.length === 0 && currentPlayerData?.is_host) {
         setIsGenerating(true)
         try {
-          // Get previously used question hashes from localStorage to avoid repeats across ALL games
           const usedHashesKey = 'guglioquiz_used_question_hashes'
           const storedHashes = localStorage.getItem(usedHashesKey)
           const usedQuestionHashes = storedHashes ? JSON.parse(storedHashes) : []
           
-          const response = await fetch('/api/generate-questions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              topics: gameData.topics,
-              count: gameData.question_count,
-              difficulty: gameData.difficulty,
-              usedQuestionHashes,
-            }),
-          })
+          const totalRequested = gameData.question_count || 10
+          const chunkSize = 5
+          const chunks = Math.ceil(totalRequested / chunkSize)
+          const allQuestions: any[] = []
+          const allHashes: string[] = []
 
-          const responseData = await response.json()
+          for (let i = 0; i < chunks; i++) {
+            const countForThisChunk = Math.min(chunkSize, totalRequested - allQuestions.length)
+            if (countForThisChunk <= 0) break
 
-          if (!response.ok) {
-            throw new Error(responseData.details || responseData.error || 'Failed to generate questions')
+            const response = await fetch('/api/generate-questions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                topics: gameData.topics,
+                count: countForThisChunk,
+                difficulty: gameData.difficulty,
+                usedQuestionHashes: [...usedQuestionHashes, ...allHashes],
+              }),
+            })
+
+            const responseData = await response.json()
+            if (!response.ok) throw new Error(responseData.details || responseData.error || 'Failed to generate questions')
+
+            const chunkQs = responseData.questions || []
+            const chunkHashes = responseData.hashes || []
+            allQuestions.push(...chunkQs)
+            allHashes.push(...chunkHashes)
           }
 
-          // New API returns { questions, hashes }
-          const questions = responseData.questions || responseData
-          const newHashes = responseData.hashes || []
-          
-          if (!Array.isArray(questions) || questions.length === 0) {
-            throw new Error('No questions generated')
-          }
+          if (allQuestions.length === 0) throw new Error('No questions generated')
 
-          // Save new hashes to localStorage for future games (global across all games)
-          const allHashes = [...usedQuestionHashes, ...newHashes]
-          // Keep only last 500 hashes to prevent localStorage from growing too large
-          const trimmedHashes = allHashes.slice(-500)
+          // Save new hashes to localStorage
+          const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           
-          questionsData = await saveQuestions(gameData.id, questions)
+          questionsData = await saveQuestions(gameData.id, allQuestions)
         } catch (err) {
           toast.error(`Errore: ${err instanceof Error ? err.message : 'Generazione domande fallita'}`)
           router.push('/')
