@@ -416,7 +416,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       setPlayers(updatedPlayers)
     })
 
-    // PWA/mobile: force refresh when app comes back to foreground
+    // PWA/mobile: force refresh when app comes back to foreground or goes back online
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         if (sessionStorage.getItem('guglioquiz_redirecting') === 'true') return
@@ -434,10 +434,20 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         setPlayers(updatedPlayers)
       }
     }
+    
+    const handleOnline = () => {
+      // Quando ritorna la connessione di rete (es. switch WiFi -> 4G) forziamo un aggiornamento
+      handleVisibilityChange()
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('online', handleOnline)
+    
     return () => {
       unsubscribe(gameChannel)
       unsubscribe(playersChannel)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('online', handleOnline)
     }
   }, [gameIdForSub, code])
 
@@ -651,11 +661,16 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       return
     }
 
-    // Wait 3 seconds then show leaderboard or go to next question
-    setTimeout(() => {
-      processNextPhase()
+    // SOLO l'host decide quando si passa alla fase successiva
+    if (latestIsHost) {
+      setTimeout(() => {
+        processNextPhase()
+        isRevealingRef.current = false
+      }, 3000)
+    } else {
+      // Il client rilascia il lock e aspetta l'evento SSE dell'host
       isRevealingRef.current = false
-    }, 3000)
+    }
   // Minimal deps — actual values are read from latestRef
   }, [goToNextQuestion])
 
@@ -680,6 +695,35 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
     return () => clearTimeout(fallbackTimer)
   }, [phase, isHost, game, currentQuestionIndex, handleReveal])
+
+  // Client-side fallback: Smart Fallback Timer (Zero Polling)
+  useEffect(() => {
+    if (isHost || !game || game.game_profile === 'untimed') return
+
+    let fallbackTimer: NodeJS.Timeout
+
+    if (phase === 'question') {
+      // Se il tempo della domanda scade + 6 secondi di grazia e non abbiamo ricevuto l'evento reveal
+      fallbackTimer = setTimeout(async () => {
+        const updatedGame = await getGameByCode(game.code)
+        if (updatedGame && updatedGame.phase && updatedGame.phase !== 'question') {
+          console.log('[DIAG] Client Fallback: Recuperato stato perso da question a', updatedGame.phase)
+          setGame(updatedGame) // Provoca l'aggiornamento React
+        }
+      }, SCORING.TIME_LIMIT_MS + 6000)
+    } else if (phase === 'reveal') {
+      // Se siamo nella fase reveal da più di 10 secondi (all'host ne bastano 3 per cambiare)
+      fallbackTimer = setTimeout(async () => {
+        const updatedGame = await getGameByCode(game.code)
+        if (updatedGame && (updatedGame.current_question > currentQuestionIndex + 1 || updatedGame.phase !== 'reveal')) {
+          console.log('[DIAG] Client Fallback: Recuperato stato perso da reveal a', updatedGame.phase)
+          setGame(updatedGame)
+        }
+      }, 10000)
+    }
+
+    return () => clearTimeout(fallbackTimer)
+  }, [phase, isHost, game?.code, currentQuestionIndex])
 
 const handleNextFromLeaderboard = async () => {
     if (!game) return

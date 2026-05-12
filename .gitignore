@@ -23,3 +23,5 @@ pb/*.db
 
 .vercel
 push-env.bat
+
+.vercel
