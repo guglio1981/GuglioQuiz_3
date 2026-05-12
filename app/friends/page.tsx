@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic';
-// @ts-nocheck
 'use client'
+// @ts-nocheck
+export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -574,4 +574,5 @@ export default function FriendsPage() {
     </main>
   )
 }
+
 
