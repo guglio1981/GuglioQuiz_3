@@ -177,12 +177,14 @@ export async function setMancheReady(gameId: string, ready: boolean): Promise<bo
 }
 
 export async function getGameByCode(code: string): Promise<Game | null> {
+  if (!code) return null
   const pb = getPocketBase()
   try {
-    const record = await pb.collection('games').getFirstListItem(`code="${code.toUpperCase()}"`)
+    const normalizedCode = code.trim().toUpperCase()
+    const record = await pb.collection('games').getFirstListItem(`code="${normalizedCode}"`)
     return record as unknown as Game
   } catch (error) {
-    console.error('Error fetching game:', error)
+    console.error('getGameByCode error:', error)
     return null
   }
 }
