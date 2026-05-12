@@ -541,26 +541,11 @@ export async function processAnswers(
       ops.push(
         updatePlayerAbstentions(player.id)
       )
-    }
-  }
-
   // Fire all writes in parallel — much faster and avoids SSE flooding
   await Promise.all(ops)
 }
 
 // Realtime subscriptions
-
-// PocketBase SSE uses a single connection per collection with '*' key.
-// Multiple callers subscribing to '*' on the same collection will SHARE the handler,
-// so unsubscribing '*' removes ALL handlers. We work around this by using the
-// record id as the topic when possible, and by tracking active subscriptions manually
-// so that unsubscribe only removes the specific callback.
-
-const _playerCallbacks = new Map<string, Set<(players: Player[]) => void>>()
-const _answerCallbacks = new Map<string, Set<(answers: Answer[]) => void>>()
-
-let _playersSubscribed = false
-let _answersSubscribed = false
 
 export function subscribeToGame(gameId: string, callback: (game: Game) => void) {
   const pb = getPocketBase()
@@ -574,82 +559,40 @@ export function subscribeToGame(gameId: string, callback: (game: Game) => void) 
 export function subscribeToPlayers(gameId: string, callback: (players: Player[]) => void) {
   const pb = getPocketBase()
 
-  // Register callback
-  if (!_playerCallbacks.has(gameId)) {
-    _playerCallbacks.set(gameId, new Set())
-  }
-  _playerCallbacks.get(gameId)!.add(callback)
-
   // Initial fetch
   getPlayers(gameId).then(callback)
 
-  // Open the global subscription only once
-  const _playerDebounce = new Map<string, ReturnType<typeof setTimeout>>()
-  if (!_playersSubscribed) {
-    _playersSubscribed = true
-    pb.collection('players').subscribe('*', (e) => {
-      const gid: string = e.record.game_id
-      const cbs = _playerCallbacks.get(gid)
-      if (!cbs || cbs.size === 0) return
-      // Debounce: if multiple player records change in quick succession (e.g. after processAnswers),
-      // wait 150ms and only fire once with the latest data.
-      const existing = _playerDebounce.get(gid)
-      if (existing) clearTimeout(existing)
-      _playerDebounce.set(gid, setTimeout(async () => {
-        _playerDebounce.delete(gid)
-        const latestCbs = _playerCallbacks.get(gid)
-        if (!latestCbs || latestCbs.size === 0) return
-        const players = await getPlayers(gid)
-        latestCbs.forEach(cb => cb(players))
-      }, 150))
-    }).catch(() => { _playersSubscribed = false })
-  }
+  // Use filtered subscription (PocketBase 0.20+)
+  // This ensures we ONLY get events for players in this specific game.
+  pb.collection('players').subscribe('*', async () => {
+    const players = await getPlayers(gameId)
+    callback(players)
+  }, {
+    filter: `game_id = "${gameId}"`
+  }).catch(err => {
+    console.error('Subscription error:', err)
+  })
 
-  // Return an unsubscribe that only removes this callback
   return () => {
-    const cbs = _playerCallbacks.get(gameId)
-    if (cbs) {
-      cbs.delete(callback)
-      if (cbs.size === 0) _playerCallbacks.delete(gameId)
-    }
-    // Tear down the global subscription only when no one is listening
-    if (_playerCallbacks.size === 0) {
-      _playersSubscribed = false
-      pb.collection('players').unsubscribe('*').catch(() => {})
-    }
+    pb.collection('players').unsubscribe('*')
   }
 }
 
 export function subscribeToAnswers(questionId: string, callback: (answers: Answer[]) => void) {
   const pb = getPocketBase()
 
-  if (!_answerCallbacks.has(questionId)) {
-    _answerCallbacks.set(questionId, new Set())
-  }
-  _answerCallbacks.get(questionId)!.add(callback)
+  // Initial fetch
+  getAnswersForQuestion(questionId).then(callback)
 
-  if (!_answersSubscribed) {
-    _answersSubscribed = true
-    pb.collection('answers').subscribe('*', async (e) => {
-      const qid: string = e.record.question_id
-      const cbs = _answerCallbacks.get(qid)
-      if (cbs && cbs.size > 0) {
-        const answers = await getAnswersForQuestion(qid)
-        cbs.forEach(cb => cb(answers))
-      }
-    }).catch(() => { _answersSubscribed = false })
-  }
+  pb.collection('answers').subscribe('*', async () => {
+    const answers = await getAnswersForQuestion(questionId)
+    callback(answers)
+  }, {
+    filter: `question_id = "${questionId}"`
+  }).catch(err => console.error('Answer sub error:', err))
 
   return () => {
-    const cbs = _answerCallbacks.get(questionId)
-    if (cbs) {
-      cbs.delete(callback)
-      if (cbs.size === 0) _answerCallbacks.delete(questionId)
-    }
-    if (_answerCallbacks.size === 0) {
-      _answersSubscribed = false
-      pb.collection('answers').unsubscribe('*').catch(() => {})
-    }
+    pb.collection('answers').unsubscribe('*')
   }
 }
 
@@ -809,49 +752,23 @@ export async function processArcadeResults(
   }
 }
 
-const _arcadeCallbacks = new Map<string, Set<() => void>>()
-let _arcadeSubscribed = false
-
-export function subscribeToArcadeResults(
-  gameId: string, 
-  arcadeRound: number, 
-  callback: (results: ArcadeResult[]) => void
-) {
+export function subscribeToArcadeResults(gameId: string, arcadeRound: number, callback: (results: ArcadeResult[]) => void) {
   const pb = getPocketBase()
-  const key = `${gameId}:${arcadeRound}`
-  
-  // Wrap the callback so it fetches and returns arcade results
-  const wrappedCb = async () => {
-    const results = await getArcadeResults(gameId, arcadeRound)
-    callback(results)
-  }
 
-  if (!_arcadeCallbacks.has(key)) {
-    _arcadeCallbacks.set(key, new Set())
-  }
-  _arcadeCallbacks.get(key)!.add(wrappedCb)
+  // Initial fetch
+  getArcadeResults(gameId, arcadeRound).then(callback)
 
-  if (!_arcadeSubscribed) {
-    _arcadeSubscribed = true
-    pb.collection('arcade_results').subscribe('*', async (e) => {
-      const k = `${e.record.game_id}:${e.record.arcade_round}`
-      const cbs = _arcadeCallbacks.get(k)
-      if (cbs && cbs.size > 0) {
-        cbs.forEach(cb => cb())
-      }
-    }).catch(() => { _arcadeSubscribed = false })
-  }
+  pb.collection('arcade_results').subscribe('*', async (e) => {
+    if (e.record.game_id === gameId && e.record.arcade_round === arcadeRound) {
+      const results = await getArcadeResults(gameId, arcadeRound)
+      callback(results)
+    }
+  }, {
+    filter: `game_id = "${gameId}" && arcade_round = ${arcadeRound}`
+  }).catch(err => console.error('Arcade sub error:', err))
 
   return () => {
-    const cbs = _arcadeCallbacks.get(key)
-    if (cbs) {
-      cbs.delete(wrappedCb)
-      if (cbs.size === 0) _arcadeCallbacks.delete(key)
-    }
-    if (_arcadeCallbacks.size === 0) {
-      _arcadeSubscribed = false
-      pb.collection('arcade_results').unsubscribe('*').catch(() => {})
-    }
+    pb.collection('arcade_results').unsubscribe('*')
   }
 }
 
