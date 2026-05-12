@@ -28,6 +28,7 @@ import {
   resetPlayersForNewManche,
   syncLeaderboardPhase,
   clearGameSettingsForNewManche,
+  clearAnswersForGame,
   submitArcadeResult,
   getArcadeResults,
   processArcadeResults,

@@ -473,8 +473,8 @@ export async function POST(request: Request) {
     const imageTopics = topics.filter(t => IMAGE_TOPICS.includes(t))
     const otherTopics = topics.filter(t => !TRIVIA_CATEGORY_MAP[t] && !AI_ONLY_TOPICS.includes(t) && !IMAGE_TOPICS.includes(t))
     
-    // Calculate how many questions per topic
-    const questionsPerTopic = Math.ceil(count / topics.length)
+    // Calculate how many questions per topic - request 20% more to handle validation failures
+    const questionsPerTopic = Math.ceil((count * 1.2) / topics.length)
     
     const allQuestions: GeneratedQuestion[] = []
 
@@ -532,15 +532,19 @@ export async function POST(request: Request) {
     results.forEach(qs => allQuestions.push(...qs))
 
     // Fill up with AI if we don't have enough (single attempt, all-topics)
-    // Final attempt if still short (up to 3 retries for the whole batch)
+    // Final attempt if still short (up to 5 retries for the whole batch)
     let fillAttempts = 0
-    while (allQuestions.length < count && fillAttempts < 3) {
+    while (allQuestions.length < count && fillAttempts < 5) {
       const remaining = count - allQuestions.length
+      console.log(`[API] Short by ${remaining} questions. Fill attempt ${fillAttempts + 1}...`)
       try {
-        const fillQs = await generateAIQuestions(topics, remaining, difficulty, usedHashes, seed + 100 + fillAttempts)
+        // Request 50% more than needed to be sure
+        const requestCount = Math.max(remaining + 2, Math.ceil(remaining * 1.5))
+        const fillQs = await generateAIQuestions(topics, requestCount, difficulty, usedHashes, seed + 100 + fillAttempts)
+        console.log(`[API] Generated ${fillQs.length} filling questions.`)
         allQuestions.push(...fillQs)
       } catch (e) {
-        console.error(`Fill attempt ${fillAttempts} failed:`, e)
+        console.error(`[API] Fill attempt ${fillAttempts} failed:`, e)
       }
       fillAttempts++
     }
