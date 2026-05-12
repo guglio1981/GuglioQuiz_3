@@ -182,8 +182,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   }, [game, arcadeRound])
 
   const currentQuestion = questions[currentQuestionIndex]
-  const currentPlayer = players.find((p) => p.id === currentPlayerId)
-  const isHost = currentPlayer?.is_host || false
 
   // Load initial data
   useEffect(() => {
