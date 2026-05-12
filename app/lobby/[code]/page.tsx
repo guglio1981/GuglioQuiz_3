@@ -59,7 +59,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [copied, setCopied] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [showNotificationModal, setShowNotificationModal] = useState(false)
-  const [notifiableUsers, setNotifiableUsers] = useState<Array<{id: string, username: string, avatar: string | null, avatar_url: string | null}>>([])
+  const [notifiableUsers, setNotifiableUsers] = useState<Array<{id: string, username: string, avatar: string | null, avatar_url: string | null, subscription?: any}>>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [isSendingNotifications, setIsSendingNotifications] = useState(false)
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
@@ -320,12 +320,32 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const loadNotifiableUsers = async () => {
     setIsLoadingUsers(true)
     try {
-      const res = await fetch('/api/notifications/users')
-      const data = await res.json()
-      if (res.ok) {
-        setNotifiableUsers(data.users || [])
+      const pb = getPocketBase();
+      const subscriptions = await pb.collection('push_subscriptions').getFullList({
+        fields: 'user_id,endpoint,p256dh,auth'
+      });
+      if (!subscriptions || subscriptions.length === 0) {
+        setNotifiableUsers([]);
+        setIsLoadingUsers(false);
+        return;
       }
-    } catch {
+      const userIds = [...new Set(subscriptions.map(s => s.user_id).filter(Boolean))];
+      const usersData = await pb.collection('app_users').getFullList({
+        filter: userIds.map(id => `id="${id}"`).join(' || '),
+        fields: 'id,username,avatar,avatar_url'
+      });
+      
+      const usersWithSubs = usersData.map(u => {
+        const sub = subscriptions.find(s => s.user_id === u.id);
+        return {
+          ...u,
+          subscription: sub
+        };
+      });
+      
+      setNotifiableUsers(usersWithSubs);
+    } catch (e) {
+      console.error(e);
       toast.error('Errore nel caricamento utenti')
     }
     setIsLoadingUsers(false)
@@ -425,11 +445,16 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     setIsSendingNotifications(true)
     try {
       const currentPlayer = players.find(p => p.id === currentPlayerId)
+      
+      const selectedSubs = notifiableUsers
+        .filter(u => selectedUsers.includes(u.id) && u.subscription)
+        .map(u => u.subscription);
+
       const res = await fetch('/api/notifications/send-selected', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userIds: selectedUsers,
+          subscriptions: selectedSubs,
           gameCode: code,
           hostName: currentPlayer?.name || 'Un utente'
         })

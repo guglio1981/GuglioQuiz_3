@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
 import webpush from 'web-push'
 
@@ -9,13 +9,13 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY!
 )
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { userIds, gameCode, hostName } = await request.json()
+    const { subscriptions, gameCode, hostName } = await request.json()
     
-    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    if (!subscriptions || !Array.isArray(subscriptions) || subscriptions.length === 0) {
       return NextResponse.json(
-        { error: 'Nessun utente selezionato' },
+        { error: 'Nessuna sottoscrizione fornita' },
         { status: 400 }
       )
     }
@@ -28,19 +28,6 @@ export async function POST(request: Request) {
     }
     
     const pb = getPocketBase();
-    
-    // Get subscriptions for selected users
-    const filter = userIds.map(id => `user_id="${id}"`).join(' || ');
-    const subscriptions = await pb.collection('push_subscriptions').getFullList({
-      filter: filter
-    });
-    
-    if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json(
-        { error: 'Nessuna sottoscrizione trovata per gli utenti selezionati' },
-        { status: 404 }
-      )
-    }
     
     const payload = JSON.stringify({
       title: 'Invito a GuglioQuiz!',
