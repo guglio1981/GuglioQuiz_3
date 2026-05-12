@@ -272,7 +272,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           
-          questionsData = await saveQuestions(gameData.id, allQuestions)
+          questionsData = await saveQuestions(gameData.id, allQuestions, gameData.manche || 1)
         } catch (err) {
           toast.error(`Errore: ${err instanceof Error ? err.message : 'Generazione domande fallita'}`)
           router.push('/')
@@ -397,7 +397,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           setAnswers([])
         } else if (newPhase === 'reveal') {
           setIsTimerActive(false)
-          isRevealingRef.current = true
+          // Trigger local reveal for clients to show their score
+          handleReveal()
         }
       }
 
@@ -710,9 +711,11 @@ const handleNextFromLeaderboard = async () => {
     if (!game) return
 
     await resetPlayersForNewManche(game.id, resetScores)
+    await clearAnswersForGame(game.id)
     // Clear game settings so clients see "waiting for host" in lobby
     await clearGameSettingsForNewManche(game.id)
     await updateGameStatus(game.id, 'lobby')
+    await updateGamePhase(game.id, 'loading')
     
     // Set flag to prevent beforeunload from removing player
     sessionStorage.setItem('guglioquiz_redirecting', 'true')

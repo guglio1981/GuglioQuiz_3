@@ -393,13 +393,13 @@ export async function resetPlayersForNewManche(gameId: string, resetScores: bool
 }
 
 // Question operations
-export async function saveQuestions(gameId: string, questions: Omit<Question, 'id' | 'game_id' | 'created_at'>[]): Promise<Question[]> {
+export async function saveQuestions(gameId: string, questions: Omit<Question, 'id' | 'game_id' | 'created_at'>[], manche: number = 1): Promise<Question[]> {
   const pb = getPocketBase()
   
-  // Create a structured list with unique IDs for this specific game
+  // Create a structured list with unique IDs for this specific game and manche
   const questionsWithIds = questions.map((q, i) => ({
     ...q,
-    id: `${gameId}_q_${i}`,
+    id: `${gameId}_m${manche}_q_${i}`,
     game_id: gameId,
     question_number: i + 1,
     created_at: new Date().toISOString()
@@ -477,6 +477,20 @@ export async function submitAnswerV3(
   } catch (error) {
     console.error('Error submitting answer:', error)
     return null
+  }
+}
+
+export async function clearAnswersForGame(gameId: string): Promise<void> {
+  const pb = getPocketBase()
+  try {
+    const answers = await pb.collection('answers').getFullList({
+      filter: `question_id ~ "${gameId}_"`
+    })
+    for (const answer of answers) {
+      await pb.collection('answers').delete(answer.id)
+    }
+  } catch (error) {
+    console.error('Error clearing answers:', error)
   }
 }
 
