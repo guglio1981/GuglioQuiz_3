@@ -542,6 +542,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     if (isHost && game) {
       await updateCurrentQuestion(game.id, nextIndex + 1, true)
       await updateGamePhase(game.id, 'question')
+      await syncLeaderboardPhase(game.id, '')
     }
   }, [game, currentQuestionIndex, isHost])
 
