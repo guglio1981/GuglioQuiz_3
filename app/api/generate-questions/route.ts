@@ -7,9 +7,12 @@ import { TOPIC_LABELS, type Topic, type Difficulty } from '@/lib/types'
 
 export const maxDuration = 60; // Set Vercel timeout to maximum allowed for Hobby plan
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-})
+// Lazy loader for Groq
+function getGroq() {
+  return createGroq({
+    apiKey: process.env.GROQ_API_KEY || 'gsk_stub',
+  })
+}
 
 // Mapping from our topics to Open Trivia DB categories
 const TRIVIA_CATEGORY_MAP: Partial<Record<Topic, number>> = {

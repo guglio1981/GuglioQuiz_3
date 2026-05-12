@@ -3,8 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
 
-const pb = getPocketBase();
 // @ts-ignore - stubbed
+
 
 export async function POST(request: Request) {
   try {

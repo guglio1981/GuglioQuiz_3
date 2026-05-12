@@ -4,8 +4,8 @@ import { NextResponse } from 'next/server'
 import { getPocketBase } from '@/lib/pocketbase'
 import bcrypt from 'bcryptjs'
 
-const pb = getPocketBase();
 // @ts-ignore - stubbed
+
 
 export async function POST(request: Request) {
   try {

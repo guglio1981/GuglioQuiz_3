@@ -5,13 +5,13 @@ import { getPocketBase } from '@/lib/pocketbase'
 import { Resend } from 'resend'
 import crypto from 'crypto'
 
-const pb = getPocketBase();
 // @ts-ignore - stubbed
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_stub')
 
 export async function POST(request: Request) {
   try {
+    const pb = getPocketBase();
+    const resend = new Resend(process.env.RESEND_API_KEY || 're_stub');
     const { username, email } = await request.json()
 
     if (!username && !email) {
