@@ -344,13 +344,14 @@ function SettingsPageContent() {
           router.push(`/lobby/${newGame.code}`)
         } else {
           toast.error('Errore durante la creazione del giocatore host')
-          setIsCreating(false)
+          setIsLoading(false)
           return
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[v0] Error creating game:', error)
-      toast.error('Errore nella creazione della partita')
+      const errorMsg = error?.message || (typeof error === 'string' ? error : 'Errore sconosciuto');
+      toast.error(`Errore nella creazione della partita: ${errorMsg}`)
       setIsLoading(false)
     }
   }

@@ -9,7 +9,6 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
   const code = generateGameCode()
   const pb = getPocketBase()
   
-  try {
     const record = await pb.collection('games').create({
       code,
       host_id: hostId,
@@ -26,10 +25,6 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       current_question: 0
     })
     return record as unknown as Game
-  } catch (error) {
-    console.error('Error creating game:', error)
-    return null
-  }
 }
 
 export async function clearGameSettingsForNewManche(gameId: string): Promise<boolean> {
@@ -233,7 +228,6 @@ export async function addPlayer(
 ): Promise<Player | null> {
   const pb = getPocketBase()
   const capitalizedName = capitalizeFirstLetter(name.trim())
-  try {
     const record = await pb.collection('players').create({
       game_id: gameId,
       name: capitalizedName,
@@ -247,10 +241,6 @@ export async function addPlayer(
       selected_topics: []
     })
     return record as unknown as Player
-  } catch (error) {
-    console.error('Error adding player:', error)
-    return null
-  }
 }
 
 export async function getPlayers(gameId: string): Promise<Player[]> {
