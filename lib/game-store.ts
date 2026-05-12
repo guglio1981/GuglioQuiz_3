@@ -396,10 +396,10 @@ export async function resetPlayersForNewManche(gameId: string, resetScores: bool
 export async function saveQuestions(gameId: string, questions: Omit<Question, 'id' | 'game_id' | 'created_at'>[]): Promise<Question[]> {
   const pb = getPocketBase()
   
-  // Create a structured list with numeric IDs for the game state
+  // Create a structured list with unique IDs for this specific game
   const questionsWithIds = questions.map((q, i) => ({
     ...q,
-    id: `q_${i}`,
+    id: `${gameId}_q_${i}`,
     game_id: gameId,
     question_number: i + 1,
     created_at: new Date().toISOString()

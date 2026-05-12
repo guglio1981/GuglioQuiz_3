@@ -28,6 +28,10 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
       // Already joined this game, go directly to lobby
       router.push(`/lobby/${code}`)
       return
+    } else if (existingGameCode && existingGameCode !== code.toUpperCase()) {
+      // Joining a DIFFERENT game - clear old session to avoid conflicts
+      sessionStorage.removeItem('guglioquiz_playerId')
+      sessionStorage.removeItem('guglioquiz_gameCode')
     }
 
     // Load profile from user data if logged in
