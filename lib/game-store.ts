@@ -382,48 +382,40 @@ export async function resetPlayersForNewManche(gameId: string, resetScores: bool
 // Question operations
 export async function saveQuestions(gameId: string, questions: Omit<Question, 'id' | 'game_id' | 'created_at'>[]): Promise<Question[]> {
   const pb = getPocketBase()
-  const savedQuestions: Question[] = []
   
-  // Sequential save to avoid rate limits (429)
-  for (let i = 0; i < questions.length; i++) {
-    const q = questions[i]
-    let questionType: 'multiple' | 'true_false' = 'multiple'
-    const qt = String(q.question_type || '').toLowerCase()
-    if (qt.includes('true') || qt.includes('false') || qt.includes('vero') || qt === 'true_false') {
-      questionType = 'true_false'
-    }
-    
-    const questionData: Record<string, unknown> = {
-      game_id: gameId,
-      question_number: i + 1,
-      topic: q.topic,
-      question_text: q.question_text,
-      question_type: questionType,
-      options: q.options,
-      correct_answer: q.correct_answer,
-    }
-    if (q.image_url) {
-      questionData.image_url = q.image_url
-    }
-    
-    try {
-      const record = await pb.collection('questions').create(questionData)
-      savedQuestions.push(record as unknown as Question)
-      // Small delay every few questions to breathe
-      if (i % 3 === 0 && i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 300))
-      }
-    } catch (error) {
-      console.error(`Error saving question ${i + 1}:`, error)
-    }
-  }
+  // Create a structured list with numeric IDs for the game state
+  const questionsWithIds = questions.map((q, i) => ({
+    ...q,
+    id: `q_${i}`,
+    game_id: gameId,
+    question_number: i + 1,
+    created_at: new Date().toISOString()
+  }))
 
-  return savedQuestions
+  try {
+    // Save ALL questions in a single update request to the game record
+    await pb.collection('games').update(gameId, {
+      questions_json: questionsWithIds,
+      questions_ready: true
+    })
+    return questionsWithIds as unknown as Question[]
+  } catch (error) {
+    console.error('Error saving questions to JSON:', error)
+    // Fallback: if JSON fails, try to return the objects anyway so the host can start
+    return questionsWithIds as unknown as Question[]
+  }
 }
 
 export async function getQuestions(gameId: string): Promise<Question[]> {
   const pb = getPocketBase()
   try {
+    // 1. Try to get questions from the game's JSON field first (fastest)
+    const game = await pb.collection('games').getOne(gameId)
+    if (game.questions_json && Array.isArray(game.questions_json) && game.questions_json.length > 0) {
+      return game.questions_json as unknown as Question[]
+    }
+
+    // 2. Fallback to questions collection (legacy)
     const records = await pb.collection('questions').getFullList({
       filter: `game_id="${gameId}"`,
       sort: 'question_number'

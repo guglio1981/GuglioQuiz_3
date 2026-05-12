@@ -1,4 +1,4 @@
-const baseUrl = 'http://127.0.0.1:8090/api';
+const baseUrl = 'https://guglioquiz1.pockethost.io//api';
 
 async function request(path, method, body, token = null) {
   const headers = { 'Content-Type': 'application/json' };
@@ -74,6 +74,7 @@ async function setup() {
         { name: 'current_arcade_game', type: 'text' },
         { name: 'current_arcade_round', type: 'number' },
         { name: 'questions_ready', type: 'bool' },
+        { name: 'questions_json', type: 'json', options: { maxSize: 2000000 } },
       ]
     });
 

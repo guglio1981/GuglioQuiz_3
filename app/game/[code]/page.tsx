@@ -268,7 +268,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           
           questionsData = await saveQuestions(gameData.id, questions)
-          await setQuestionsReady(gameData.id, true)
         } catch (err) {
           toast.error(`Errore: ${err instanceof Error ? err.message : 'Generazione domande fallita'}`)
           router.push('/')
