@@ -60,8 +60,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         if (!gameData) {
           // Check if we can even reach the DB
           const pb = (await import('@/lib/pocketbase')).getPocketBase()
-          const isConnected = pb.baseUrl.includes('http')
-          toast.error(`Partita ${code.toUpperCase()} non trovata. (DB: ${isConnected ? 'Connesso' : 'Disconnesso'})`)
+          toast.error(`Partita ${code.toUpperCase()} non trovata. Server: ${pb.baseUrl}`)
           router.push('/')
           return
         }
