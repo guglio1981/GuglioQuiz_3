@@ -55,22 +55,30 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
 
     // Load game
     const loadGame = async () => {
-      const gameData = await getGameByCode(code.toUpperCase())
-      if (!gameData) {
-        toast.error('Partita non trovata')
+      try {
+        const gameData = await getGameByCode(code.toUpperCase())
+        if (!gameData) {
+          // Check if we can even reach the DB
+          const pb = (await import('@/lib/pocketbase')).getPocketBase()
+          const isConnected = pb.baseUrl.includes('http')
+          toast.error(`Partita ${code.toUpperCase()} non trovata. (DB: ${isConnected ? 'Connesso' : 'Disconnesso'})`)
+          router.push('/')
+          return
+        }
+        
+        if (gameData.status !== 'lobby') {
+          toast.error('La partita è già iniziata')
+          router.push('/')
+          return
+        }
+        
+        setGame(gameData)
+        setLoading(false)
+        setShowProfile(true)
+      } catch (err) {
+        toast.error(`Errore tecnico: ${err instanceof Error ? err.message : 'Ignoto'}`)
         router.push('/')
-        return
       }
-      
-      if (gameData.status !== 'lobby') {
-        toast.error('La partita è già iniziata')
-        router.push('/')
-        return
-      }
-      
-      setGame(gameData)
-      setLoading(false)
-      setShowProfile(true)
     }
 
     loadGame()
