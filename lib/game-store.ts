@@ -587,15 +587,34 @@ export function subscribeToAnswers(questionId: string, callback: (answers: Answe
   // Initial fetch
   getAnswersForQuestion(questionId).then(callback)
 
-  pb.collection('answers').subscribe('*', async () => {
-    const answers = await getAnswersForQuestion(questionId)
-    callback(answers)
+  pb.collection('answers').subscribe('*', async (e) => {
+    if (e.record.question_id === questionId) {
+      const answers = await getAnswersForQuestion(questionId)
+      callback(answers)
+    }
   }, {
     filter: `question_id = "${questionId}"`
   }).catch(err => console.error('Answer sub error:', err))
 
   return () => {
     pb.collection('answers').unsubscribe('*')
+  }
+}
+
+export function subscribeToQuestions(gameId: string, callback: (questions: Question[]) => void) {
+  const pb = getPocketBase()
+
+  pb.collection('questions').subscribe('*', async (e) => {
+    if (e.record.game_id === gameId) {
+      const questions = await getQuestions(gameId)
+      callback(questions)
+    }
+  }, {
+    filter: `game_id = "${gameId}"`
+  }).catch(err => console.error('Questions sub error:', err))
+
+  return () => {
+    pb.collection('questions').unsubscribe('*')
   }
 }
 

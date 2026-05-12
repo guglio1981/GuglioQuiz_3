@@ -19,6 +19,7 @@ import {
   subscribeToGame,
   subscribeToPlayers,
   subscribeToAnswers,
+  subscribeToQuestions,
   unsubscribe,
   updateCurrentQuestion,
   updateGameStatus,
@@ -274,53 +275,53 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         setIsGenerating(false)
       }
 
-      // Wait for questions if not host
-      if (questionsData.length === 0) {
-        let isPollingQuestions = false
-        const pollInterval = setInterval(async () => {
-          if (isPollingQuestions) return
-          isPollingQuestions = true
-          try {
-            const polledQuestions = await getQuestions(gameData.id)
-            // Wait until we have all questions (at least the amount configured in gameData)
-            if (polledQuestions.length >= gameData.question_count) {
-              clearInterval(pollInterval)
-              setQuestions(polledQuestions)
-              setPhase('question')
-              setIsTimerActive(true)
-              const now = Date.now()
-              setQuestionStartTime(now)
-            }
-          } catch (err) {
-            console.error("Error polling questions:", err)
-          } finally {
-            isPollingQuestions = false
-          }
-        }, 5000) // Much slower poll (5s) to prevent 429 errors
-
-        // Cleanup on unmount
-        const cleanup = () => clearInterval(pollInterval)
-        
-        // Also set a timeout to prevent infinite polling
-        const timeoutId = setTimeout(() => {
-          clearInterval(pollInterval)
-        }, 120000) // 2 minutes timeout to allow LLM to generate questions
-
-        return () => {
-          cleanup()
-          clearTimeout(timeoutId)
-        }
+      // If we have questions, start the game
+      if (questionsData.length > 0) {
+        setQuestions(questionsData)
+        setPhase('question')
+        setIsTimerActive(true)
+        setQuestionStartTime(Date.now())
       }
-
-      setQuestions(questionsData)
-      setPhase('question')
-      setIsTimerActive(true)
-      const now = Date.now()
-      setQuestionStartTime(now)
     }
 
     loadGame()
   }, [code, router])
+
+  // Subscribe to questions if they are empty (for non-host clients waiting for generation)
+  useEffect(() => {
+    if (!game?.id || questions.length > 0) return
+
+    // If we're stuck for too long (45s), try one last fetch and force start if we have something
+    const safetyTimeout = setTimeout(async () => {
+      if (questions.length === 0) {
+        const fallbackQuestions = await getQuestions(game.id)
+        if (fallbackQuestions.length > 0) {
+          setQuestions(fallbackQuestions)
+          setPhase('question')
+          setIsTimerActive(true)
+          setQuestionStartTime(Date.now())
+        } else {
+          toast.error("Errore nel caricamento domande. Riprova.")
+        }
+      }
+    }, 45000)
+
+    const questionsSub = subscribeToQuestions(game.id, (updatedQuestions) => {
+      // Start game as soon as we have enough questions
+      // or at least more than we had before
+      if (updatedQuestions.length >= (game?.question_count || 1)) {
+        setQuestions(updatedQuestions)
+        setPhase('question')
+        setIsTimerActive(true)
+        setQuestionStartTime(Date.now())
+      }
+    })
+
+    return () => {
+      unsubscribe(questionsSub)
+      clearTimeout(safetyTimeout)
+    }
+  }, [game?.id, questions.length, game?.question_count])
 
   // Remove player when browser closes
   useEffect(() => {
