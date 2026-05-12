@@ -75,6 +75,7 @@ async function setup() {
         { name: 'current_arcade_round', type: 'number' },
         { name: 'questions_ready', type: 'bool' },
         { name: 'questions_json', type: 'json', options: { maxSize: 2000000 } },
+        { name: 'phase', type: 'text' },
       ]
     });
 

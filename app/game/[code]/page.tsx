@@ -23,6 +23,7 @@ import {
   unsubscribe,
   updateCurrentQuestion,
   updateGameStatus,
+  updateGamePhase,
   setQuestionsReady,
   resetPlayersForNewManche,
   syncLeaderboardPhase,
@@ -279,9 +280,19 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       // If we have questions AND they are ready, start the game
       if (questionsData.length > 0 && gameData.questions_ready) {
         setQuestions(questionsData)
-        setPhase('question')
-        setIsTimerActive(true)
-        setQuestionStartTime(Date.now())
+        
+        // Use phase from DB if it exists, otherwise default to question if host is starting
+        const initialPhase = (gameData.phase as GamePhase) || (isHost ? 'question' : 'loading')
+        setPhase(initialPhase)
+        
+        if (isHost && !gameData.phase) {
+          updateGamePhase(gameData.id, 'question').catch(console.error)
+        }
+        
+        if (initialPhase === 'question' || initialPhase === 'reveal') {
+          setIsTimerActive(initialPhase === 'question')
+          setQuestionStartTime(Date.now())
+        }
       }
     }
 
@@ -368,12 +379,30 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         }
       }
 
-      // Sync leaderboard phase (for non-host players)
+      // Sync phase (for non-host players)
+      if (!latestIsHost && updatedGame.phase && updatedGame.phase !== latestRef.current.phase) {
+        const newPhase = updatedGame.phase as GamePhase
+        setPhase(newPhase)
+        
+        // Handle specific logic when entering a phase
+        if (newPhase === 'question') {
+          setIsTimerActive(true)
+          setQuestionStartTime(Date.now())
+          setHasAnswered(false)
+          setSelectedAnswer(null)
+          setAnswers([])
+        } else if (newPhase === 'reveal') {
+          setIsTimerActive(false)
+          isRevealingRef.current = true
+        }
+      }
+
+      // Sync leaderboard phase (legacy support)
       if (!latestIsHost && updatedGame.topic_selection_mode === 'leaderboard') {
         setPhase('leaderboard')
       }
       
-      // Sync finished phase (for non-host players)
+      // Sync finished phase (legacy support)
       if (!latestIsHost && updatedGame.topic_selection_mode === 'finished') {
         setPhase('finished')
       }
@@ -506,8 +535,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     setQuestionScore(null)
     setMyResponseTime(null)
     
-    if (isHost) {
+    if (isHost && game) {
       await updateCurrentQuestion(game.id, nextIndex + 1, true)
+      await updateGamePhase(game.id, 'question')
     }
   }, [game, currentQuestionIndex, isHost])
 
@@ -540,6 +570,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
     setPhase('reveal')
     setIsTimerActive(false)
+    if (latestIsHost && latestGame) {
+      updateGamePhase(latestGame.id, 'reveal').catch(console.error)
+    }
 
     // Get the player's answer
     const myAnswer = latestAnswers.find(a => a.player_id === latestPlayerId)

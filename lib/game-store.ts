@@ -224,6 +224,17 @@ export async function setQuestionsReady(gameId: string, ready: boolean): Promise
   }
 }
 
+export async function updateGamePhase(gameId: string, phase: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, { phase })
+    return true
+  } catch (error) {
+    console.error('Error updating game phase:', error)
+    return false
+  }
+}
+
 // Helper to capitalize first letter of name
 function capitalizeFirstLetter(str: string): string {
   if (!str) return str
