@@ -24,7 +24,7 @@ export async function GET() {
     }
     
     // Get user details for those who have subscriptions
-    const users = await pb.collection('users').getFullList({
+    const users = await pb.collection('app_users').getFullList({
       filter: userIds.map(id => `id="${id}"`).join(' || '),
       fields: 'id,username,avatar,avatar_url'
     });
