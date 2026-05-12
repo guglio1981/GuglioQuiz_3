@@ -303,12 +303,25 @@ function SettingsPageContent() {
       arcadeFrequency: arcadeEnabled && selectedArcadeGames.length > 0 ? arcadeFrequency : undefined,
     }
 
+    const generateUUID = () => {
+      if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID()
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0
+        const v = c === 'x' ? r : (r & 0x3 | 0x8)
+        return v.toString(16)
+      })
+    }
+
+    setIsLoading(true)
+
     try {
       if (isMancheMode && existingGameCode) {
         // Update existing game for new manche
         const existingGame = await getGameByCode(existingGameCode)
         if (!existingGame) {
-          toast.error('Partita non trovata')
+          toast.error('Partita esistente non trovata')
           setIsLoading(false)
           return
         }
@@ -321,10 +334,10 @@ function SettingsPageContent() {
         router.push(`/lobby/${existingGameCode}`)
       } else {
         // Create new game - generate a unique host ID
-        const hostId = crypto.randomUUID()
+        const hostId = generateUUID()
         const newGame = await createGame(hostId, settings)
         if (!newGame) {
-          toast.error('Errore nella creazione della partita')
+          toast.error('Errore nella creazione della partita (nessun oggetto restituito)')
           setIsLoading(false)
           return
         }
@@ -343,15 +356,16 @@ function SettingsPageContent() {
           sessionStorage.setItem('guglioquiz_gameCode', newGame.code)
           router.push(`/lobby/${newGame.code}`)
         } else {
-          toast.error('Errore durante la creazione del giocatore host')
+          toast.error('Errore durante la creazione del giocatore host (nessun giocatore restituito)')
           setIsLoading(false)
           return
         }
       }
     } catch (error: any) {
       console.error('[v0] Error creating game:', error)
-      const errorMsg = error?.message || (typeof error === 'string' ? error : 'Errore sconosciuto');
-      toast.error(`Errore nella creazione della partita: ${errorMsg}`)
+      const errorName = error?.name || 'Error'
+      const errorMsg = error?.message || (typeof error === 'string' ? error : 'Errore sconosciuto')
+      toast.error(`Errore (${errorName}): ${errorMsg}`)
       setIsLoading(false)
     }
   }
