@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // @ts-nocheck
 'use client'
 
@@ -573,3 +574,4 @@ export default function FriendsPage() {
     </main>
   )
 }
+
