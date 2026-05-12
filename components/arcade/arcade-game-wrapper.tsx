@@ -1,6 +1,5 @@
 'use client'
-
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { type ArcadeGame, ARCADE_GAME_LABELS } from '@/lib/types'
@@ -74,7 +73,7 @@ interface ArcadeGameWrapperProps {
   hasCompleted?: boolean
 }
 
-export function ArcadeGameWrapper({
+export const ArcadeGameWrapper = memo(function ArcadeGameWrapper({
   game,
   playerId,
   playerName,
