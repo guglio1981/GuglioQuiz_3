@@ -736,23 +736,23 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     let fallbackTimer: NodeJS.Timeout
 
     if (phase === 'question') {
-      // Se il tempo della domanda scade + 6 secondi di grazia e non abbiamo ricevuto l'evento reveal
+      // Fallback: se dopo tempo + 10s non abbiamo ricevuto il reveal, forza sync
       fallbackTimer = setTimeout(async () => {
         const updatedGame = await getGameByCode(game.code)
         if (updatedGame && updatedGame.phase && updatedGame.phase !== 'question') {
           console.log('[DIAG] Client Fallback: Recuperato stato perso da question a', updatedGame.phase)
-          setGame(updatedGame) // Provoca l'aggiornamento React
+          setGame(updatedGame)
         }
-      }, SCORING.TIME_LIMIT_MS + 6000)
+      }, SCORING.TIME_LIMIT_MS + 10000)
     } else if (phase === 'reveal') {
-      // Se siamo nella fase reveal da più di 10 secondi (all'host ne bastano 3 per cambiare)
+      // Fallback: se in reveal da più di 20s, sync con server
       fallbackTimer = setTimeout(async () => {
         const updatedGame = await getGameByCode(game.code)
         if (updatedGame && (updatedGame.current_question > currentQuestionIndex + 1 || updatedGame.phase !== 'reveal')) {
           console.log('[DIAG] Client Fallback: Recuperato stato perso da reveal a', updatedGame.phase)
           setGame(updatedGame)
         }
-      }, 10000)
+      }, 20000)
     }
 
     return () => clearTimeout(fallbackTimer)
@@ -875,8 +875,8 @@ const handleNextFromLeaderboard = async () => {
     // Initial fetch
     fetchAndCheckResults()
 
-    // Poll every 2 seconds as fallback
-    const pollInterval = setInterval(fetchAndCheckResults, 2000)
+    // Poll every 8 seconds as fallback (subscription handles real-time)
+    const pollInterval = setInterval(fetchAndCheckResults, 8000)
 
     // Also subscribe to realtime
     const channel = subscribeToArcadeResults(game!.id, arcadeRound, fetchAndCheckResults)
