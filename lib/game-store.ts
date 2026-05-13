@@ -640,15 +640,27 @@ export function subscribeToPlayers(gameId: string, callback: (players: Player[])
 export function subscribeToAnswers(questionId: string, callback: (answers: Answer[]) => void) {
   const pb = getPocketBase()
 
-  // Initial fetch
-  getAnswersForQuestion(questionId).then(callback)
+  // Local map so SSE events update the answer list WITHOUT an extra HTTP round-trip.
+  // Key = player_id to handle create/update/delete idempotently.
+  const localAnswers = new Map<string, Answer>()
+
+  // Initial fetch — populate the local map once
+  getAnswersForQuestion(questionId).then(answers => {
+    answers.forEach(a => localAnswers.set(a.player_id, a))
+    callback([...localAnswers.values()])
+  })
 
   let unsubFn: (() => void) | null = null
-  pb.collection('answers').subscribe('*', async (e) => {
-    if (e.record.question_id === questionId) {
-      const answers = await getAnswersForQuestion(questionId)
-      callback(answers)
+  pb.collection('answers').subscribe('*', (e) => {
+    if (e.record.question_id !== questionId) return
+    if (e.action === 'delete') {
+      localAnswers.delete(e.record.player_id)
+    } else {
+      // create or update — upsert by player_id
+      localAnswers.set(e.record.player_id, e.record as unknown as Answer)
     }
+    // Fire callback immediately from the SSE event — no extra HTTP request needed
+    callback([...localAnswers.values()])
   }, {
     filter: `question_id = "${questionId}"`
   }).then(fn => { unsubFn = fn }).catch(err => console.error('Answer sub error:', err))
