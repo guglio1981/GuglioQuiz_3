@@ -23,9 +23,9 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/wa-preview.png?v=3',
-        width: 600,
-        height: 315,
+        url: '/logo-gq.png',
+        width: 2048,
+        height: 2048,
         type: 'image/png',
         alt: 'GuglioQuiz',
       },
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'GuglioQuiz - Sfida i tuoi amici!',
     description: 'Il quiz multiplayer dove la conoscenza incontra la velocita. Sfida i tuoi amici!',
-    images: ['/wa-preview.png?v=3'],
+    images: ['/logo-gq.png'],
   },
 }
 

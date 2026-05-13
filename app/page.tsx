@@ -295,6 +295,12 @@ function HomePageContent() {
       toast.success('Accesso effettuato!')
       setLoginUsername('')
       setLoginPassword('')
+      // Auto-enable push notifications on login (silent — no error toast)
+      if (!isNotificationDenied()) {
+        setupPushNotifications().then(result => {
+          if (result.success) setPushEnabled(true)
+        }).catch(() => {})
+      }
     } catch {
       toast.error('Errore di connessione')
     }
@@ -372,6 +378,12 @@ function HomePageContent() {
       setSignupAvatar(null)
       setSignupAvatarUrl(null)
       setSignupAvatarFile(null)
+      // Auto-enable push notifications on signup (silent)
+      if (!isNotificationDenied()) {
+        setupPushNotifications().then(result => {
+          if (result.success) setPushEnabled(true)
+        }).catch(() => {})
+      }
     } catch {
       toast.error('Errore di connessione')
     }
