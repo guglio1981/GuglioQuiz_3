@@ -878,8 +878,13 @@ const handleNextFromLeaderboard = async () => {
     // Poll every 8 seconds as fallback (subscription handles real-time)
     const pollInterval = setInterval(fetchAndCheckResults, 8000)
 
-    // Also subscribe to realtime
-    const channel = subscribeToArcadeResults(game!.id, arcadeRound, fetchAndCheckResults)
+    // Subscribe to realtime — update arcadeResults state directly so the leaderboard
+    // always shows the latest positions/points even after allCompleted = true
+    const channel = subscribeToArcadeResults(game!.id, arcadeRound, (freshResults) => {
+      if (isMounted) setArcadeResults(freshResults)
+      // Also trigger completion check if not yet completed
+      if (!allCompleted) fetchAndCheckResults()
+    })
 
     return () => {
       isMounted = false
