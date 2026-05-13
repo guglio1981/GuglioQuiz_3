@@ -89,7 +89,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [hasCompletedArcade, setHasCompletedArcade] = useState(false)
   const [lastManche, setLastManche] = useState(0)
   const [isClickable, setIsClickable] = useState(false) // Previene click accidentali su iOS
-  const [isNewMancheProcessing, setIsNewMancheProcessing] = useState(false)
+  const [newMancheAction, setNewMancheAction] = useState<'keep' | 'reset' | null>(null)
   
   // Memoize player calculations to avoid expensive filter/find on every render
   const sortedPlayers = useMemo(() => {
@@ -703,10 +703,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     if (phase !== 'question' || !currentQuestion) return
     console.log('[DIAG] Answer check: answers', answers.length, 'players', players.length, 'phase', phase)
-    if (answers.length >= players.length && players.length > 0) {
+    // Guard: only auto-reveal if at least 800ms have passed since question started
+    // Prevents spurious immediate triggers on manche transition
+    if (answers.length >= players.length && players.length > 0 && questionStartTime > 0 && Date.now() - questionStartTime >= 800) {
       handleReveal()
     }
-  }, [answers.length, players.length, phase, currentQuestion, handleReveal])
+  }, [answers.length, players.length, phase, currentQuestion, handleReveal, questionStartTime])
 
   // Host-side fallback: Force reveal if time is up and some players disconnected/didn't answer
   useEffect(() => {
@@ -777,17 +779,21 @@ const handleNextFromLeaderboard = async () => {
   }
 
   const handleNewManche = async (resetScores: boolean) => {
-    if (!game || isNewMancheProcessing) return
-    setIsNewMancheProcessing(true)
+    if (!game || newMancheAction !== null) return
+    setNewMancheAction(resetScores ? 'reset' : 'keep')
 
-    // Set phase to 'loading' FIRST so clients don't re-trigger handleReveal
-    // when subsequent game update events still carry phase='reveal' in the DB
+    // 1. Set phase to 'loading' FIRST so clients don't re-trigger handleReveal
+    //    when subsequent game update events still carry phase='reveal' in the DB
     await updateGamePhase(game.id, 'loading')
-    await resetPlayersForNewManche(game.id, resetScores)
-    await clearAnswersForGame(game.id)
-    // Clear game settings so clients see "waiting for host" in lobby
-    await clearGameSettingsForNewManche(game.id)
-    await updateGameStatus(game.id, 'lobby')
+
+    // 2. Set lobby status + cleanup in parallel — clients redirect as soon as
+    //    status='lobby' arrives, cleanup happens concurrently
+    await Promise.all([
+      updateGameStatus(game.id, 'lobby'),
+      resetPlayersForNewManche(game.id, resetScores),
+      clearAnswersForGame(game.id),
+      clearGameSettingsForNewManche(game.id),
+    ])
 
     // Set flag to prevent beforeunload from removing player
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
@@ -880,12 +886,14 @@ const handleNextFromLeaderboard = async () => {
     if (game) {
       await clearCurrentArcadeGame(game.id)
     }
+    // Call goToNextQuestion BEFORE setCurrentArcadeGame(null) so React batches
+    // phase='question' and currentArcadeGame=null together in one render,
+    // avoiding the blank screen caused by arcade condition failing before
+    // question condition is ready
+    goToNextQuestion()
     setCurrentArcadeGame(null)
     setHasCompletedArcade(false)
     setArcadeResults([])
-
-    // Go directly to next question after arcade
-    goToNextQuestion()
   }
 
   const handleAbortMatch = async () => {
@@ -984,21 +992,21 @@ const handleNextFromLeaderboard = async () => {
             <>
               <Button
                 onClick={() => handleNewManche(false)}
-                disabled={isNewMancheProcessing}
+                disabled={newMancheAction !== null}
                 size="lg"
                 className="w-full h-14 text-sm md:text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 whitespace-normal"
               >
-                {isNewMancheProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
+                {newMancheAction === 'keep' ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
                 <span>Nuova Manche (mantieni punteggi)</span>
               </Button>
               <Button
                 onClick={() => handleNewManche(true)}
-                disabled={isNewMancheProcessing}
+                disabled={newMancheAction !== null}
                 size="lg"
                 className="w-full h-14 text-sm md:text-lg font-bold whitespace-normal"
                 variant="secondary"
               >
-                {isNewMancheProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
+                {newMancheAction === 'reset' ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
                 <span>Nuova Manche (azzera punteggi)</span>
               </Button>
               <Button

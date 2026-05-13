@@ -933,7 +933,7 @@ setIsStarting(true)
               {/* Legend */}
               <div className="flex flex-wrap items-center gap-4 mb-6 p-3 rounded-xl bg-muted/30 border border-border/50 text-xs font-medium">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
+                  <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]"></div>
                   <span>I tuoi</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -969,20 +969,20 @@ setIsStarting(true)
                       style={isUnavailable ? { borderWidth: '2px', borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.2)', boxShadow: '0 0 20px rgba(34,197,94,0.4)' } : {}}
                       className={cn(
                         'flex items-center gap-3 p-3 rounded-lg border-2 transition-all relative text-left',
-                        isClickable ? 'cursor-pointer hover:border-primary/50' : 'cursor-not-allowed',
+                        isClickable ? 'cursor-pointer hover:border-yellow-500/50' : 'cursor-not-allowed',
                         isMine
-                          ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(var(--primary),0.1)]'
+                          ? 'bg-yellow-500/10 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.15)]'
                           : isUnavailable
                             ? '' // Styles applied via style prop to bypass JIT compilation issues
-                            : 'bg-card border-border hover:border-primary/40'
+                            : 'bg-card border-border hover:border-yellow-500/40'
                       )}
                     >
                       <Icon className={cn(
                         'h-4 w-4 shrink-0',
-                        isMine 
-                          ? 'text-primary' 
-                          : isUnavailable 
-                            ? 'text-green-500' 
+                        isMine
+                          ? 'text-yellow-500'
+                          : isUnavailable
+                            ? 'text-green-500'
                             : 'text-muted-foreground'
                       )} />
                       <span className="text-sm font-medium text-foreground">
