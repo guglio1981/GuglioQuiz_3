@@ -555,7 +555,10 @@ setIsStarting(true)
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <img src="/logo-gq.png" alt="GQ" className="w-20 h-20 mx-auto animate-pulse" />
+          <div className="relative w-40 h-40 flex items-center justify-center mx-auto">
+            <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent animate-spin" />
+            <img src="/logo-gq.png" alt="GQ" className="w-28 h-28 rounded-full" />
+          </div>
           <p className="text-muted-foreground text-lg">Caricamento lobby...</p>
         </div>
       </div>
@@ -679,7 +682,7 @@ setIsStarting(true)
                     {game.question_count} domande
                   </Badge>
                   <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30 text-foreground">
-                    {game.difficulty === 'difficile' ? 'Difficile' : 'Intermedia'}
+                    {game.difficulty === 'difficile' ? 'Livello Difficile' : 'Livello Intermedio'}
                   </Badge>
                   <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30 text-foreground">
                     {game.max_abstentions} {game.max_abstentions === 1 ? 'astensione' : 'astensioni'}
@@ -710,7 +713,7 @@ setIsStarting(true)
                   {game.topics.length === 0 ? (
                     <span className="text-xs text-muted-foreground italic">Nessun argomento selezionato</span>
                   ) : game.topics.length >= TOPICS.length ? (
-                    <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-foreground">Tutto</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-foreground">Tutti</Badge>
                   ) : game.topics.map((topic) => (
                     <Badge key={topic} variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-foreground">
                       {TOPIC_LABELS[topic as keyof typeof TOPIC_LABELS]}
