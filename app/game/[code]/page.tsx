@@ -514,12 +514,30 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('online', handleOnline)
-    
+
+    // Polling fallback: SSE can miss the host-deleted event when the host
+    // closes the tab on desktop (sendBeacon sometimes doesn't reach the server).
+    // Poll every 6s — only for non-host clients, stops once host is confirmed gone.
+    let hostGoneDetected = false
+    const hostPollInterval = setInterval(async () => {
+      if (latestRef.current.isHost || hostGoneDetected) return
+      try {
+        const freshPlayers = await getPlayers(gameIdForSub)
+        if (freshPlayers.length > 0 && !freshPlayers.some(p => p.is_host)) {
+          hostGoneDetected = true
+          clearInterval(hostPollInterval)
+          setHostDisconnected(true)
+          setTimeout(() => { sessionStorage.clear(); window.location.href = '/' }, 3000)
+        }
+      } catch { /* ignore network errors */ }
+    }, 6000)
+
     return () => {
       unsubscribe(gameChannel)
       unsubscribe(playersChannel)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('online', handleOnline)
+      clearInterval(hostPollInterval)
     }
   }, [gameIdForSub, code])
 
