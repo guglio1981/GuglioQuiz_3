@@ -685,24 +685,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
     setQuestionScore(score)
 
-    // Process answers and update scores (host only)
-    if (latestIsHost) {
-      await processAnswers(
-        latestGame.id,
-        latestQuestion.id,
-        latestQuestion.correct_answer,
-        latestGame.max_abstentions,
-        latestQIdx === 0,
-        latestGame.game_profile || 'timed'
-      )
-
-      // Refresh players to get updated scores
-      const updatedPlayers = await getPlayers(latestGame.id)
-      setPlayers(updatedPlayers)
-    }
-
     const processNextPhase = () => {
-      // Re-read from ref in case state changed during the await above
       const { isHost: nowIsHost, game: nowGame } = latestRef.current
       const questionNum = latestQIdx + 1
       const isLastQuestion = questionNum === latestQuestions.length
@@ -710,8 +693,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
       if (isLastQuestion) {
         if (nowIsHost && nowGame) {
-          // Sync BOTH topic_selection_mode (legacy) AND phase field so clients
-          // receive the transition via two independent mechanisms
           syncLeaderboardPhase(nowGame.id, 'finished').catch(console.error)
           updateGamePhase(nowGame.id, 'finished').catch(console.error)
         }
@@ -727,12 +708,27 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       }
     }
 
-    // SOLO l'host decide quando si passa alla fase successiva
+    // SOLO l'host decide quando si passa alla fase successiva.
+    // DB calls and minimum display time run in PARALLEL:
+    // total wait = max(DB_time, 400ms) instead of DB_time + 400ms
     if (latestIsHost) {
-      setTimeout(() => {
-        processNextPhase()
-        isRevealingRef.current = false
-      }, 400)
+      await Promise.all([
+        new Promise(resolve => setTimeout(resolve, 400)),
+        (async () => {
+          await processAnswers(
+            latestGame.id,
+            latestQuestion.id,
+            latestQuestion.correct_answer,
+            latestGame.max_abstentions,
+            latestQIdx === 0,
+            latestGame.game_profile || 'timed'
+          )
+          const updatedPlayers = await getPlayers(latestGame.id)
+          setPlayers(updatedPlayers)
+        })(),
+      ])
+      processNextPhase()
+      isRevealingRef.current = false
     } else {
       // Il client rilascia il lock e aspetta l'evento SSE dell'host
       isRevealingRef.current = false
