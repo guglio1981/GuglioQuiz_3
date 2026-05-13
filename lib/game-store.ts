@@ -38,7 +38,7 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
   const code = generateGameCode()
   const pb = getPocketBase()
   
-    const record = await pb.collection('games').create({
+    const record = await withRetry(() => pb.collection('games').create({
       code,
       host_id: hostId,
       topics: settings.topics,
@@ -53,7 +53,7 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       manche: 1,
       current_question: 0,
       questions_ready: false
-    })
+    }))
     return record as unknown as Game
 }
 
@@ -75,7 +75,7 @@ export async function clearGameSettingsForNewManche(gameId: string): Promise<boo
     }))
     
     // Delete all arcade_results for this game to start fresh in new manche
-    const results = await pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
+    const results = await withRetry(() => pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` }))
     await runInBatches(results, 5, r => pb.collection('arcade_results').delete(r.id))
     
     return true
@@ -90,7 +90,7 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
   
   try {
     // Delete old questions first
-    const questions = await pb.collection('questions').getFullList({ filter: `game_id="${gameId}"` })
+    const questions = await withRetry(() => pb.collection('questions').getFullList({ filter: `game_id="${gameId}"` }))
     await runInBatches(questions, 5, q => pb.collection('questions').delete(q.id))
     
     // First read current manche to increment properly
@@ -414,8 +414,8 @@ export async function removeDuplicatePlayers(gameId: string): Promise<void> {
 export async function resetPlayersForNewManche(gameId: string, resetScores: boolean): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    const players = await pb.collection('players').getFullList({ filter: `game_id="${gameId}"` })
-    
+    const players = await withRetry(() => pb.collection('players').getFullList({ filter: `game_id="${gameId}"` }))
+
     const updates: any = {
       abstentions_used: 0,
       ready: false,
@@ -524,9 +524,9 @@ export async function submitAnswerV3(
 export async function clearAnswersForGame(gameId: string): Promise<void> {
   const pb = getPocketBase()
   try {
-    const answers = await pb.collection('answers').getFullList({
+    const answers = await withRetry(() => pb.collection('answers').getFullList({
       filter: `question_id ~ "${gameId}_"`
-    })
+    }))
     await runInBatches(answers, 5, answer => pb.collection('answers').delete(answer.id))
   } catch (error) {
     console.error('Error clearing answers:', error)
@@ -602,11 +602,11 @@ export async function processAnswers(
 
     // Collect all DB writes for this answer
     ops.push(
-      pb.collection('answers').update(answer.id, {
+      withRetry(() => pb.collection('answers').update(answer.id, {
         is_correct: isCorrect,
         points_earned: points,
         points_processed: true,
-      }).catch(e => console.error('Error updating answer:', e))
+      })).catch(e => console.error('Error updating answer:', e))
     )
     if (points !== 0) {
       ops.push(
