@@ -485,12 +485,13 @@ export async function POST(request: Request) {
     // ── Run everything in parallel ──────────────────────────────────────────
     const parallelTasks: Promise<GeneratedQuestion[]>[] = []
 
-    // 1. Trivia DB topics (parallel fetch per topic)
-    for (const topic of triviaTopics) {
-      const categoryId = TRIVIA_CATEGORY_MAP[topic]
-      if (!categoryId) continue
-      parallelTasks.push(
-        fetchTriviaQuestions(categoryId, questionsPerTopic, difficulty, usedHashes).then(triviaQs =>
+    // 1. Trivia DB topics — fetch all topics in parallel, then translate ALL in ONE Groq call
+    //    (avoids N simultaneous Groq requests which would trigger 429 rate-limit errors)
+    if (triviaTopics.length > 0) {
+      const triviaFetches = triviaTopics.map(topic => {
+        const categoryId = TRIVIA_CATEGORY_MAP[topic]
+        if (!categoryId) return Promise.resolve([] as GeneratedQuestion[])
+        return fetchTriviaQuestions(categoryId, questionsPerTopic, difficulty, usedHashes).then(triviaQs =>
           triviaQs.map(q => {
             const options = [...q.incorrect_answers, q.correct_answer]
               .map(decodeHTML)
@@ -501,9 +502,15 @@ export async function POST(request: Request) {
               question_type: 'multiple' as const,
               options,
               correct_answer: decodeHTML(q.correct_answer),
-            }
+            } as GeneratedQuestion
           })
-        ).then(mapped => translateQuestions(mapped))
+        )
+      })
+      // Single translation call for all trivia questions combined
+      parallelTasks.push(
+        Promise.all(triviaFetches)
+          .then(arrays => arrays.flat())
+          .then(all => all.length > 0 ? translateQuestions(all) : [])
           .catch(() => [])
       )
     }
