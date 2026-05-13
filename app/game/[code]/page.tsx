@@ -924,7 +924,7 @@ const handleNextFromLeaderboard = async () => {
   if (phase === 'loading') {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <img src="/logo-gq.png" alt="GQ" className="w-20 h-20 animate-pulse" />
         <p className="text-muted-foreground">
           {isGenerating ? 'Generazione domande in corso...' : 'Caricamento partita...'}
         </p>
@@ -1057,7 +1057,7 @@ const handleNextFromLeaderboard = async () => {
   if (!currentQuestion || !game || !currentPlayer) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <img src="/logo-gq.png" alt="GQ" className="w-20 h-20 animate-pulse" />
         <p className="text-muted-foreground">Caricamento...</p>
       </main>
     )
