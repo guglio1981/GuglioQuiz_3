@@ -607,28 +607,21 @@ export async function processAnswers(
         : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined)
     }
 
-    // Collect all DB writes for this answer
-    ops.push(
-      withRetry(() => pb.collection('answers').update(answer.id, {
-        is_correct: isCorrect,
-        points_earned: points,
-        points_processed: true,
-      })).catch(e => console.error('Error updating answer:', e))
-    )
-    if (points !== 0) {
-      ops.push(
-        updatePlayerScore(player.id, points)
-      )
-    }
-    if (needsAbstentionIncrement) {
-      ops.push(
-        updatePlayerAbstentions(player.id)
-      )
-    }
+    // Each answer's writes are grouped and will be processed sequentially
+    ops.push({ answer, player, isCorrect, points, needsAbstentionIncrement })
   }
 
-  // Fire all writes in parallel — much faster and avoids SSE flooding
-  await Promise.all(ops)
+  // Process answers one at a time — max 3 writes per answer, sequential to avoid 429
+  for (const op of ops as any[]) {
+    const { answer: ans, player: pl, isCorrect: ic, points: pts, needsAbstentionIncrement: nai } = op
+    await withRetry(() => pb.collection('answers').update(ans.id, {
+      is_correct: ic,
+      points_earned: pts,
+      points_processed: true,
+    })).catch(e => console.error('Error updating answer:', e))
+    if (pts !== 0) await updatePlayerScore(pl.id, pts)
+    if (nai) await updatePlayerAbstentions(pl.id)
+  }
 }
 
 // Realtime subscriptions
