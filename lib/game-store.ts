@@ -247,6 +247,19 @@ export async function updateGamePhase(gameId: string, phase: string): Promise<bo
   }
 }
 
+// Sets phase AND status in ONE PocketBase call → clients receive both changes in a single
+// subscription event and redirect to lobby immediately, without waiting for a second update.
+export async function resetGameForNewManche(gameId: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await pb.collection('games').update(gameId, { phase: 'loading', status: 'lobby' })
+    return true
+  } catch (error) {
+    console.error('Error resetting game for new manche:', error)
+    return false
+  }
+}
+
 // Helper to capitalize first letter of name
 function capitalizeFirstLetter(str: string): string {
   if (!str) return str

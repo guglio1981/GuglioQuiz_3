@@ -25,6 +25,7 @@ import {
   updateCurrentQuestion,
   updateGameStatus,
   updateGamePhase,
+  resetGameForNewManche,
   setQuestionsReady,
   resetPlayersForNewManche,
   syncLeaderboardPhase,
@@ -692,7 +693,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       setTimeout(() => {
         processNextPhase()
         isRevealingRef.current = false
-      }, 3000)
+      }, 1500)
     } else {
       // Il client rilascia il lock e aspetta l'evento SSE dell'host
       isRevealingRef.current = false
@@ -784,18 +785,17 @@ const handleNextFromLeaderboard = async () => {
     if (resetScores) setIsResettingScores(true)
     else setIsKeepingScores(true)
 
-    // 1. Set phase to 'loading' FIRST so clients don't re-trigger handleReveal
-    //    when subsequent game update events still carry phase='reveal' in the DB
-    await updateGamePhase(game.id, 'loading')
+    // 1. Single call: phase='loading' + status='lobby' together → ONE subscription event →
+    //    clients see status='lobby' immediately and redirect to lobby right away.
+    await resetGameForNewManche(game.id)
 
-    // 2. Set lobby status + cleanup in parallel — clients redirect as soon as
-    //    status='lobby' arrives, cleanup happens concurrently
-    await Promise.all([
-      updateGameStatus(game.id, 'lobby'),
+    // 2. Cleanup runs in background — clients are already redirecting to lobby.
+    //    Don't await so the host redirect below is not blocked by slow operations.
+    Promise.all([
       resetPlayersForNewManche(game.id, resetScores),
       clearAnswersForGame(game.id),
       clearGameSettingsForNewManche(game.id),
-    ])
+    ]).catch(console.error)
 
     // Set flag to prevent beforeunload from removing player
     sessionStorage.setItem('guglioquiz_redirecting', 'true')

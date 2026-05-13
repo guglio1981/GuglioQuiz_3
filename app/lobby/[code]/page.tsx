@@ -264,6 +264,18 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     }
   }, [game?.id, currentPlayerId, code])
 
+  // Robust modal trigger: watch game.topic_selection_mode in React state.
+  // The subscription callback can be missed if the client connects after the host
+  // already activated collaborative selection. This useEffect covers that case too.
+  useEffect(() => {
+    if (!game?.topic_selection_mode) return
+    if (!currentPlayerId) return
+    const me = players.find(p => p.id === currentPlayerId)
+    if (me?.is_host) return
+    if (hasSubmittedTopics) return
+    setShowTopicSelectionModal(true)
+  }, [game?.topic_selection_mode, currentPlayerId, players, hasSubmittedTopics])
+
   const handleCopyCode = async () => {
     await navigator.clipboard.writeText(code)
     setCopied(true)
