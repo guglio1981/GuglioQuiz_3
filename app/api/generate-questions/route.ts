@@ -47,24 +47,39 @@ const AI_ONLY_TOPICS: Topic[] = ['ragionamento_rapido', 'economia_diritto', 'lin
 // Topics with images
 const IMAGE_TOPICS: Topic[] = ['indovina_logo', 'indovina_bandiera', 'indovina_anno']
 
-// Logo data - famous companies/brands
+// Logo data — uses Simple Icons CDN (symbol/icon only, no wordmark text, very reliable)
+// URL format: https://cdn.simpleicons.org/{slug}/ffffff (white icon for dark backgrounds)
 const LOGO_DATA = [
-  { name: 'Apple', url: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' },
-  { name: 'Google', url: 'https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg' },
-  { name: 'Nike', url: 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg' },
-  { name: 'McDonald\'s', url: 'https://upload.wikimedia.org/wikipedia/commons/3/36/McDonald%27s_Golden_Arches.svg' },
-  { name: 'Amazon', url: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' },
-  { name: 'Microsoft', url: 'https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg' },
-  { name: 'Coca-Cola', url: 'https://upload.wikimedia.org/wikipedia/commons/c/ce/Coca-Cola_logo.svg' },
-  { name: 'Adidas', url: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  { name: 'IBM', url: 'https://upload.wikimedia.org/wikipedia/commons/5/51/IBM_logo.svg' },
-  { name: 'Toyota', url: 'https://upload.wikimedia.org/wikipedia/commons/9/9d/Toyota_carlogo.svg' },
-  { name: 'Ford', url: 'https://upload.wikimedia.org/wikipedia/commons/a/a0/Ford_Motor_Company_Logo.svg' },
-  { name: 'Sony', url: 'https://upload.wikimedia.org/wikipedia/commons/c/ca/Sony_logo.svg' },
-  { name: 'Dell', url: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Dell_logo_2016.svg' },
-  { name: 'Slack', url: 'https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg' },
-  { name: 'Android', url: 'https://upload.wikimedia.org/wikipedia/commons/d/d7/Android_robot.svg' },
-  { name: 'Cisco', url: 'https://upload.wikimedia.org/wikipedia/commons/0/08/Cisco_logo_blue_2016.svg' },
+  { name: 'Apple', url: 'https://cdn.simpleicons.org/apple/ffffff' },
+  { name: 'Google', url: 'https://cdn.simpleicons.org/google/ffffff' },
+  { name: 'Nike', url: 'https://cdn.simpleicons.org/nike/ffffff' },
+  { name: 'McDonald\'s', url: 'https://cdn.simpleicons.org/mcdonalds/ffffff' },
+  { name: 'Amazon', url: 'https://cdn.simpleicons.org/amazon/ffffff' },
+  { name: 'Microsoft', url: 'https://cdn.simpleicons.org/microsoft/ffffff' },
+  { name: 'Adidas', url: 'https://cdn.simpleicons.org/adidas/ffffff' },
+  { name: 'IBM', url: 'https://cdn.simpleicons.org/ibm/ffffff' },
+  { name: 'Toyota', url: 'https://cdn.simpleicons.org/toyota/ffffff' },
+  { name: 'Slack', url: 'https://cdn.simpleicons.org/slack/ffffff' },
+  { name: 'Android', url: 'https://cdn.simpleicons.org/android/ffffff' },
+  { name: 'YouTube', url: 'https://cdn.simpleicons.org/youtube/ffffff' },
+  { name: 'Instagram', url: 'https://cdn.simpleicons.org/instagram/ffffff' },
+  { name: 'WhatsApp', url: 'https://cdn.simpleicons.org/whatsapp/ffffff' },
+  { name: 'Telegram', url: 'https://cdn.simpleicons.org/telegram/ffffff' },
+  { name: 'Spotify', url: 'https://cdn.simpleicons.org/spotify/ffffff' },
+  { name: 'Netflix', url: 'https://cdn.simpleicons.org/netflix/ffffff' },
+  { name: 'Twitter / X', url: 'https://cdn.simpleicons.org/x/ffffff' },
+  { name: 'Firefox', url: 'https://cdn.simpleicons.org/firefox/ffffff' },
+  { name: 'Chrome', url: 'https://cdn.simpleicons.org/googlechrome/ffffff' },
+  { name: 'PlayStation', url: 'https://cdn.simpleicons.org/playstation/ffffff' },
+  { name: 'Xbox', url: 'https://cdn.simpleicons.org/xbox/ffffff' },
+  { name: 'Airbnb', url: 'https://cdn.simpleicons.org/airbnb/ffffff' },
+  { name: 'Uber', url: 'https://cdn.simpleicons.org/uber/ffffff' },
+  { name: 'Mastercard', url: 'https://cdn.simpleicons.org/mastercard/ffffff' },
+  { name: 'Visa', url: 'https://cdn.simpleicons.org/visa/ffffff' },
+  { name: 'BMW', url: 'https://cdn.simpleicons.org/bmw/ffffff' },
+  { name: 'Volkswagen', url: 'https://cdn.simpleicons.org/volkswagen/ffffff' },
+  { name: 'Ferrari', url: 'https://cdn.simpleicons.org/ferrari/ffffff' },
+  { name: 'TikTok', url: 'https://cdn.simpleicons.org/tiktok/ffffff' },
 ]
 
 // Flag data - countries with flag URLs
@@ -330,9 +345,13 @@ async function fetchTriviaQuestions(
 async function translateQuestions(questions: GeneratedQuestion[]): Promise<GeneratedQuestion[]> {
   if (questions.length === 0) return []
   
-  const prompt = `Traduci le seguenti domande quiz dall'inglese all'italiano. 
-Mantieni ESATTAMENTE la stessa struttura JSON. La risposta corretta tradotta deve essere IDENTICA a una delle opzioni tradotte.
-Non aggiungere note o commenti, rispondi SOLO con il JSON.
+  const prompt = `Traduci le seguenti domande quiz dall'inglese all'italiano.
+REGOLE FONDAMENTALI:
+1. Usa un italiano naturale e corretto — non una traduzione letterale
+2. Mantieni ESATTAMENTE la stessa struttura JSON
+3. La risposta corretta tradotta deve essere IDENTICA (parola per parola) a una delle opzioni tradotte
+4. Non aggiungere note, commenti o testo fuori dal JSON
+5. Adatta nomi di luoghi/persone/unità di misura in italiano dove appropriato (es. "United States" → "Stati Uniti")
 
 DOMANDE DA TRADURRE:
 ${JSON.stringify(questions, null, 2)}

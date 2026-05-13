@@ -518,11 +518,20 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const handleStartGame = async () => {
     if (!game) return
-    
+
     const allReady = players.every(p => p.is_host || p.ready)
     if (!allReady) {
       toast.error('Tutti i giocatori devono accettare le regole')
       return
+    }
+
+    // If collaborative topic selection is still active, wait for all clients to confirm
+    if (game.topic_selection_mode) {
+      const allTopicsConfirmed = players.filter(p => !p.is_host).every(p => p.topics_confirmed)
+      if (!allTopicsConfirmed) {
+        toast.error('Tutti i giocatori devono confermare la scelta degli argomenti')
+        return
+      }
     }
 
     if (players.length < 1) {
@@ -540,6 +549,8 @@ setIsStarting(true)
   const isHost = currentPlayer?.is_host || false
   isHostRef.current = isHost
   const allPlayersReady = players.every(p => p.is_host || p.ready)
+  const allTopicsConfirmed = !game?.topic_selection_mode || players.filter(p => !p.is_host).every(p => p.topics_confirmed)
+  const canStart = allPlayersReady && allTopicsConfirmed
 
   if (!game || !currentPlayerId || players.length === 0) {
     return (
@@ -743,11 +754,13 @@ setIsStarting(true)
 
         {/* Ready message for host - only show when at least 1 client has joined */}
         {isHost && game.manche_ready && players.filter(p => !p.is_host).length > 0 && (
-          <div className={`text-center py-4 px-6 rounded-xl ${allPlayersReady ? 'bg-green-500' : 'bg-destructive'}`}>
+          <div className={`text-center py-4 px-6 rounded-xl ${canStart ? 'bg-green-500' : 'bg-destructive'}`}>
             <p className="text-white font-semibold text-lg">
-              {allPlayersReady
-                ? 'Tutti pronti! Clicca "Inizia Partita" per avviare.'
-                : 'In attesa che tutti i giocatori accettino le regole...'}
+              {!allPlayersReady
+                ? 'In attesa che tutti i giocatori accettino le regole...'
+                : !allTopicsConfirmed
+                  ? 'In attesa che tutti confermino gli argomenti...'
+                  : 'Tutti pronti! Clicca "Inizia Partita" per avviare.'}
             </p>
           </div>
         )}
@@ -842,12 +855,12 @@ setIsStarting(true)
               <div className="space-y-3 pt-2">
                 <Button
                   onClick={handleStartGame}
-                  disabled={isStarting || !allPlayersReady || players.length < 2}
+                  disabled={isStarting || !canStart || players.length < 2}
                   size="lg"
                   className="w-full h-14 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Play className="mr-2 h-5 w-5" />
-                  {isStarting ? 'Avvio in corso...' : 'Inizia Partita'}
+                  {isStarting ? 'Avvio in corso...' : !allPlayersReady ? 'In attesa dei giocatori...' : !allTopicsConfirmed ? 'In attesa degli argomenti...' : 'Inizia Partita'}
                 </Button>
                 <Button
                   onClick={handleAbortAndGoToSettings}
@@ -1039,16 +1052,22 @@ setIsStarting(true)
                         {TOPIC_LABELS[topic]}
                       </span>
                       
-                      {/* Show avatars or count of others who picked this */}
+                      {/* Show avatars of others who picked this topic */}
                       {isOthers && !isMine && (
                         <div className="absolute top-1 right-1 flex -space-x-1">
                           {othersWithThisTopic.slice(0, 2).map(p => (
-                            <div key={p.id} className="w-4 h-4 rounded-full bg-green-500 border border-background flex items-center justify-center text-[8px] text-white font-bold" title={p.name}>
-                              {p.name.charAt(0)}
+                            <div key={p.id} className={`w-5 h-5 rounded-full border border-background overflow-hidden flex items-center justify-center text-[9px] font-bold ${p.avatar_url ? 'bg-transparent' : (p.avatar ? parseAvatar(p.avatar)?.bg || 'bg-green-500' : 'bg-green-500')}`} title={p.name}>
+                              {p.avatar_url ? (
+                                <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                              ) : p.avatar ? (
+                                <span className={p.avatar.startsWith('initial:') ? 'text-[8px] font-black' : 'text-[10px]'}>{parseAvatar(p.avatar)?.icon}</span>
+                              ) : (
+                                <span className="text-white">{p.name.charAt(0)}</span>
+                              )}
                             </div>
                           ))}
                           {othersWithThisTopic.length > 2 && (
-                            <div className="w-4 h-4 rounded-full bg-green-500 border border-background flex items-center justify-center text-[8px] text-white font-bold">
+                            <div className="w-5 h-5 rounded-full bg-green-500 border border-background flex items-center justify-center text-[8px] text-white font-bold">
                               +{othersWithThisTopic.length - 2}
                             </div>
                           )}

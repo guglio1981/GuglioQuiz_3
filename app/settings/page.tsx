@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 
 import { createGame, addPlayer, getGameByCode, updateGameSettings, updateGameStatus, resetPlayersForNewManche, subscribeToGame, unsubscribe, updateGameTopics, getPlayers, subscribeToPlayers, setTopicSelectionMode as setTopicSelectionModeInDb, resetAllPlayersTopicsConfirmed, setMancheReady, updatePlayerTopics } from '@/lib/game-store'
-import { TOPICS, TOPIC_LABELS, ARCADE_GAMES, ARCADE_GAME_LABELS, ARCADE_GAME_DESCRIPTIONS, type Topic, type Difficulty, type GameProfile, type GameSettings, type PlayerProfile, type ArcadeGame, type Game, type Player } from '@/lib/types'
+import { TOPICS, TOPIC_LABELS, ARCADE_GAMES, ARCADE_GAME_LABELS, ARCADE_GAME_DESCRIPTIONS, parseAvatar, type Topic, type Difficulty, type GameProfile, type GameSettings, type PlayerProfile, type ArcadeGame, type Game, type Player } from '@/lib/types'
 import { toast } from 'sonner'
 import { 
   ArrowLeft, Shuffle, Settings2, Loader2, Hash, Gauge, HandHelping, Gamepad2, Users, X, Check,
@@ -119,11 +119,14 @@ function SettingsPageContent() {
       sessionStorage.setItem('guglioquiz_isHost', 'true')
       
       // Reset all players' ready state immediately when host enters settings
+      // Explicitly clear topics so host starts with a blank slate (not old manche topics)
+      setSelectedTopics([])
+      setMixMode(false)
+
       getGameByCode(codeParam).then(game => {
         if (game) {
           setGame(game)
           resetPlayersForNewManche(game.id, false)
-          // Load players
           getPlayers(game.id).then(setPlayers)
         }
       })
@@ -494,10 +497,18 @@ function SettingsPageContent() {
                     <span className={`text-sm ${(isClientSelected || selectedTopics.includes(topic) || mixMode) ? 'text-foreground font-medium' : 'text-foreground'}`}>{TOPIC_LABELS[topic]}</span>
                     
                     {isClientSelected && (
-                      <div className="absolute top-1 right-1">
-                        <div className="bg-green-500 text-white rounded-full p-0.5 shadow-[0_0_10px_rgba(34,197,94,0.8)]">
-                          <Check className="h-3 w-3" strokeWidth={3} />
-                        </div>
+                      <div className="absolute top-1 right-1 flex -space-x-1">
+                        {clientSelections.slice(0, 2).map(p => (
+                          <div key={p.id} className={`w-5 h-5 rounded-full border border-background overflow-hidden flex items-center justify-center text-[9px] font-bold shadow-[0_0_6px_rgba(34,197,94,0.8)] ${p.avatar_url ? 'bg-transparent' : (p.avatar ? parseAvatar(p.avatar)?.bg || 'bg-green-500' : 'bg-green-500')}`} title={p.name}>
+                            {p.avatar_url ? (
+                              <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : p.avatar ? (
+                              <span className={p.avatar.startsWith('initial:') ? 'text-[8px] font-black' : 'text-[10px]'}>{parseAvatar(p.avatar)?.icon}</span>
+                            ) : (
+                              <span className="text-white">{p.name.charAt(0)}</span>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
