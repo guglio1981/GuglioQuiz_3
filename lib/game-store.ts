@@ -211,7 +211,7 @@ export async function getGameByCode(code: string): Promise<Game | null> {
   const pb = getPocketBase()
   try {
     const normalizedCode = code.trim().toUpperCase()
-    const record = await pb.collection('games').getFirstListItem(`code="${normalizedCode}"`)
+    const record = await withRetry(() => pb.collection('games').getFirstListItem(`code="${normalizedCode}"`))
     return record as unknown as Game
   } catch (error) {
     console.error('getGameByCode error:', error)
@@ -315,9 +315,9 @@ export async function addPlayer(
 export async function getPlayers(gameId: string): Promise<Player[]> {
   const pb = getPocketBase()
   try {
-    const records = await pb.collection('players').getFullList({
+    const records = await withRetry(() => pb.collection('players').getFullList({
       filter: `game_id="${gameId}"`
-    })
+    }))
     return records as unknown as Player[]
   } catch (error) {
     console.error('Error fetching players:', error)
@@ -464,16 +464,16 @@ export async function getQuestions(gameId: string): Promise<Question[]> {
   const pb = getPocketBase()
   try {
     // 1. Try to get questions from the game's JSON field first (fastest)
-    const game = await pb.collection('games').getOne(gameId)
+    const game = await withRetry(() => pb.collection('games').getOne(gameId))
     if (game.questions_json && Array.isArray(game.questions_json) && game.questions_json.length > 0) {
       return game.questions_json as unknown as Question[]
     }
 
     // 2. Fallback to questions collection (legacy)
-    const records = await pb.collection('questions').getFullList({
+    const records = await withRetry(() => pb.collection('questions').getFullList({
       filter: `game_id="${gameId}"`,
       sort: 'question_number'
-    })
+    }))
     return records as unknown as Question[]
   } catch (error) {
     console.error('Error fetching questions:', error)
@@ -536,9 +536,9 @@ export async function clearAnswersForGame(gameId: string): Promise<void> {
 export async function getAnswersForQuestion(questionId: string): Promise<Answer[]> {
   const pb = getPocketBase()
   try {
-    const records = await pb.collection('answers').getFullList({
+    const records = await withRetry(() => pb.collection('answers').getFullList({
       filter: `question_id="${questionId}"`
-    })
+    }))
     return records as unknown as Answer[]
   } catch (error) {
     console.error('Error fetching answers:', error)
@@ -793,10 +793,10 @@ export async function submitArcadeResult(
 export async function getArcadeResults(gameId: string, arcadeRound: number): Promise<ArcadeResult[]> {
   const pb = getPocketBase()
   try {
-    const records = await pb.collection('arcade_results').getFullList({
+    const records = await withRetry(() => pb.collection('arcade_results').getFullList({
       filter: `game_id="${gameId}" && arcade_round=${arcadeRound}`,
       sort: 'raw_score'
-    })
+    }))
     return records as unknown as ArcadeResult[]
   } catch (error) {
     console.error('Error getting arcade results:', error)
