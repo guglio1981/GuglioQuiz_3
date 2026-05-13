@@ -638,13 +638,24 @@ export function subscribeToGame(gameId: string, callback: (game: Game) => void) 
 export function subscribeToPlayers(gameId: string, callback: (players: Player[]) => void) {
   const pb = getPocketBase()
 
-  // Initial fetch
-  getPlayers(gameId).then(callback)
+  // Local map — SSE events update the player list WITHOUT an extra HTTP round-trip.
+  const localPlayers = new Map<string, Player>()
+
+  // Initial fetch — populate map once
+  getPlayers(gameId).then(players => {
+    players.forEach(p => localPlayers.set(p.id, p))
+    callback([...localPlayers.values()])
+  })
 
   let unsubFn: (() => void) | null = null
-  pb.collection('players').subscribe('*', async () => {
-    const players = await getPlayers(gameId)
-    callback(players)
+  pb.collection('players').subscribe('*', (e) => {
+    if (e.record.game_id !== gameId) return
+    if (e.action === 'delete') {
+      localPlayers.delete(e.record.id)
+    } else {
+      localPlayers.set(e.record.id, e.record as unknown as Player)
+    }
+    callback([...localPlayers.values()])
   }, {
     filter: `game_id = "${gameId}"`
   }).then(fn => { unsubFn = fn }).catch(err => {
@@ -872,17 +883,30 @@ export function subscribeToArcadeResults(gameId: string, arcadeRound: number, ca
   // Initial fetch
   getArcadeResults(gameId, arcadeRound).then(callback)
 
-  pb.collection('arcade_results').subscribe('*', async (e) => {
-    if (e.record.game_id === gameId && e.record.arcade_round === arcadeRound) {
-      const results = await getArcadeResults(gameId, arcadeRound)
-      callback(results)
+  // Local map — no extra HTTP call per SSE event
+  const localResults = new Map<string, ArcadeResult>()
+
+  getArcadeResults(gameId, arcadeRound).then(results => {
+    results.forEach(r => localResults.set(r.id, r))
+    callback([...localResults.values()])
+  })
+
+  let unsubFn: (() => void) | null = null
+  pb.collection('arcade_results').subscribe('*', (e) => {
+    if (e.record.game_id !== gameId || e.record.arcade_round !== arcadeRound) return
+    if (e.action === 'delete') {
+      localResults.delete(e.record.id)
+    } else {
+      localResults.set(e.record.id, e.record as unknown as ArcadeResult)
     }
+    callback([...localResults.values()])
   }, {
     filter: `game_id = "${gameId}" && arcade_round = ${arcadeRound}`
-  }).catch(err => console.error('Arcade sub error:', err))
+  }).then(fn => { unsubFn = fn }).catch(err => console.error('Arcade sub error:', err))
 
   return () => {
-    pb.collection('arcade_results').unsubscribe('*')
+    if (unsubFn) unsubFn()
+    else pb.collection('arcade_results').unsubscribe('*')
   }
 }
 
