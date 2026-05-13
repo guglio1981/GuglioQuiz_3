@@ -272,11 +272,7 @@ export async function updateGamePhase(gameId: string, phase: string): Promise<bo
 export async function resetGameForNewManche(gameId: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await withRetry(() => pb.collection('games').update(gameId, {
-      phase: 'loading',
-      status: 'lobby',
-      topic_selection_mode: '',   // clear immediately so clients don't see stale modal
-    }))
+    await withRetry(() => pb.collection('games').update(gameId, { phase: 'loading', status: 'lobby' }))
     return true
   } catch (error) {
     console.error('Error resetting game for new manche:', error)
