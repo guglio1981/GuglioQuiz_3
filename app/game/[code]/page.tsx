@@ -694,7 +694,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       setTimeout(() => {
         processNextPhase()
         isRevealingRef.current = false
-      }, 1500)
+      }, 800)
     } else {
       // Il client rilascia il lock e aspetta l'evento SSE dell'host
       isRevealingRef.current = false
