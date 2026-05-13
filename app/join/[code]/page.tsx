@@ -58,31 +58,37 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
       localStorage.removeItem('guglioquiz_saved_profile')
     }
 
-    // Load game
+    // Load game — retry up to 8 times with growing delay to handle 429s
     const loadGame = async () => {
-      try {
-        const gameData = await getGameByCode(code.toUpperCase())
+      let gameData = null
+      let retries = 8
+      while (retries > 0 && !gameData) {
+        try {
+          gameData = await getGameByCode(code.toUpperCase())
+        } catch {
+          // getGameByCode already retries internally; if it throws, wait and try again
+        }
         if (!gameData) {
-          // Check if we can even reach the DB
-          const pb = (await import('@/lib/pocketbase')).getPocketBase()
-          toast.error(`Partita ${code.toUpperCase()} non trovata. Server: ${pb.baseUrl}`)
-          router.push('/')
-          return
+          retries--
+          if (retries > 0) await new Promise(r => setTimeout(r, 800))
         }
-        
-        if (gameData.status !== 'lobby') {
-          toast.error('La partita è già iniziata')
-          router.push('/')
-          return
-        }
-        
-        setGame(gameData)
-        setLoading(false)
-        setShowProfile(true)
-      } catch (err) {
-        toast.error(`Errore tecnico: ${err instanceof Error ? err.message : 'Ignoto'}`)
-        router.push('/')
       }
+
+      if (!gameData) {
+        toast.error('Partita non trovata. Controlla il codice e riprova.')
+        router.push('/')
+        return
+      }
+
+      if (gameData.status !== 'lobby') {
+        toast.error('La partita è già iniziata')
+        router.push('/')
+        return
+      }
+
+      setGame(gameData)
+      setLoading(false)
+      setShowProfile(true)
     }
 
     loadGame()

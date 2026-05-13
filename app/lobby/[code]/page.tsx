@@ -195,8 +195,8 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       }
     }
     
-    // Fast fallback polling (every 2s) — catches missed SSE events, especially
-    // "status=playing" which would leave clients stuck on lobby indefinitely.
+    // Fallback polling (every 5s) — catches missed SSE "status=playing" events.
+    // Only fetches game (1 req), NOT players — players update via subscription local map.
     pollInterval = setInterval(async () => {
       if (!game?.id || isRedirecting) return
       try {
@@ -209,14 +209,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           return
         }
         setGame(updatedGame)
-        const updatedPlayers = await getPlayers(game.id)
-        if (updatedPlayers && updatedPlayers.length > 0) {
-          setPlayers(updatedPlayers)
-        }
       } catch (e) {
         console.error("Poll failed:", e)
       }
-    }, 2000)
+    }, 5000)
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
