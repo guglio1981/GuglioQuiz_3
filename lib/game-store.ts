@@ -108,10 +108,11 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
       current_question: 0,
-      topic_selection_mode: '',
       manche: nextManche,
       questions_json: [],
       questions_ready: false,
+      // topic_selection_mode intentionally NOT reset here:
+      // it stays active so the lobby gate blocks start until all clients confirm
     }))
 
     return true
