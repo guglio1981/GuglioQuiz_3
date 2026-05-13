@@ -99,7 +99,6 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       }
 
       if (!gameData) {
-        console.log('[v0] Game not found after retries')
         toast.error('Partita non trovata')
         router.push('/')
         return

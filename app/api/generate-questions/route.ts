@@ -587,12 +587,9 @@ export async function POST(request: Request) {
     let fillAttempts = 0
     while (allQuestions.length < count && fillAttempts < 5) {
       const remaining = count - allQuestions.length
-      console.log(`[API] Short by ${remaining} questions. Fill attempt ${fillAttempts + 1}...`)
       try {
-        // Request 50% more than needed to be sure
         const requestCount = Math.max(remaining + 2, Math.ceil(remaining * 1.5))
         const fillQs = await generateAIQuestions(topics, requestCount, difficulty, usedHashes, seed + 100 + fillAttempts, usedQuestionTexts)
-        console.log(`[API] Generated ${fillQs.length} filling questions.`)
         allQuestions.push(...fillQs)
       } catch (e) {
         console.error(`[API] Fill attempt ${fillAttempts} failed:`, e)

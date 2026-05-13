@@ -10,9 +10,9 @@ import { QuizTimer } from '@/components/quiz-timer'
 import { AbstentionDots } from '@/components/abstention-dots'
 import { Leaderboard } from '@/components/leaderboard'
 import { 
-  getGameByCode, 
-  getPlayers, 
-  getQuestions, 
+  getGameByCode,
+  getPlayers,
+  getQuestions,
   saveQuestions,
   submitAnswerV3,
   getAnswersForQuestion,
@@ -20,13 +20,11 @@ import {
   subscribeToGame,
   subscribeToPlayers,
   subscribeToAnswers,
-  subscribeToQuestions,
   unsubscribe,
   updateCurrentQuestion,
   updateGameStatus,
   updateGamePhase,
   resetGameForNewManche,
-  setQuestionsReady,
   resetPlayersForNewManche,
   syncLeaderboardPhase,
   clearGameSettingsForNewManche,
@@ -572,8 +570,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
   const goToNextQuestion = useCallback(async () => {
     if (!game) return
-    console.log('[DIAG] goToNextQuestion called, next index:', currentQuestionIndex + 1)
-
     const nextIndex = currentQuestionIndex + 1
     setCurrentQuestionIndex(nextIndex)
     setSelectedAnswer(null)
@@ -617,7 +613,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     // Prevent double calls using ref
     if (isRevealingRef.current) return
     isRevealingRef.current = true
-    console.log('[DIAG] handleReveal START q:', latestQIdx, 'answers:', latestAnswers.length, 'players:', latestPlayers.length)
 
     setPhase('reveal')
     setIsTimerActive(false)
@@ -710,7 +705,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   // Check if all players answered
   useEffect(() => {
     if (phase !== 'question' || !currentQuestion) return
-    console.log('[DIAG] Answer check: answers', answers.length, 'players', players.length, 'phase', phase)
     // Guard: only auto-reveal if at least 800ms have passed since question started
     // Prevents spurious immediate triggers on manche transition
     if (answers.length >= players.length && players.length > 0 && questionStartTime > 0 && Date.now() - questionStartTime >= 800) {

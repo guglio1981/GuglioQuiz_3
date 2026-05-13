@@ -245,17 +245,6 @@ export async function updateCurrentQuestion(gameId: string, questionNumber: numb
   }
 }
 
-export async function setQuestionsReady(gameId: string, ready: boolean): Promise<boolean> {
-  const pb = getPocketBase()
-  try {
-    await withRetry(() => pb.collection('games').update(gameId, { questions_ready: ready }))
-    return true
-  } catch (error) {
-    console.error('Error setting questions_ready:', error)
-    return false
-  }
-}
-
 export async function updateGamePhase(gameId: string, phase: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
@@ -275,10 +264,11 @@ export async function resetGameForNewManche(gameId: string): Promise<boolean> {
     await withRetry(() => pb.collection('games').update(gameId, {
       phase: 'loading',
       status: 'lobby',
-      topic_selection_mode: '',   // clear immediately so clients don't see stale modal
-      topics: [],                  // clear topics so collaborative modal doesn't open with old topics
+      topic_selection_mode: '',
+      topics: [],
       questions_json: [],
       questions_ready: false,
+      manche_ready: false,         // clients see "waiting for host" immediately
     }))
     return true
   } catch (error) {
@@ -389,32 +379,6 @@ export async function deletePlayer(playerId: string, gameId?: string): Promise<b
   } catch (error) {
     console.error('Error deleting player:', error)
     return false
-  }
-}
-
-export async function removeDuplicatePlayers(gameId: string): Promise<void> {
-  const pb = getPocketBase()
-  const players = await getPlayers(gameId)
-  
-  // Group players by name
-  const playersByName = new Map<string, Player[]>()
-  for (const player of players) {
-    const existing = playersByName.get(player.name) || []
-    existing.push(player)
-    playersByName.set(player.name, existing)
-  }
-  
-  // For each name with duplicates, keep only the first (oldest) one
-  for (const [, duplicates] of playersByName) {
-    if (duplicates.length > 1) {
-      // Sort by created, keep the first one
-      duplicates.sort((a, b) => new Date(a.created || '').getTime() - new Date(b.created || '').getTime())
-      const toDelete = duplicates.slice(1)
-      
-      for (const player of toDelete) {
-        await pb.collection('players').delete(player.id)
-      }
-    }
   }
 }
 
@@ -701,25 +665,6 @@ export function subscribeToAnswers(questionId: string, callback: (answers: Answe
   }
 }
 
-export function subscribeToQuestions(gameId: string, callback: (questions: Question[]) => void) {
-  const pb = getPocketBase()
-
-  let unsubFn: (() => void) | null = null
-  pb.collection('questions').subscribe('*', async (e) => {
-    if (e.record.game_id === gameId) {
-      const questions = await getQuestions(gameId)
-      callback(questions)
-    }
-  }, {
-    filter: `game_id = "${gameId}"`
-  }).then(fn => { unsubFn = fn }).catch(err => console.error('Questions sub error:', err))
-
-  return () => {
-    if (unsubFn) unsubFn()
-    else pb.collection('questions').unsubscribe('*')
-  }
-}
-
 // Unsubscribe is handled directly by returning the unsub function in the new design,
 // but for backward compatibility with the components:
 export function unsubscribe(unsubscribeFunc: any) {
@@ -879,12 +824,10 @@ export async function processArcadeResults(
 export function subscribeToArcadeResults(gameId: string, arcadeRound: number, callback: (results: ArcadeResult[]) => void) {
   const pb = getPocketBase()
 
-  // Initial fetch
-  getArcadeResults(gameId, arcadeRound).then(callback)
-
   // Local map — no extra HTTP call per SSE event
   const localResults = new Map<string, ArcadeResult>()
 
+  // Initial fetch — populate map once
   getArcadeResults(gameId, arcadeRound).then(results => {
     results.forEach(r => localResults.set(r.id, r))
     callback([...localResults.values()])
