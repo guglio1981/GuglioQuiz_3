@@ -347,15 +347,17 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     }
 
     if (isMine) {
-      // Remove from my list
+      // Optimistic: remove immediately so topic goes grey right away (no green flash)
       const newMyTopics = mySelectedTopics.filter(t => t !== topic)
+      setMySelectedTopics(newMyTopics)
       const success = await updatePlayerTopics(currentPlayerId!, newMyTopics)
       if (success) {
-        setMySelectedTopics(newMyTopics)
-        // Only remove from global list if NO ONE ELSE has it (including host, but host has no selected_topics. Wait, host topics are just in game.topics. If host selected it, othersWithThisTopic is 0. But wait, if host selected it, we shouldn't let clients modify it anyway, which we checked above! So if we are here, it's NOT a host topic.)
         if (othersWithThisTopic.length === 0) {
           await toggleGameTopic(game.id, topic, 'remove')
         }
+      } else {
+        // Revert on failure
+        setMySelectedTopics(mySelectedTopics)
       }
     } else if (isInGame && !isMine) {
       // It's selected by someone else (another client or host)
@@ -370,8 +372,13 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           return
         }
         const newMyTopics = [...mySelectedTopics, topic]
+        // Optimistic: add immediately so topic turns yellow right away
+        setMySelectedTopics(newMyTopics)
         const success = await updatePlayerTopics(currentPlayerId!, newMyTopics)
-        if (success) setMySelectedTopics(newMyTopics)
+        if (!success) {
+          // Revert on failure
+          setMySelectedTopics(mySelectedTopics)
+        }
       }
       // Always add to global list
       await toggleGameTopic(game.id, topic, 'add')

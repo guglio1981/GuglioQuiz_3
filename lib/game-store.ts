@@ -33,19 +33,21 @@ export async function clearGameSettingsForNewManche(gameId: string): Promise<boo
   
   try {
     // Clear topics and arcade state to indicate "waiting for host to configure new manche"
-    await pb.collection('games').update(gameId, { 
+    // Also clear phase so clients on the new game page start from 'loading', not a stale 'question'
+    await pb.collection('games').update(gameId, {
       topics: [],
       current_arcade_game: '',
       current_arcade_round: 0,
       manche_ready: false,
       topic_selection_mode: '',
+      phase: '',
+      questions_json: [],
+      questions_ready: false,
     })
     
     // Delete all arcade_results for this game to start fresh in new manche
     const results = await pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
-    for (const r of results) {
-      await pb.collection('arcade_results').delete(r.id)
-    }
+    await Promise.all(results.map(r => pb.collection('arcade_results').delete(r.id)))
     
     return true
   } catch (error) {
@@ -376,18 +378,16 @@ export async function resetPlayersForNewManche(gameId: string, resetScores: bool
   try {
     const players = await pb.collection('players').getFullList({ filter: `game_id="${gameId}"` })
     
-    for (const player of players) {
-      const updates: any = {
-        abstentions_used: 0,
-        ready: false,
-        topics_confirmed: false,
-        selected_topics: []
-      }
-      if (resetScores) {
-        updates.score = 0
-      }
-      await pb.collection('players').update(player.id, updates)
+    const updates: any = {
+      abstentions_used: 0,
+      ready: false,
+      topics_confirmed: false,
+      selected_topics: []
     }
+    if (resetScores) {
+      updates.score = 0
+    }
+    await Promise.all(players.map(player => pb.collection('players').update(player.id, updates)))
     return true
   } catch (error) {
     console.error('Error resetting players:', error)
@@ -489,9 +489,7 @@ export async function clearAnswersForGame(gameId: string): Promise<void> {
     const answers = await pb.collection('answers').getFullList({
       filter: `question_id ~ "${gameId}_"`
     })
-    for (const answer of answers) {
-      await pb.collection('answers').delete(answer.id)
-    }
+    await Promise.all(answers.map(answer => pb.collection('answers').delete(answer.id)))
   } catch (error) {
     console.error('Error clearing answers:', error)
   }

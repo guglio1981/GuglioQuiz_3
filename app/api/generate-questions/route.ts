@@ -503,7 +503,8 @@ export async function POST(request: Request) {
               correct_answer: decodeHTML(q.correct_answer),
             }
           })
-        )
+        ).then(mapped => translateQuestions(mapped))
+          .catch(() => [])
       )
     }
 
