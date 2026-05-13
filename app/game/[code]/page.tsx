@@ -90,6 +90,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isClickable, setIsClickable] = useState(false) // Previene click accidentali su iOS
   const [isKeepingScores, setIsKeepingScores] = useState(false)
   const [isResettingScores, setIsResettingScores] = useState(false)
+  const [isAnimatingReset, setIsAnimatingReset] = useState(false)
   
   // Memoize player calculations to avoid expensive filter/find on every render
   const sortedPlayers = useMemo(() => {
@@ -332,22 +333,22 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   // Wait for questions to be ready (for non-host clients)
   useEffect(() => {
     if (!game?.id || questions.length > 0) return
-    
-    // If questions are already ready in the game object, load them
-    if (game.questions_ready) {
-      getQuestions(game.id).then(qs => {
-        if (qs.length > 0) {
-          setQuestions(qs)
-          setPhase('question')
-          setIsTimerActive(true)
-          setQuestionStartTime(Date.now())
-        }
-      })
-    }
-    
-    // We already have a subscribeToGame in the main logic (below) 
-    // that will update the 'game' state, so this effect will re-run 
-    // when game.questions_ready changes.
+    if (!game.questions_ready) return
+
+    getQuestions(game.id).then(qs => {
+      if (qs.length === 0) return
+      setQuestions(qs)
+      // Sync to host's current question index (default 0 = first question)
+      const hostIdx = game.current_question > 0 ? game.current_question - 1 : 0
+      setCurrentQuestionIndex(hostIdx)
+      // Use the phase the host already set, fallback to 'question'
+      const targetPhase = (game.phase as GamePhase) || 'question'
+      setPhase(targetPhase)
+      if (targetPhase === 'question') {
+        setIsTimerActive(true)
+        setQuestionStartTime(Date.now())
+      }
+    })
   }, [game?.id, game?.questions_ready, questions.length])
 
   // Remove player when browser closes
@@ -783,22 +784,24 @@ const handleNextFromLeaderboard = async () => {
     if (resetScores) setIsResettingScores(true)
     else setIsKeepingScores(true)
 
-    // 1. Single call: phase='loading' + status='lobby' together → ONE subscription event →
-    //    clients see status='lobby' immediately and redirect to lobby right away.
-    await resetGameForNewManche(game.id)
+    if (resetScores) {
+      // 1. Zero scores in DB first — subscription updates leaderboard on ALL clients
+      await resetPlayersForNewManche(game.id, true)
+      // 2. Show zeroed leaderboard for 1.5s so everyone sees it
+      setIsAnimatingReset(true)
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      setIsAnimatingReset(false)
+    }
 
-    // 2. Cleanup runs in background — clients are already redirecting to lobby.
-    //    Don't await so the host redirect below is not blocked by slow operations.
-    Promise.all([
-      resetPlayersForNewManche(game.id, resetScores),
+    // 3. Fire cleanup + game reset together — status='lobby' triggers client redirect
+    await Promise.all([
+      resetGameForNewManche(game.id),
+      resetScores ? Promise.resolve() : resetPlayersForNewManche(game.id, false),
       clearAnswersForGame(game.id),
       clearGameSettingsForNewManche(game.id),
-    ]).catch(console.error)
+    ])
 
-    // Set flag to prevent beforeunload from removing player
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
-
-    // Host goes to settings to configure new manche, clients go to lobby
     if (isHost) {
       window.location.href = `/settings?code=${game.code}&manche=true`
     } else {
@@ -1000,7 +1003,13 @@ const handleNextFromLeaderboard = async () => {
           totalQuestions={questions.length}
           maxAbstentions={game?.max_abstentions}
         >
-          {isHost ? (
+          {isAnimatingReset ? (
+            <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
+              <Loader2 className="h-8 w-8 animate-spin text-destructive" />
+              <p className="text-lg font-bold text-destructive">Azzeramento punteggi...</p>
+              <p className="text-sm text-muted-foreground">Preparazione nuova manche</p>
+            </div>
+          ) : isHost ? (
             <>
               <Button
                 onClick={() => handleNewManche(false)}
