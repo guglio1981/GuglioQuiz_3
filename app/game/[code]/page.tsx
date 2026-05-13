@@ -434,15 +434,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         }
       }
 
-      // Sync leaderboard phase (legacy support)
-      if (!latestIsHost && updatedGame.topic_selection_mode === 'leaderboard') {
-        setPhase('leaderboard')
-      }
-      
-      // Sync finished phase (legacy support)
-      if (!latestIsHost && updatedGame.topic_selection_mode === 'finished') {
-        setPhase('finished')
-      }
     })
     const playersChannel = subscribeToPlayers(gameIdForSub, (updatedPlayers) => {
       setPlayers(prev => {
