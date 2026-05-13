@@ -108,6 +108,10 @@ export function SimonSays({ onComplete, playerName }: SimonSaysProps) {
     onComplete(finalScore)
   }
 
+  const handleGiveUp = () => {
+    onComplete(0)
+  }
+
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
@@ -161,9 +165,14 @@ export function SimonSays({ onComplete, playerName }: SimonSaysProps) {
               Memorizza e ripeti le sequenze di colori.<br />
               <span className="font-medium">{MAX_LEVELS} livelli totali.</span>
             </p>
-            <Button onClick={startGame} size="lg">
-              Inizia
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button onClick={startGame} size="lg">
+                Inizia
+              </Button>
+              <Button onClick={handleGiveUp} variant="destructive" size="lg">
+                Rinuncio
+              </Button>
+            </div>
           </div>
         ) : (
           <>
@@ -198,6 +207,9 @@ export function SimonSays({ onComplete, playerName }: SimonSaysProps) {
                 />
               ))}
             </div>
+            <Button onClick={handleGiveUp} variant="destructive" className="w-full mt-3">
+              Rinuncio
+            </Button>
           </>
         )}
       </CardContent>
