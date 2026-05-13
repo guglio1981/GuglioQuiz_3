@@ -227,9 +227,24 @@ function HomePageContent() {
     toast.success('Disconnesso')
   }
 
+  const showPushError = (error: string | undefined) => {
+    if (error === 'denied') {
+      toast.error(
+        '🔕 Notifiche bloccate. Per riattivarle: vai nelle impostazioni del browser → "Sito" → "Notifiche" → Consenti.',
+        { duration: 10000 }
+      )
+    } else if (error === 'unsupported') {
+      toast.error('Il tuo browser non supporta le notifiche push. Prova Chrome o Safari su iOS 16.4+.', { duration: 8000 })
+    } else if (error === 'not_logged_in') {
+      toast.error('Devi effettuare il login per attivare le notifiche')
+      setShowSignUp(true)
+    } else {
+      toast.error('Non è stato possibile attivare le notifiche. Riprova più tardi.', { duration: 6000 })
+    }
+  }
+
   const handleTogglePush = async () => {
     if (pushEnabled) {
-      // Disable notifications
       const success = await unsubscribeFromPush()
       if (success) {
         setPushEnabled(false)
@@ -238,21 +253,12 @@ function HomePageContent() {
         toast.error('Errore nella disattivazione delle notifiche')
       }
     } else {
-      // Enable notifications
       const result = await setupPushNotifications()
       if (result.success) {
         setPushEnabled(true)
         toast.success('Notifiche attivate!')
-      } else if (result.error === 'denied') {
-        toast.error(
-          'Le notifiche sono state bloccate dalle impostazioni del dispositivo. Per attivarle, vai nelle Impostazioni del browser o del telefono e consenti le notifiche per questo sito.',
-          { duration: 8000 }
-        )
-      } else if (result.error === 'not_logged_in') {
-        toast.error('Devi effettuare il login per attivare le notifiche di invito alle partite')
-        setShowSignUp(true)
       } else {
-        toast.error('Non è stato possibile attivare le notifiche')
+        showPushError(result.error)
       }
     }
   }
@@ -295,11 +301,24 @@ function HomePageContent() {
       toast.success('Accesso effettuato!')
       setLoginUsername('')
       setLoginPassword('')
-      // Auto-enable push notifications on login (silent — no error toast)
-      if (!isNotificationDenied()) {
-        setupPushNotifications().then(result => {
-          if (result.success) setPushEnabled(true)
-        }).catch(() => {})
+      // Push notifications on login:
+      // - permission already granted (was enabled before logout) → silent re-enable
+      // - permission default (first time) → try and show error if blocked
+      // - permission denied → show instructions
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          // Previously granted — re-enable silently
+          setupPushNotifications().then(r => { if (r.success) setPushEnabled(true) }).catch(() => {})
+        } else if (Notification.permission === 'default') {
+          // First time — try and show helpful error if blocked
+          setupPushNotifications().then(r => {
+            if (r.success) setPushEnabled(true)
+            else if (r.error === 'denied') showPushError('denied')
+          }).catch(() => {})
+        } else {
+          // 'denied' — show instructions
+          showPushError('denied')
+        }
       }
     } catch {
       toast.error('Errore di connessione')
@@ -378,12 +397,11 @@ function HomePageContent() {
       setSignupAvatar(null)
       setSignupAvatarUrl(null)
       setSignupAvatarFile(null)
-      // Auto-enable push notifications on signup (silent)
-      if (!isNotificationDenied()) {
-        setupPushNotifications().then(result => {
-          if (result.success) setPushEnabled(true)
-        }).catch(() => {})
-      }
+      // Auto-enable push on signup — show helpful error if blocked/unsupported
+      setupPushNotifications().then(r => {
+        if (r.success) setPushEnabled(true)
+        else if (r.error === 'denied' || r.error === 'unsupported') showPushError(r.error)
+      }).catch(() => {})
     } catch {
       toast.error('Errore di connessione')
     }
