@@ -299,7 +299,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       const usersWithSubs = usersData.map(u => {
         const sub = subscriptions.find(s => s.user_id === u.id);
         return {
-          ...u,
+          id: u.id as string,
+          username: u['username'] as string,
+          avatar: (u['avatar'] as string | null) ?? null,
+          avatar_url: (u['avatar_url'] as string | null) ?? null,
           subscription: sub
         };
       });

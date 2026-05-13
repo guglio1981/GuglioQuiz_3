@@ -22,13 +22,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS } from '@/lib/types'
+import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS, type AvatarId } from '@/lib/types'
 
 
 interface AppUser {
   id: string
   username: string
-  avatar: AvatarId | null
+  avatar: string | null
   avatar_url?: string | null
   email?: string | null
   session_token?: string

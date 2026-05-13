@@ -341,7 +341,7 @@ RISPONDI SOLO CON L'ARRAY JSON TRADOTTO (inizia con [ e finisci con ]):`
 
   try {
     const { text } = await generateText({
-      model: groq('llama-3.1-8b-instant'),
+      model: getGroq()('llama-3.1-8b-instant'),
       prompt,
     })
     const jsonMatch = text.match(/\[[\s\S]*\]/)
@@ -419,7 +419,7 @@ RISPONDI SOLO CON UN ARRAY JSON VALIDO (inizia con [ e finisci con ]):
 ]`
 
   const { text } = await generateText({
-    model: groq('llama-3.1-8b-instant'),
+    model: getGroq()('llama-3.1-8b-instant'),
     prompt,
   })
 

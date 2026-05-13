@@ -358,7 +358,7 @@ export async function removeDuplicatePlayers(gameId: string): Promise<void> {
   for (const [, duplicates] of playersByName) {
     if (duplicates.length > 1) {
       // Sort by created, keep the first one
-      duplicates.sort((a, b) => new Date(a.created_at || (a as any).created).getTime() - new Date(b.created_at || (b as any).created).getTime())
+      duplicates.sort((a, b) => new Date(a.created || '').getTime() - new Date(b.created || '').getTime())
       const toDelete = duplicates.slice(1)
       
       for (const player of toDelete) {
@@ -602,19 +602,19 @@ export function subscribeToPlayers(gameId: string, callback: (players: Player[])
   // Initial fetch
   getPlayers(gameId).then(callback)
 
-  // Use filtered subscription (PocketBase 0.20+)
-  // This ensures we ONLY get events for players in this specific game.
+  let unsubFn: (() => void) | null = null
   pb.collection('players').subscribe('*', async () => {
     const players = await getPlayers(gameId)
     callback(players)
   }, {
     filter: `game_id = "${gameId}"`
-  }).catch(err => {
+  }).then(fn => { unsubFn = fn }).catch(err => {
     console.error('Subscription error:', err)
   })
 
   return () => {
-    pb.collection('players').unsubscribe('*')
+    if (unsubFn) unsubFn()
+    else pb.collection('players').unsubscribe('*')
   }
 }
 
@@ -624,6 +624,7 @@ export function subscribeToAnswers(questionId: string, callback: (answers: Answe
   // Initial fetch
   getAnswersForQuestion(questionId).then(callback)
 
+  let unsubFn: (() => void) | null = null
   pb.collection('answers').subscribe('*', async (e) => {
     if (e.record.question_id === questionId) {
       const answers = await getAnswersForQuestion(questionId)
@@ -631,16 +632,18 @@ export function subscribeToAnswers(questionId: string, callback: (answers: Answe
     }
   }, {
     filter: `question_id = "${questionId}"`
-  }).catch(err => console.error('Answer sub error:', err))
+  }).then(fn => { unsubFn = fn }).catch(err => console.error('Answer sub error:', err))
 
   return () => {
-    pb.collection('answers').unsubscribe('*')
+    if (unsubFn) unsubFn()
+    else pb.collection('answers').unsubscribe('*')
   }
 }
 
 export function subscribeToQuestions(gameId: string, callback: (questions: Question[]) => void) {
   const pb = getPocketBase()
 
+  let unsubFn: (() => void) | null = null
   pb.collection('questions').subscribe('*', async (e) => {
     if (e.record.game_id === gameId) {
       const questions = await getQuestions(gameId)
@@ -648,10 +651,11 @@ export function subscribeToQuestions(gameId: string, callback: (questions: Quest
     }
   }, {
     filter: `game_id = "${gameId}"`
-  }).catch(err => console.error('Questions sub error:', err))
+  }).then(fn => { unsubFn = fn }).catch(err => console.error('Questions sub error:', err))
 
   return () => {
-    pb.collection('questions').unsubscribe('*')
+    if (unsubFn) unsubFn()
+    else pb.collection('questions').unsubscribe('*')
   }
 }
 

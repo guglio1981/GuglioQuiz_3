@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback, use, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, use, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -94,7 +94,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score
-      return a.created_at.localeCompare(b.created_at)
+      return (a.created || '').localeCompare(b.created || '')
     })
   }, [players])
 
@@ -302,10 +302,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         setQuestions(questionsData)
         
         // Use phase from DB if it exists, otherwise default to question if host is starting
-        const initialPhase = (gameData.phase as GamePhase) || (isHost ? 'question' : 'loading')
+        const hostNow = currentPlayerData?.is_host || false
+        const initialPhase = (gameData.phase as GamePhase) || (hostNow ? 'question' : 'loading')
         setPhase(initialPhase)
-        
-        if (isHost && !gameData.phase) {
+
+        if (hostNow && !gameData.phase) {
           updateGamePhase(gameData.id, 'question').catch(console.error)
         }
         

@@ -120,10 +120,13 @@ export interface Game {
   current_arcade_round?: number
   current_question: number
   manche: number
-  topic_selection_mode?: string | null  // '1' or '2' for collaborative selection
-  manche_ready: boolean  // true when host has clicked "avvia nuova manche"
-  created_at: string
-  updated_at: string
+  topic_selection_mode?: string | null
+  manche_ready: boolean
+  questions_ready?: boolean
+  questions_json?: Question[] | null
+  phase?: string | null
+  created: string
+  updated: string
 }
 
 export interface Player {
@@ -138,7 +141,7 @@ export interface Player {
   ready: boolean
   topics_confirmed: boolean
   selected_topics?: string[]
-  created_at: string
+  created: string
 }
 
 export interface Question {
@@ -151,7 +154,7 @@ export interface Question {
   options: string[]
   correct_answer: string
   image_url?: string | null
-  created_at: string
+  created: string
 }
 
 export interface Answer {

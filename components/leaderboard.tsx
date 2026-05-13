@@ -32,7 +32,7 @@ export const Leaderboard = memo(function Leaderboard({
   const sortedPlayers = [...players].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     // Stable tiebreaker: earlier join time first (prevents UI oscillation)
-    return a.created_at.localeCompare(b.created_at)
+    return (a.created || '').localeCompare(b.created || '')
   })
 
   const getRankIcon = (index: number) => {
