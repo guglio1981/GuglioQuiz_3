@@ -80,14 +80,14 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     setCurrentPlayerId(playerId)
 
     const loadGame = async () => {
-      // Small random stagger to prevent simultaneous requests
-      const randomStagger = Math.random() * 300
-      await new Promise(resolve => setTimeout(resolve, 200 + randomStagger))
-      
+      // Small stagger to prevent thundering herd when many clients load simultaneously
+      const randomStagger = Math.random() * 100
+      await new Promise(resolve => setTimeout(resolve, 50 + randomStagger))
+
       // Retry logic for slow connections
       let retries = 5
       let gameData = null
-      
+
       while (retries > 0 && !gameData) {
         gameData = await getGameByCode(code)
         if (!gameData) {
@@ -97,18 +97,25 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           }
         }
       }
-      
+
       if (!gameData) {
         console.log('[v0] Game not found after retries')
         toast.error('Partita non trovata')
         router.push('/')
         return
       }
+
+      // If game already started while we were loading, go straight to game page
+      if (gameData.status === 'playing') {
+        window.location.href = `/game/${gameData.code}`
+        return
+      }
+
       let playersData = await getPlayers(gameData.id)
-      
+
       // Check if current player exists in the list
       let currentPlayer = playersData.find(p => p.id === playerId)
-      
+
       // Retry fetching players if current player is not found (PocketBase consistency delay)
       let playerRetries = 5
       while (!currentPlayer && playerRetries > 0) {
@@ -116,6 +123,12 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
         playersData = await getPlayers(gameData.id)
         currentPlayer = playersData.find(p => p.id === playerId)
         playerRetries--
+        // Re-check game status during retries — host may have started while we waited
+        const latestGame = await getGameByCode(code)
+        if (latestGame?.status === 'playing') {
+          window.location.href = `/game/${latestGame.code}`
+          return
+        }
       }
 
       if (!currentPlayer) {
@@ -176,18 +189,28 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       }
     }
     
-    // Slow fallback polling (every 30s) just to be safe for mobile/background scenarios
+    // Fast fallback polling (every 2s) — catches missed SSE events, especially
+    // "status=playing" which would leave clients stuck on lobby indefinitely.
     pollInterval = setInterval(async () => {
       if (!game?.id || isRedirecting) return
       try {
+        const updatedGame = await getGameByCode(game.code)
+        if (!updatedGame) return
+        if (updatedGame.status === 'playing') {
+          isRedirecting = true
+          clearInterval(pollInterval!)
+          window.location.href = `/game/${updatedGame.code}`
+          return
+        }
+        setGame(updatedGame)
         const updatedPlayers = await getPlayers(game.id)
         if (updatedPlayers && updatedPlayers.length > 0) {
           setPlayers(updatedPlayers)
         }
       } catch (e) {
-        console.error("Slow poll failed:", e)
+        console.error("Poll failed:", e)
       }
-    }, 30000)
+    }, 2000)
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
