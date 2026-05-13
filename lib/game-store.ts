@@ -4,10 +4,32 @@ import { getPocketBase } from '@/lib/pocketbase'
 import type { Game, Player, Question, Answer, GameSettings, GameProfile } from '@/lib/types'
 import { generateGameCode, calculateCorrectPoints, calculateWrongPoints, SCORING } from '@/lib/types'
 
-// Run async tasks in batches to avoid PocketBase 429 rate-limit errors
+// Retry a single PocketBase call with exponential backoff on 429 errors
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4): Promise<T> {
+  let delay = 300
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (err: any) {
+      const is429 = err?.status === 429 || err?.response?.code === 429 ||
+                    (err?.message || '').includes('429')
+      if (is429 && attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, delay))
+        delay *= 2  // exponential backoff: 300 → 600 → 1200 → 2400ms
+        continue
+      }
+      throw err
+    }
+  }
+  throw new Error('Max retries reached')
+}
+
+// Run async tasks in batches to avoid PocketBase 429 rate-limit errors.
+// Each individual operation is wrapped with retry logic so transient 429s
+// are handled automatically without propagating to the caller.
 async function runInBatches<T>(items: T[], batchSize: number, fn: (item: T) => Promise<any>): Promise<void> {
   for (let i = 0; i < items.length; i += batchSize) {
-    await Promise.all(items.slice(i, i + batchSize).map(fn))
+    await Promise.all(items.slice(i, i + batchSize).map(item => withRetry(() => fn(item))))
   }
 }
 
@@ -41,7 +63,7 @@ export async function clearGameSettingsForNewManche(gameId: string): Promise<boo
   try {
     // Clear topics and arcade state to indicate "waiting for host to configure new manche"
     // Also clear phase so clients on the new game page start from 'loading', not a stale 'question'
-    await pb.collection('games').update(gameId, {
+    await withRetry(() => pb.collection('games').update(gameId, {
       topics: [],
       current_arcade_game: '',
       current_arcade_round: 0,
@@ -50,7 +72,7 @@ export async function clearGameSettingsForNewManche(gameId: string): Promise<boo
       phase: '',
       questions_json: [],
       questions_ready: false,
-    })
+    }))
     
     // Delete all arcade_results for this game to start fresh in new manche
     const results = await pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
@@ -72,12 +94,12 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
     await runInBatches(questions, 5, q => pb.collection('questions').delete(q.id))
     
     // First read current manche to increment properly
-    const currentGame = await pb.collection('games').getOne(gameId)
+    const currentGame = await withRetry(() => pb.collection('games').getOne(gameId))
     const nextManche = (currentGame.manche || 0) + 1
 
     // Update game settings and increment manche
     // Also clear questions_json and questions_ready so new questions are generated
-    await pb.collection('games').update(gameId, {
+    await withRetry(() => pb.collection('games').update(gameId, {
       topics: settings.topics,
       question_count: settings.questionCount,
       difficulty: settings.difficulty,
@@ -90,8 +112,8 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       manche: nextManche,
       questions_json: [],
       questions_ready: false,
-    })
-    
+    }))
+
     return true
   } catch (error) {
     console.error('Error updating game settings:', error)
@@ -102,7 +124,7 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
 export async function updateGameTopics(gameId: string, topics: string[]): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, { topics })
+    await withRetry(() => pb.collection('games').update(gameId, { topics }))
     return true
   } catch (error) {
     console.error('Error updating game topics:', error)
@@ -118,7 +140,7 @@ export async function toggleGameTopic(gameId: string, topic: string, action: 'ad
   const pb = getPocketBase()
   try {
     // 1. Get latest game state
-    const game = await pb.collection('games').getOne(gameId)
+    const game = await withRetry(() => pb.collection('games').getOne(gameId))
     const currentTopics = (game.topics as string[]) || []
     
     let newTopics: string[]
@@ -131,7 +153,7 @@ export async function toggleGameTopic(gameId: string, topic: string, action: 'ad
     }
     
     // 2. Update with new list
-    await pb.collection('games').update(gameId, { topics: newTopics })
+    await withRetry(() => pb.collection('games').update(gameId, { topics: newTopics }))
     return newTopics
   } catch (error) {
     console.error('Error toggling game topic:', error)
@@ -142,7 +164,7 @@ export async function toggleGameTopic(gameId: string, topic: string, action: 'ad
 export async function setPlayerTopicsConfirmed(playerId: string, confirmed: boolean): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('players').update(playerId, { topics_confirmed: confirmed })
+    await withRetry(() => pb.collection('players').update(playerId, { topics_confirmed: confirmed }))
     return true
   } catch (error) {
     console.error('Error setting player topics_confirmed:', error)
@@ -153,10 +175,8 @@ export async function setPlayerTopicsConfirmed(playerId: string, confirmed: bool
 export async function resetAllPlayersTopicsConfirmed(gameId: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    const players = await pb.collection('players').getFullList({ filter: `game_id="${gameId}"` })
-    for (const player of players) {
-      await pb.collection('players').update(player.id, { topics_confirmed: false, selected_topics: [] })
-    }
+    const players = await withRetry(() => pb.collection('players').getFullList({ filter: `game_id="${gameId}"` }))
+    await runInBatches(players, 5, player => pb.collection('players').update(player.id, { topics_confirmed: false, selected_topics: [] }))
     return true
   } catch (error) {
     console.error('Error resetting players topics_confirmed:', error)
@@ -167,7 +187,7 @@ export async function resetAllPlayersTopicsConfirmed(gameId: string): Promise<bo
 export async function setTopicSelectionMode(gameId: string, mode: string | null): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, { topic_selection_mode: mode || '' })
+    await withRetry(() => pb.collection('games').update(gameId, { topic_selection_mode: mode || '' }))
     return true
   } catch (error) {
     console.error('Error setting topic selection mode:', error)
@@ -178,7 +198,7 @@ export async function setTopicSelectionMode(gameId: string, mode: string | null)
 export async function setMancheReady(gameId: string, ready: boolean): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, { manche_ready: ready })
+    await withRetry(() => pb.collection('games').update(gameId, { manche_ready: ready }))
     return true
   } catch (error) {
     console.error('Error setting manche_ready:', error)
@@ -202,7 +222,7 @@ export async function getGameByCode(code: string): Promise<Game | null> {
 export async function updateGameStatus(gameId: string, status: Game['status']): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, { status })
+    await withRetry(() => pb.collection('games').update(gameId, { status }))
     return true
   } catch (error) {
     console.error('Error updating game status:', error)
@@ -217,7 +237,7 @@ export async function updateCurrentQuestion(gameId: string, questionNumber: numb
     updateData.topic_selection_mode = ''
   }
   try {
-    await pb.collection('games').update(gameId, updateData)
+    await withRetry(() => pb.collection('games').update(gameId, updateData))
     return true
   } catch (error) {
     console.error('Error updating current question:', error)
@@ -228,7 +248,7 @@ export async function updateCurrentQuestion(gameId: string, questionNumber: numb
 export async function setQuestionsReady(gameId: string, ready: boolean): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, { questions_ready: ready })
+    await withRetry(() => pb.collection('games').update(gameId, { questions_ready: ready }))
     return true
   } catch (error) {
     console.error('Error setting questions_ready:', error)
@@ -239,7 +259,7 @@ export async function setQuestionsReady(gameId: string, ready: boolean): Promise
 export async function updateGamePhase(gameId: string, phase: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, { phase })
+    await withRetry(() => pb.collection('games').update(gameId, { phase }))
     return true
   } catch (error) {
     console.error('Error updating game phase:', error)
@@ -252,7 +272,7 @@ export async function updateGamePhase(gameId: string, phase: string): Promise<bo
 export async function resetGameForNewManche(gameId: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, { phase: 'loading', status: 'lobby' })
+    await withRetry(() => pb.collection('games').update(gameId, { phase: 'loading', status: 'lobby' }))
     return true
   } catch (error) {
     console.error('Error resetting game for new manche:', error)
@@ -277,7 +297,7 @@ export async function addPlayer(
   const pb = getPocketBase()
   const safeName = (name || 'Giocatore').trim()
   const capitalizedName = capitalizeFirstLetter(safeName)
-    const record = await pb.collection('players').create({
+    const record = await withRetry(() => pb.collection('players').create({
       game_id: gameId,
       name: capitalizedName,
       avatar,
@@ -288,7 +308,7 @@ export async function addPlayer(
       ready: false,
       topics_confirmed: false,
       selected_topics: []
-    })
+    }))
     return record as unknown as Player
 }
 
@@ -308,7 +328,7 @@ export async function getPlayers(gameId: string): Promise<Player[]> {
 export async function updatePlayerReady(playerId: string, ready: boolean): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('players').update(playerId, { ready })
+    await withRetry(() => pb.collection('players').update(playerId, { ready }))
     return true
   } catch (error) {
     console.error('Error updating player ready status:', error)
@@ -319,7 +339,7 @@ export async function updatePlayerReady(playerId: string, ready: boolean): Promi
 export async function updatePlayerTopics(playerId: string, topics: string[]): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('players').update(playerId, { selected_topics: topics })
+    await withRetry(() => pb.collection('players').update(playerId, { selected_topics: topics }))
     return true
   } catch (error) {
     console.error('Error updating player topics:', error)
@@ -331,9 +351,9 @@ export async function updatePlayerScore(playerId: string, scoreChange: number): 
   const pb = getPocketBase()
   try {
     // PocketBase allows atomic increments using the "fieldName+" syntax
-    await pb.collection('players').update(playerId, {
+    await withRetry(() => pb.collection('players').update(playerId, {
       "score+": scoreChange
-    })
+    }))
     return true
   } catch (error) {
     console.error('Error updating player score:', error)
@@ -344,9 +364,9 @@ export async function updatePlayerScore(playerId: string, scoreChange: number): 
 export async function updatePlayerAbstentions(playerId: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('players').update(playerId, {
+    await withRetry(() => pb.collection('players').update(playerId, {
       "abstentions_used+": 1
-    })
+    }))
     return true
   } catch (error) {
     console.error('Error updating player abstentions:', error)
@@ -357,7 +377,7 @@ export async function updatePlayerAbstentions(playerId: string): Promise<boolean
 export async function deletePlayer(playerId: string, gameId?: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('players').delete(playerId)
+    await withRetry(() => pb.collection('players').delete(playerId))
     return true
   } catch (error) {
     console.error('Error deleting player:', error)
@@ -428,10 +448,10 @@ export async function saveQuestions(gameId: string, questions: Omit<Question, 'i
 
   try {
     // Save ALL questions in a single update request to the game record
-    await pb.collection('games').update(gameId, {
+    await withRetry(() => pb.collection('games').update(gameId, {
       questions_json: questionsWithIds,
       questions_ready: true
-    })
+    }))
     return questionsWithIds as unknown as Question[]
   } catch (error) {
     console.error('Error saving questions to JSON:', error)
@@ -489,9 +509,9 @@ export async function submitAnswerV3(
 
     let record;
     if (existingAnswer) {
-      record = await pb.collection('answers').update(existingAnswer.id, payload)
+      record = await withRetry(() => pb.collection('answers').update(existingAnswer.id, payload))
     } else {
-      record = await pb.collection('answers').create(payload)
+      record = await withRetry(() => pb.collection('answers').create(payload))
     }
 
     return record as unknown as Answer
@@ -708,11 +728,11 @@ export async function setCurrentArcadeGameInDb(
 ): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, {
+    await withRetry(() => pb.collection('games').update(gameId, {
       current_arcade_game: arcadeGame,
       current_arcade_round: arcadeRound,
       topic_selection_mode: '',
-    })
+    }))
     return true
   } catch (error) {
     console.error('Error setting current arcade game:', error)
@@ -723,10 +743,10 @@ export async function setCurrentArcadeGameInDb(
 export async function clearCurrentArcadeGame(gameId: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
-    await pb.collection('games').update(gameId, {
+    await withRetry(() => pb.collection('games').update(gameId, {
       current_arcade_game: null,
       current_arcade_round: 0,
-    })
+    }))
     return true
   } catch (error) {
     console.error('Error clearing current arcade game:', error)
@@ -756,13 +776,13 @@ export async function submitArcadeResult(
 ): Promise<ArcadeResult | null> {
   const pb = getPocketBase()
   try {
-    const record = await pb.collection('arcade_results').create({
+    const record = await withRetry(() => pb.collection('arcade_results').create({
       game_id: gameId,
       player_id: playerId,
       game_type: gameType,
       arcade_round: arcadeRound,
       raw_score: rawScore,
-    })
+    }))
     return record as unknown as ArcadeResult
   } catch (error) {
     console.error('Error submitting arcade result:', error)
@@ -838,7 +858,7 @@ export async function processArcadeResults(
     }
 
     try {
-      await pb.collection('arcade_results').update(sorted[i].id, { position, points_earned: pointsEarned })
+      await withRetry(() => pb.collection('arcade_results').update(sorted[i].id, { position, points_earned: pointsEarned }))
       await updatePlayerScore(sorted[i].player_id, pointsEarned)
     } catch(e) {
       console.error("Error updating arcade result", e)
@@ -870,7 +890,7 @@ export async function syncLeaderboardPhase(gameId: string, isLeaderboard: boolea
   const pb = getPocketBase()
   const state = typeof isLeaderboard === 'string' ? isLeaderboard : (isLeaderboard ? 'leaderboard' : '')
   try {
-    await pb.collection('games').update(gameId, { topic_selection_mode: state })
+    await withRetry(() => pb.collection('games').update(gameId, { topic_selection_mode: state }))
   } catch(e) {
      console.error("Error syncing leaderboard phase", e)
   }
