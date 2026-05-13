@@ -4,6 +4,13 @@ import { getPocketBase } from '@/lib/pocketbase'
 import type { Game, Player, Question, Answer, GameSettings, GameProfile } from '@/lib/types'
 import { generateGameCode, calculateCorrectPoints, calculateWrongPoints, SCORING } from '@/lib/types'
 
+// Run async tasks in batches to avoid PocketBase 429 rate-limit errors
+async function runInBatches<T>(items: T[], batchSize: number, fn: (item: T) => Promise<any>): Promise<void> {
+  for (let i = 0; i < items.length; i += batchSize) {
+    await Promise.all(items.slice(i, i + batchSize).map(fn))
+  }
+}
+
 // Game operations
 export async function createGame(hostId: string, settings: GameSettings): Promise<Game | null> {
   const code = generateGameCode()
@@ -47,7 +54,7 @@ export async function clearGameSettingsForNewManche(gameId: string): Promise<boo
     
     // Delete all arcade_results for this game to start fresh in new manche
     const results = await pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
-    await Promise.all(results.map(r => pb.collection('arcade_results').delete(r.id)))
+    await runInBatches(results, 5, r => pb.collection('arcade_results').delete(r.id))
     
     return true
   } catch (error) {
@@ -62,9 +69,7 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
   try {
     // Delete old questions first
     const questions = await pb.collection('questions').getFullList({ filter: `game_id="${gameId}"` })
-    for (const q of questions) {
-      await pb.collection('questions').delete(q.id)
-    }
+    await runInBatches(questions, 5, q => pb.collection('questions').delete(q.id))
     
     // First read current manche to increment properly
     const currentGame = await pb.collection('games').getOne(gameId)
@@ -387,7 +392,7 @@ export async function resetPlayersForNewManche(gameId: string, resetScores: bool
     if (resetScores) {
       updates.score = 0
     }
-    await Promise.all(players.map(player => pb.collection('players').update(player.id, updates)))
+    await runInBatches(players, 5, player => pb.collection('players').update(player.id, updates))
     return true
   } catch (error) {
     console.error('Error resetting players:', error)
@@ -489,7 +494,7 @@ export async function clearAnswersForGame(gameId: string): Promise<void> {
     const answers = await pb.collection('answers').getFullList({
       filter: `question_id ~ "${gameId}_"`
     })
-    await Promise.all(answers.map(answer => pb.collection('answers').delete(answer.id)))
+    await runInBatches(answers, 5, answer => pb.collection('answers').delete(answer.id))
   } catch (error) {
     console.error('Error clearing answers:', error)
   }
