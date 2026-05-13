@@ -69,6 +69,7 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
     const nextManche = (currentGame.manche || 0) + 1
 
     // Update game settings and increment manche
+    // Also clear questions_json and questions_ready so new questions are generated
     await pb.collection('games').update(gameId, {
       topics: settings.topics,
       question_count: settings.questionCount,
@@ -80,6 +81,8 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       current_question: 0,
       topic_selection_mode: '',
       manche: nextManche,
+      questions_json: [],
+      questions_ready: false,
     })
     
     return true
