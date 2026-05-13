@@ -67,6 +67,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
   const [showTopicSelectionModal, setShowTopicSelectionModal] = useState(false)
   const [mySelectedTopics, setMySelectedTopics] = useState<Topic[]>([])
+  const [localGameTopics, setLocalGameTopics] = useState<Topic[]>([])
   const [hasSubmittedTopics, setHasSubmittedTopics] = useState(false)
   const isHostRef = useRef(false)
   const hasSubmittedTopicsRef = useRef(false)
@@ -294,6 +295,11 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     }
   }, [game?.id, currentPlayerId, code])
 
+  // Keep localGameTopics in sync with DB (only when no pending local change is in-flight)
+  useEffect(() => {
+    if (game?.topics) setLocalGameTopics(game.topics as Topic[])
+  }, [game?.topics])
+
   // Robust modal trigger: watch game.topic_selection_mode in React state.
   // The subscription callback can be missed if the client connects after the host
   // already activated collaborative selection. This useEffect covers that case too.
@@ -371,42 +377,32 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     )
   }
   
-  // Topic selection handlers - real-time sync to DB
-  const handleToggleMyTopic = async (topic: Topic, callerIsHost: boolean) => {
+  // Topic selection handlers — fully optimistic, DB writes fire-and-forget
+  const handleToggleMyTopic = (topic: Topic, callerIsHost: boolean) => {
     if (!game) return
 
-    const isInGame = game.topics.includes(topic)
+    const isInGame = localGameTopics.includes(topic)
     const isMine = mySelectedTopics.includes(topic)
-    
-    // Find who else (non-host) selected this topic
     const othersWithThisTopic = players.filter(p => !p.is_host && p.id !== currentPlayerId && p.selected_topics?.includes(topic))
     const isHostTopic = isInGame && !isMine && othersWithThisTopic.length === 0
 
-    // If client tries to toggle a host-selected topic, reject
     if (!callerIsHost && isHostTopic) {
       toast.error('Questo argomento è stato scelto dall\'host e non può essere modificato.')
       return
     }
 
     if (isMine) {
-      // Optimistic: remove immediately so topic goes grey right away (no green flash)
+      // Deselect: update UI immediately, then DB in background
       const newMyTopics = mySelectedTopics.filter(t => t !== topic)
       setMySelectedTopics(newMyTopics)
-      const success = await updatePlayerTopics(currentPlayerId!, newMyTopics)
-      if (success) {
-        if (othersWithThisTopic.length === 0) {
-          await toggleGameTopic(game.id, topic, 'remove')
-        }
-      } else {
-        // Revert on failure
-        setMySelectedTopics(mySelectedTopics)
+      if (othersWithThisTopic.length === 0) {
+        setLocalGameTopics(prev => prev.filter(t => t !== topic))
+        toggleGameTopic(game.id, topic, 'remove').catch(console.error)
       }
+      updatePlayerTopics(currentPlayerId!, newMyTopics).catch(console.error)
     } else if (isInGame && !isMine) {
-      // It's selected by someone else (another client or host)
       toast.error('Questo argomento è già stato scelto e non è più disponibile.')
-      return
     } else {
-      // Not in game at all
       if (!callerIsHost) {
         const maxTopics = parseInt(game.topic_selection_mode || '1')
         if (mySelectedTopics.length >= maxTopics) {
@@ -414,16 +410,11 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           return
         }
         const newMyTopics = [...mySelectedTopics, topic]
-        // Optimistic: add immediately so topic turns yellow right away
         setMySelectedTopics(newMyTopics)
-        const success = await updatePlayerTopics(currentPlayerId!, newMyTopics)
-        if (!success) {
-          // Revert on failure
-          setMySelectedTopics(mySelectedTopics)
-        }
+        updatePlayerTopics(currentPlayerId!, newMyTopics).catch(console.error)
       }
-      // Always add to global list
-      await toggleGameTopic(game.id, topic, 'add')
+      setLocalGameTopics(prev => prev.includes(topic) ? prev : [...prev, topic])
+      toggleGameTopic(game.id, topic, 'add').catch(console.error)
     }
   }
 
@@ -1018,13 +1009,13 @@ setIsStarting(true)
 
               <div className="grid grid-cols-2 gap-3">
                 {TOPICS.map((topic) => {
-                  const isInGame = game.topics.includes(topic)
+                  const isInGame = localGameTopics.includes(topic)
                   const isMine = mySelectedTopics.includes(topic)
                   // Find who else selected this topic (clients only)
                   const othersWithThisTopic = players.filter(p => !p.is_host && p.id !== currentPlayerId && p.selected_topics?.includes(topic))
                   const isOthers = othersWithThisTopic.length > 0
-                  
-                  // Topic is unavailable if it's already in the game and not mine
+
+                  // Topic is unavailable if occupied by others (never by myself — I can always deselect)
                   const isUnavailable = isInGame && !isMine
                   
                   // Clients cannot click unavailable topics
