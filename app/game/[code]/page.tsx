@@ -91,6 +91,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isKeepingScores, setIsKeepingScores] = useState(false)
   const [isResettingScores, setIsResettingScores] = useState(false)
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
+  const [hostDisconnected, setHostDisconnected] = useState(false)
   
   // Memoize player calculations to avoid expensive filter/find on every render
   const sortedPlayers = useMemo(() => {
@@ -448,24 +449,61 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         if (prev && JSON.stringify(prev) === JSON.stringify(updatedPlayers)) return prev
         return updatedPlayers
       })
+      // Detect host disconnection (non-host clients only)
+      if (!latestRef.current.isHost && updatedPlayers.length > 0) {
+        const hostStillPresent = updatedPlayers.some(p => p.is_host)
+        if (!hostStillPresent) {
+          setHostDisconnected(true)
+          setTimeout(() => {
+            sessionStorage.clear()
+            window.location.href = '/'
+          }, 3000)
+        }
+      }
     })
 
     // PWA/mobile: force refresh when app comes back to foreground or goes back online
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        if (sessionStorage.getItem('guglioquiz_redirecting') === 'true') return
-        
-        const updatedGame = await getGameByCode(code)
-        if (updatedGame) {
-          setGame(updatedGame)
-          if (updatedGame.status === 'lobby' && !latestRef.current.isHost) {
-            sessionStorage.setItem('guglioquiz_redirecting', 'true')
-            window.location.href = `/lobby/${updatedGame.code}`
-            return
-          }
+      if (document.visibilityState !== 'visible') return
+      if (sessionStorage.getItem('guglioquiz_redirecting') === 'true') return
+
+      const [updatedGame, updatedPlayers] = await Promise.all([
+        getGameByCode(code),
+        getPlayers(gameIdForSub),
+      ])
+
+      if (updatedPlayers.length > 0) setPlayers(updatedPlayers)
+
+      if (!updatedGame) return
+      setGame(updatedGame)
+
+      if (updatedGame.status === 'lobby' && !latestRef.current.isHost) {
+        sessionStorage.setItem('guglioquiz_redirecting', 'true')
+        window.location.href = `/lobby/${updatedGame.code}`
+        return
+      }
+
+      // Sync phase and question index from server — player may have missed events while away
+      if (!latestRef.current.isHost && updatedGame.phase) {
+        const serverPhase = updatedGame.phase as GamePhase
+        const serverIdx = updatedGame.current_question > 0 ? updatedGame.current_question - 1 : 0
+
+        setPhase(serverPhase)
+        if (serverIdx !== latestRef.current.currentQuestionIndex) {
+          setCurrentQuestionIndex(serverIdx)
+          setSelectedAnswer(null)
+          setHasAnswered(false)
+          setAnswers([])
+          setQuestionScore(null)
+          setMyResponseTime(null)
+          isRevealingRef.current = false
         }
-        const updatedPlayers = await getPlayers(gameIdForSub)
-        setPlayers(updatedPlayers)
+        if (serverPhase === 'question') {
+          setIsTimerActive(true)
+          setQuestionStartTime(Date.now())
+        } else {
+          setIsTimerActive(false)
+        }
       }
     }
     
@@ -921,6 +959,17 @@ const handleNextFromLeaderboard = async () => {
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
     // Host goes to settings
     window.location.href = `/settings?code=${game.code}&manche=true`
+  }
+
+  // Host disconnected overlay — shown above any phase
+  if (hostDisconnected) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4 text-center">
+        <img src="/logo-gq.png" alt="GQ" className="w-20 h-20 opacity-40" />
+        <h2 className="text-2xl font-bold text-foreground">L&apos;host ha abbandonato</h2>
+        <p className="text-muted-foreground">Verrai reindirizzato alla home tra 3 secondi...</p>
+      </main>
+    )
   }
 
   // Loading state
