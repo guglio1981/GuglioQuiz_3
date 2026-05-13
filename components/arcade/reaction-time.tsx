@@ -83,7 +83,7 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
     <Card className="w-full max-w-md mx-auto overflow-hidden">
       <CardContent className="p-0">
         <div
-          onClick={handleClick}
+          onPointerDown={handleClick}
           className={`
             relative min-h-[300px] flex flex-col items-center justify-center select-none
             ${phase === 'ready' ? 'bg-red-500 cursor-pointer' : ''}
@@ -106,8 +106,8 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
           )}
 
           {phase === 'ready' && (
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center" onClick={e => e.stopPropagation()}>
-              <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleGiveUp() }}>
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center" onPointerDown={e => e.stopPropagation()}>
+              <Button variant="destructive" size="sm" onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); handleGiveUp() }}>
                 Rinuncio
               </Button>
             </div>
@@ -118,10 +118,10 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
               <h3 className="text-2xl font-bold mb-2">Troppo presto!</h3>
               <p className="mb-4">Hai cliccato prima del verde</p>
               <div className="flex gap-2 justify-center">
-                <Button onClick={(e) => { e.stopPropagation(); handleRetry() }} variant="outline">
+                <Button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleRetry() }} variant="outline">
                   Riprova
                 </Button>
-                <Button onClick={(e) => { e.stopPropagation(); handleFinish() }} variant="destructive">
+                <Button onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleFinish() }} variant="destructive">
                   Conferma (0 punti)
                 </Button>
               </div>
@@ -138,7 +138,7 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
                  reactionTime && reactionTime < 400 ? 'Buono!' : 'Puoi fare meglio!'}
               </p>
               <Button
-                onClick={(e) => { e.stopPropagation(); handleFinish() }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleFinish() }}
                 variant="secondary"
                 size="lg"
               >

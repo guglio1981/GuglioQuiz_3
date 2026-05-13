@@ -58,7 +58,7 @@ import {
 import { ArcadeGameWrapper } from '@/components/arcade/arcade-game-wrapper'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { ArrowRight, RotateCcw, Home, Loader2, HandHelping } from 'lucide-react'
+import { RotateCcw, Home, Loader2, HandHelping } from 'lucide-react'
 
 
 type GamePhase = 'loading' | 'question' | 'reveal' | 'leaderboard' | 'arcade' | 'arcade_results' | 'finished'
@@ -694,12 +694,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       }
     }
 
-    // In untimed mode, we wait for host to click "Next"
-    if (isUntimed) {
-      isRevealingRef.current = false
-      return
-    }
-
     // SOLO l'host decide quando si passa alla fase successiva
     if (latestIsHost) {
       setTimeout(() => {
@@ -726,38 +720,36 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
   // Host-side fallback: Force reveal if time is up and some players disconnected/didn't answer
   useEffect(() => {
-    if (phase !== 'question' || !isHost || !game || game.game_profile === 'untimed') return
+    if (phase !== 'question' || !isHost || !game) return
 
-    // Set a timeout for the duration of the timer + a grace period (e.g. 15s + 3s = 18s)
+    // Untimed: 60s grace, timed: 15s + 4s grace
+    const timeout = game.game_profile === 'untimed' ? 60000 : SCORING.TIME_LIMIT_MS + 4000
     const fallbackTimer = setTimeout(() => {
-      // If we are still in the question phase, force the reveal
       handleReveal()
-    }, SCORING.TIME_LIMIT_MS + 4000)
+    }, timeout)
 
     return () => clearTimeout(fallbackTimer)
   }, [phase, isHost, game, currentQuestionIndex, handleReveal])
 
   // Client-side fallback: Smart Fallback Timer (Zero Polling)
   useEffect(() => {
-    if (isHost || !game || game.game_profile === 'untimed') return
+    if (isHost || !game) return
 
     let fallbackTimer: NodeJS.Timeout
+    const isUntimed = game.game_profile === 'untimed'
 
     if (phase === 'question') {
-      // Fallback: se dopo tempo + 10s non abbiamo ricevuto il reveal, forza sync
+      const timeout = isUntimed ? 70000 : SCORING.TIME_LIMIT_MS + 10000
       fallbackTimer = setTimeout(async () => {
         const updatedGame = await getGameByCode(game.code)
         if (updatedGame && updatedGame.phase && updatedGame.phase !== 'question') {
-          console.log('[DIAG] Client Fallback: Recuperato stato perso da question a', updatedGame.phase)
           setGame(updatedGame)
         }
-      }, SCORING.TIME_LIMIT_MS + 10000)
+      }, timeout)
     } else if (phase === 'reveal') {
-      // Fallback: se in reveal da più di 20s, sync con server
       fallbackTimer = setTimeout(async () => {
         const updatedGame = await getGameByCode(game.code)
         if (updatedGame && (updatedGame.current_question > currentQuestionIndex + 1 || updatedGame.phase !== 'reveal')) {
-          console.log('[DIAG] Client Fallback: Recuperato stato perso da reveal a', updatedGame.phase)
           setGame(updatedGame)
         }
       }, 20000)
@@ -847,15 +839,17 @@ const handleNextFromLeaderboard = async () => {
 
     let isMounted = true
     let allCompleted = false
+    let resultsFinalized = false // Freeze results once processing is complete
 
     async function fetchAndCheckResults() {
       if (!isMounted || allCompleted) return
-      
+
       const results = await getArcadeResults(game!.id, arcadeRound)
       if (!isMounted) return
-      
-      setArcadeResults(results)
-      
+
+      // Only update live results if not yet finalized
+      if (!resultsFinalized) setArcadeResults(results)
+
       // Check if all players completed
       if (results.length === players.length && results.length > 0) {
         allCompleted = true
@@ -863,20 +857,25 @@ const handleNextFromLeaderboard = async () => {
           if (isHost) {
             const isLowerBetter = ['reaction_time', 'memory_cards', 'speed_typing', 'sequenza_numerica', 'puzzle_slider'].includes(currentArcadeGame || '')
             await processArcadeResults(game!.id, arcadeRound, currentArcadeGame || '', isLowerBetter)
-            // Host refreshes players immediately after processing
             const updatedPlayers = await getPlayers(game!.id)
             if (isMounted) setPlayers(updatedPlayers)
           } else {
-            // Clients wait a bit for host to process, then refresh
-            await new Promise(resolve => setTimeout(resolve, 2000))
+            // Clients wait for host to process
+            await new Promise(resolve => setTimeout(resolve, 3000))
             const updatedPlayers = await getPlayers(game!.id)
             if (isMounted) setPlayers(updatedPlayers)
           }
         } catch (error) {
           console.error("Error processing arcade results:", error)
         }
-        
-        if (isMounted) setPhase('arcade_results')
+
+        // Final single fetch after processing — freeze display
+        const finalResults = await getArcadeResults(game!.id, arcadeRound)
+        if (isMounted) {
+          resultsFinalized = true
+          setArcadeResults(finalResults)
+          setPhase('arcade_results')
+        }
       }
     }
 
@@ -886,11 +885,9 @@ const handleNextFromLeaderboard = async () => {
     // Poll every 8 seconds as fallback (subscription handles real-time)
     const pollInterval = setInterval(fetchAndCheckResults, 8000)
 
-    // Subscribe to realtime — update arcadeResults state directly so the leaderboard
-    // always shows the latest positions/points even after allCompleted = true
+    // Subscribe to realtime — only update results before finalization to prevent flicker
     const channel = subscribeToArcadeResults(game!.id, arcadeRound, (freshResults) => {
-      if (isMounted) setArcadeResults(freshResults)
-      // Also trigger completion check if not yet completed
+      if (isMounted && !resultsFinalized) setArcadeResults(freshResults)
       if (!allCompleted) fetchAndCheckResults()
     })
 
@@ -1216,51 +1213,6 @@ const handleNextFromLeaderboard = async () => {
           </div>
         )}
 
-        {/* Force Reveal Button (Host only, untimed mode, question phase) */}
-        {isHost && game.game_profile === 'untimed' && phase === 'question' && (
-          <div className="mt-8 flex justify-center">
-            <Button
-              size="lg"
-              onClick={() => handleReveal()}
-              variant="outline"
-              className="w-full max-w-md border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold h-12"
-            >
-              Forza Rivelazione (se qualcuno è bloccato)
-            </Button>
-          </div>
-        )}
-
-        {/* Next Question Button (Host only, untimed mode, reveal phase) */}
-        {isHost && game.game_profile === 'untimed' && phase === 'reveal' && (
-          <div className="mt-8 flex justify-center">
-            <Button
-              size="lg"
-              onClick={async () => {
-                const questionNum = currentQuestionIndex + 1
-                const isLastQuestion = questionNum >= questions.length || questionNum >= game.question_count
-                const showLeaderboard = questionNum % 5 === 0 || isLastQuestion
-                
-                if (isLastQuestion) {
-                  // Sync finished phase so non-host clients also transition
-                  await syncLeaderboardPhase(game.id, 'finished')
-                  setPhase('finished')
-                } else if (showLeaderboard) {
-                  // Sync leaderboard phase so non-host clients also transition
-                  await syncLeaderboardPhase(game.id, 'leaderboard')
-                  setPhase('leaderboard')
-                } else {
-                  goToNextQuestion()
-                }
-                isRevealingRef.current = false
-              }}
-
-              className="w-full max-w-md bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xl h-16 shadow-lg shadow-yellow-900/20"
-            >
-              Avanti
-              <ArrowRight className="ml-2 h-6 w-6" />
-            </Button>
-          </div>
-        )}
 
         {/* Abort button - host only, inside its own card */}
         {isHost && (
