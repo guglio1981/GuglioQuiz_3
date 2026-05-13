@@ -5,8 +5,8 @@ import type { Game, Player, Question, Answer, GameSettings, GameProfile } from '
 import { generateGameCode, calculateCorrectPoints, calculateWrongPoints, SCORING } from '@/lib/types'
 
 // Retry a single PocketBase call with exponential backoff on 429 errors
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4): Promise<T> {
-  let delay = 300
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6): Promise<T> {
+  let delay = 200
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn()
@@ -15,7 +15,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4): Promise<T> {
                     (err?.message || '').includes('429')
       if (is429 && attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, delay))
-        delay *= 2  // exponential backoff: 300 → 600 → 1200 → 2400ms
+        delay = Math.min(delay * 2, 3000)  // 200→400→800→1600→3000→3000ms (cap 3s)
         continue
       }
       throw err
