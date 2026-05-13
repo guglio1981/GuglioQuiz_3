@@ -148,7 +148,7 @@ export function SimonSays({ onComplete, playerName }: SimonSaysProps) {
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="pb-2">
         <CardTitle className="text-center flex justify-between items-center">
-          <span>Simon Says</span>
+          <span>Sequenza Colori</span>
           <span className="text-primary text-sm">
             Livello {level}/{MAX_LEVELS}
           </span>

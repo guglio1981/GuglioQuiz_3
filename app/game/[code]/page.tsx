@@ -669,12 +669,16 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
       if (isLastQuestion) {
         if (nowIsHost && nowGame) {
+          // Sync BOTH topic_selection_mode (legacy) AND phase field so clients
+          // receive the transition via two independent mechanisms
           syncLeaderboardPhase(nowGame.id, 'finished').catch(console.error)
+          updateGamePhase(nowGame.id, 'finished').catch(console.error)
         }
         setPhase('finished')
       } else if (showLeaderboard) {
         if (nowIsHost && nowGame) {
           syncLeaderboardPhase(nowGame.id, 'leaderboard').catch(console.error)
+          updateGamePhase(nowGame.id, 'leaderboard').catch(console.error)
         }
         setPhase('leaderboard')
       } else {
@@ -954,7 +958,7 @@ const handleNextFromLeaderboard = async () => {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
         <Leaderboard
-          players={players}
+          players={sortedPlayers}
           currentPlayerId={currentPlayerId}
           questionNumber={currentQuestionIndex + 1}
           totalQuestions={questions.length}
@@ -968,7 +972,6 @@ const handleNextFromLeaderboard = async () => {
 
   // Finished phase
   if (phase === 'finished' && currentPlayerId) {
-    const sortedPlayers = [...players].sort((a, b) => b.score - a.score)
     const winner = sortedPlayers[0]
     const isWinner = winner?.id === currentPlayerId
 
@@ -984,7 +987,7 @@ const handleNextFromLeaderboard = async () => {
         </div>
 
         <Leaderboard
-          players={players}
+          players={sortedPlayers}
           currentPlayerId={currentPlayerId}
           questionNumber={questions.length}
           totalQuestions={questions.length}
@@ -1045,9 +1048,15 @@ const handleNextFromLeaderboard = async () => {
     )
   }
 
-  // Question/Reveal phase
+  // Question/Reveal phase — if question data isn't ready yet, show a spinner
+  // instead of a blank screen (prevents black screen during phase transitions)
   if (!currentQuestion || !game || !currentPlayer) {
-    return null
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-muted-foreground">Caricamento...</p>
+      </main>
+    )
   }
 
   const correctAnswer = currentQuestion.correct_answer
