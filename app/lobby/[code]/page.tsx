@@ -216,6 +216,12 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
+    // Re-fetch game once after subscriptions are active to catch any events
+    // that fired between loadGame() and subscription setup (race condition window)
+    getGameByCode(game.code).then(latestGame => {
+      if (latestGame) setGame(latestGame)
+    }).catch(() => {})
+
     const gameChannel = subscribeToGame(game.id, (updatedGame) => {
       setGame(updatedGame)
       

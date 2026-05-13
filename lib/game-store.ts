@@ -628,10 +628,9 @@ export async function processAnswers(
 
 export function subscribeToGame(gameId: string, callback: (game: Game) => void) {
   const pb = getPocketBase()
-  // PocketBase lets us subscribe to a specific record by its ID — no collision risk.
   pb.collection('games').subscribe(gameId, (e) => {
     callback(e.record as unknown as Game)
-  })
+  }).catch(err => console.error('subscribeToGame error:', err))
   return () => pb.collection('games').unsubscribe(gameId)
 }
 
