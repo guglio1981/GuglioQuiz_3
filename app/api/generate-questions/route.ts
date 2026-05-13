@@ -58,7 +58,7 @@ const LOGO_DATA = [
   { name: 'Microsoft', url: 'https://cdn.simpleicons.org/microsoft/ffffff' },
   { name: 'Adidas', url: 'https://cdn.simpleicons.org/adidas/ffffff' },
   { name: 'IBM', url: 'https://cdn.simpleicons.org/ibm/ffffff' },
-  { name: 'Toyota', url: 'https://cdn.simpleicons.org/toyota/ffffff' },
+  { name: 'LinkedIn', url: 'https://cdn.simpleicons.org/linkedin/ffffff' },
   { name: 'Slack', url: 'https://cdn.simpleicons.org/slack/ffffff' },
   { name: 'Android', url: 'https://cdn.simpleicons.org/android/ffffff' },
   { name: 'YouTube', url: 'https://cdn.simpleicons.org/youtube/ffffff' },
@@ -76,9 +76,9 @@ const LOGO_DATA = [
   { name: 'Uber', url: 'https://cdn.simpleicons.org/uber/ffffff' },
   { name: 'Mastercard', url: 'https://cdn.simpleicons.org/mastercard/ffffff' },
   { name: 'Visa', url: 'https://cdn.simpleicons.org/visa/ffffff' },
-  { name: 'BMW', url: 'https://cdn.simpleicons.org/bmw/ffffff' },
-  { name: 'Volkswagen', url: 'https://cdn.simpleicons.org/volkswagen/ffffff' },
-  { name: 'Ferrari', url: 'https://cdn.simpleicons.org/ferrari/ffffff' },
+  { name: 'Discord', url: 'https://cdn.simpleicons.org/discord/ffffff' },
+  { name: 'Reddit', url: 'https://cdn.simpleicons.org/reddit/ffffff' },
+  { name: 'Twitch', url: 'https://cdn.simpleicons.org/twitch/ffffff' },
   { name: 'TikTok', url: 'https://cdn.simpleicons.org/tiktok/ffffff' },
 ]
 

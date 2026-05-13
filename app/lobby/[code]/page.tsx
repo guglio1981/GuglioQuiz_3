@@ -555,7 +555,7 @@ setIsStarting(true)
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+          <img src="/logo-gq.png" alt="GQ" className="w-20 h-20 mx-auto animate-pulse" />
           <p className="text-muted-foreground text-lg">Caricamento lobby...</p>
         </div>
       </div>
@@ -709,6 +709,8 @@ setIsStarting(true)
                 <div className="flex flex-wrap gap-2">
                   {game.topics.length === 0 ? (
                     <span className="text-xs text-muted-foreground italic">Nessun argomento selezionato</span>
+                  ) : game.topics.length >= TOPICS.length ? (
+                    <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-foreground">Tutto</Badge>
                   ) : game.topics.map((topic) => (
                     <Badge key={topic} variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-foreground">
                       {TOPIC_LABELS[topic as keyof typeof TOPIC_LABELS]}
@@ -717,18 +719,21 @@ setIsStarting(true)
                 </div>
               </div>
 
-              {/* Paragrafo 3: Arcade — viola */}
+              {/* Paragrafo 3: Arcade — blu */}
               {game.arcade_games && (game.arcade_games as ArcadeGame[]).length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-purple-400">Arcade</p>
-                    <Badge variant="outline" className="text-xs bg-purple-500/10 border-purple-400/30 text-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">Arcade</p>
+                    <Badge className="text-xs bg-blue-600 border-blue-600 text-white">
+                      {(game.arcade_games as ArcadeGame[]).length} {(game.arcade_games as ArcadeGame[]).length === 1 ? 'gioco' : 'giochi'}
+                    </Badge>
+                    <Badge className="text-xs bg-blue-600 border-blue-600 text-white">
                       ogni {game.arcade_frequency || 5} domande
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(game.arcade_games as ArcadeGame[]).map((arcadeGame) => (
-                      <Badge key={arcadeGame} variant="outline" className="text-xs bg-purple-500/10 border-purple-400/30 text-foreground">
+                      <Badge key={arcadeGame} className="text-xs bg-blue-600 border-blue-600 text-white">
                         {ARCADE_GAME_LABELS[arcadeGame]}
                       </Badge>
                     ))}

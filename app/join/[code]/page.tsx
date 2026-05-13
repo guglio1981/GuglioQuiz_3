@@ -141,7 +141,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <img src="/logo-gq.png" alt="GQ" className="w-20 h-20 mx-auto animate-pulse" />
           <p className="text-muted-foreground">Caricamento partita...</p>
         </div>
       </div>
