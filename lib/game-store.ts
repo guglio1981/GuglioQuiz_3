@@ -276,6 +276,9 @@ export async function resetGameForNewManche(gameId: string): Promise<boolean> {
       phase: 'loading',
       status: 'lobby',
       topic_selection_mode: '',   // clear immediately so clients don't see stale modal
+      topics: [],                  // clear topics so collaborative modal doesn't open with old topics
+      questions_json: [],
+      questions_ready: false,
     }))
     return true
   } catch (error) {
