@@ -288,9 +288,9 @@ function decodeHTML(html: string): string {
     .replace(/&ndash;/g, '-')
 }
 
-// Generate a simple hash of a question for deduplication
+// Generate a hash of a question for deduplication (use full normalized text)
 function hashQuestion(q: string): string {
-  return q.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50)
+  return q.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 120)
 }
 
 // Fetch questions from Open Trivia DB with token for no repeats
@@ -360,14 +360,33 @@ async function generateAIQuestions(
   count: number,
   difficulty: Difficulty,
   usedHashes: Set<string>,
-  seed?: number
+  seed?: number,
+  usedTexts?: string[]
 ): Promise<GeneratedQuestion[]> {
   const topicsList = topics.map(t => TOPIC_LABELS[t] || t).join(', ')
   const difficultyText = difficulty === 'difficile' ? 'difficili e sfidanti' : 'di media difficoltà'
   const randomSeed = seed || Date.now()
 
+  // Style variations to force different question types each call
+  const styleVariants = [
+    'Preferisci domande su eventi recenti (ultimi 20 anni), personaggi contemporanei e fatti moderni.',
+    'Preferisci domande su storia antica, origini, record mondiali e curiosità scientifiche.',
+    'Preferisci domande su numeri, date, misure, quantità e statistiche.',
+    'Preferisci domande su personaggi famosi, premi, primati e record.',
+    'Preferisci domande su luoghi geografici, paesi, città e cultura locale.',
+    'Preferisci domande su processi, meccanismi, "come funziona", scoperte e invenzioni.',
+  ]
+  const styleHint = styleVariants[Math.floor(randomSeed) % styleVariants.length]
+
+  // Include a sample of used questions to avoid repeats
+  const avoidSection = usedTexts && usedTexts.length > 0
+    ? `\nNON GENERARE domande simili o identiche a queste già usate:\n${usedTexts.slice(0, 20).map(t => `- "${t}"`).join('\n')}\n`
+    : ''
+
   const prompt = `Genera esattamente ${count} domande quiz ORIGINALI e UNICHE TASSATIVAMENTE IN LINGUA ITALIANA per un gioco a quiz multiplayer. È ASSOLUTAMENTE VIETATO USARE L'INGLESE. Tutte le domande e le opzioni devono essere in un italiano perfetto.
 Usa questo seed per variare le domande: ${randomSeed}
+Stile richiesto per questa sessione: ${styleHint}
+${avoidSection}
 
 ARGOMENTI: ${topicsList}
 DIFFICOLTÀ: ${difficultyText}
@@ -451,11 +470,12 @@ RISPONDI SOLO CON UN ARRAY JSON VALIDO (inizia con [ e finisci con ]):
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { topics, count, difficulty, usedQuestionHashes = [] } = body as {
+    const { topics, count, difficulty, usedQuestionHashes = [], usedQuestionTexts = [] } = body as {
       topics: Topic[]
       count: number
       difficulty: Difficulty
       usedQuestionHashes?: string[]
+      usedQuestionTexts?: string[]
     }
 
     if (!topics || !count || !difficulty) {
@@ -526,7 +546,7 @@ export async function POST(request: Request) {
     if (aiTopics.length > 0) {
       const aiCount = Math.max(questionsPerTopic * aiTopics.length, 1)
       parallelTasks.push(
-        generateAIQuestions(aiTopics, aiCount, difficulty, usedHashes, seed)
+        generateAIQuestions(aiTopics, aiCount, difficulty, usedHashes, seed, usedQuestionTexts)
           .catch(e => { console.error('AI topic generation failed:', e); return [] })
       )
     }
@@ -534,7 +554,7 @@ export async function POST(request: Request) {
     // 4. Other topics (AI-generated, run alongside the above)
     if (otherTopics.length > 0) {
       parallelTasks.push(
-        generateAIQuestions(otherTopics, questionsPerTopic * otherTopics.length, difficulty, usedHashes, seed + 1)
+        generateAIQuestions(otherTopics, questionsPerTopic * otherTopics.length, difficulty, usedHashes, seed + 1, usedQuestionTexts)
           .catch(e => { console.error('Other topic generation failed:', e); return [] })
       )
     }
@@ -552,7 +572,7 @@ export async function POST(request: Request) {
       try {
         // Request 50% more than needed to be sure
         const requestCount = Math.max(remaining + 2, Math.ceil(remaining * 1.5))
-        const fillQs = await generateAIQuestions(topics, requestCount, difficulty, usedHashes, seed + 100 + fillAttempts)
+        const fillQs = await generateAIQuestions(topics, requestCount, difficulty, usedHashes, seed + 100 + fillAttempts, usedQuestionTexts)
         console.log(`[API] Generated ${fillQs.length} filling questions.`)
         allQuestions.push(...fillQs)
       } catch (e) {

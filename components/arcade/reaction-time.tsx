@@ -46,6 +46,11 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
     onComplete(reactionTime)
   }
 
+  const handleGiveUp = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    onComplete(null)
+  }
+
   const handleRetry = () => {
     setPhase('idle')
     setReactionTime(null)
@@ -61,9 +66,14 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
             Clicca <strong>CLICCA!</strong> appena lo schermo diventa verde.<br />
             Non cliccare prima o perderai!
           </p>
-          <Button size="lg" onClick={startWaiting}>
-            Inizia
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button size="lg" onClick={startWaiting}>
+              Inizia
+            </Button>
+            <Button size="lg" variant="destructive" onClick={handleGiveUp}>
+              Rinuncio
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )
@@ -75,7 +85,7 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
         <div
           onClick={handleClick}
           className={`
-            min-h-[300px] flex flex-col items-center justify-center select-none
+            relative min-h-[300px] flex flex-col items-center justify-center select-none
             ${phase === 'ready' ? 'bg-red-500 cursor-pointer' : ''}
             ${phase === 'go' ? 'bg-green-500 cursor-pointer' : ''}
             ${phase === 'result' ? 'bg-primary' : ''}
@@ -92,6 +102,14 @@ export function ReactionTime({ onComplete, playerName }: ReactionTimeProps) {
           {phase === 'go' && (
             <div className="text-center text-white">
               <h3 className="text-5xl font-bold">CLICCA!</h3>
+            </div>
+          )}
+
+          {phase === 'ready' && (
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center" onClick={e => e.stopPropagation()}>
+              <Button variant="destructive" size="sm" onClick={(e) => { e.stopPropagation(); handleGiveUp() }}>
+                Rinuncio
+              </Button>
             </div>
           )}
 

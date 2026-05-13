@@ -78,6 +78,10 @@ export function SequenzaNumerica({ onComplete, playerName }: SequenzaNumericaPro
     onComplete(finalTime, errors)
   }
 
+  const handleGiveUp = () => {
+    onComplete(999999, errors)
+  }
+
   if (isComplete) {
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -138,6 +142,9 @@ export function SequenzaNumerica({ onComplete, playerName }: SequenzaNumericaPro
             Errori: {errors}
           </p>
         )}
+        <Button onClick={handleGiveUp} variant="destructive" className="w-full mt-3">
+          Rinuncio
+        </Button>
       </CardContent>
     </Card>
   )

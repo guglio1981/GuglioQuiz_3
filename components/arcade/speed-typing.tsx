@@ -68,6 +68,10 @@ export function SpeedTyping({ onComplete, playerName }: SpeedTypingProps) {
     onComplete(finalTime, errors)
   }
 
+  const handleGiveUp = () => {
+    onComplete(999999, errors)
+  }
+
   if (isComplete) {
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -101,9 +105,14 @@ export function SpeedTyping({ onComplete, playerName }: SpeedTypingProps) {
             <p className="text-muted-foreground mb-4">
               Scrivi {targetWords} parole il piu velocemente possibile
             </p>
-            <Button onClick={handleStart} size="lg">
-              Inizia
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button onClick={handleStart} size="lg">
+                Inizia
+              </Button>
+              <Button onClick={handleGiveUp} variant="destructive" size="lg">
+                Rinuncio
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -137,6 +146,9 @@ export function SpeedTyping({ onComplete, playerName }: SpeedTypingProps) {
             <p className="text-center text-sm text-muted-foreground">
               Errori: {errors}
             </p>
+            <Button onClick={handleGiveUp} variant="destructive" className="w-full">
+              Rinuncio
+            </Button>
           </div>
         )}
       </CardContent>

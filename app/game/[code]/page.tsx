@@ -252,14 +252,18 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         setIsGenerating(true)
         try {
           const usedHashesKey = 'guglioquiz_used_question_hashes'
+          const usedTextsKey = 'guglioquiz_used_question_texts'
           const storedHashes = localStorage.getItem(usedHashesKey)
+          const storedTexts = localStorage.getItem(usedTextsKey)
           const usedQuestionHashes = storedHashes ? JSON.parse(storedHashes) : []
-          
+          const usedQuestionTexts: string[] = storedTexts ? JSON.parse(storedTexts) : []
+
           const totalRequested = gameData.question_count || 10
           const chunkSize = 5
           const chunks = Math.ceil(totalRequested / chunkSize)
           const allQuestions: any[] = []
           const allHashes: string[] = []
+          const allTexts: string[] = []
 
           for (let i = 0; i < chunks; i++) {
             const countForThisChunk = Math.min(chunkSize, totalRequested - allQuestions.length)
@@ -273,6 +277,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
                 count: countForThisChunk,
                 difficulty: gameData.difficulty,
                 usedQuestionHashes: [...usedQuestionHashes, ...allHashes],
+                usedQuestionTexts: [...usedQuestionTexts, ...allTexts].slice(-30),
               }),
             })
 
@@ -283,13 +288,16 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
             const chunkHashes = responseData.hashes || []
             allQuestions.push(...chunkQs)
             allHashes.push(...chunkHashes)
+            allTexts.push(...chunkQs.map((q: any) => q.question_text as string))
           }
 
           if (allQuestions.length === 0) throw new Error('No questions generated')
 
-          // Save new hashes to localStorage
+          // Save new hashes and texts to localStorage
           const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
+          const trimmedTexts = [...usedQuestionTexts, ...allTexts].slice(-200)
+          localStorage.setItem(usedTextsKey, JSON.stringify(trimmedTexts))
           
           questionsData = await saveQuestions(gameData.id, allQuestions, gameData.manche || 1)
         } catch (err) {
