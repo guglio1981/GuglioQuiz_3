@@ -116,13 +116,19 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       // Check if current player exists in the list
       let currentPlayer = playersData.find(p => p.id === playerId)
 
-      // Retry fetching players if current player is not found (PocketBase consistency delay)
-      let playerRetries = 5
+      // Retry fetching players if current player is not found.
+      // If getPlayers returns [] it's likely a transient 429 — don't count empty
+      // responses as a real "player not found" attempt.
+      let playerRetries = 10
       while (!currentPlayer && playerRetries > 0) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-        playersData = await getPlayers(gameData.id)
-        currentPlayer = playersData.find(p => p.id === playerId)
-        playerRetries--
+        await new Promise(resolve => setTimeout(resolve, 600))
+        const freshPlayers = await getPlayers(gameData.id)
+        // Only update + decrement if we got a real non-empty response
+        if (freshPlayers.length > 0) {
+          playersData = freshPlayers
+          currentPlayer = playersData.find(p => p.id === playerId)
+          playerRetries--
+        }
         // Re-check game status during retries — host may have started while we waited
         const latestGame = await getGameByCode(code)
         if (latestGame?.status === 'playing') {
