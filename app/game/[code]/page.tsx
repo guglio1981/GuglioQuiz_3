@@ -259,14 +259,17 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const usedQuestionTexts: string[] = storedTexts ? JSON.parse(storedTexts) : []
 
           const totalRequested = gameData.question_count || 10
+          // Generate 40% extra as buffer to compensate for any broken image questions
+          // that will be dropped during validation. Ensures we always hit totalRequested.
+          const totalToGenerate = Math.ceil(totalRequested * 1.4)
           const chunkSize = 5
-          const chunks = Math.ceil(totalRequested / chunkSize)
+          const chunks = Math.ceil(totalToGenerate / chunkSize)
           const allQuestions: any[] = []
           const allHashes: string[] = []
           const allTexts: string[] = []
 
           for (let i = 0; i < chunks; i++) {
-            const countForThisChunk = Math.min(chunkSize, totalRequested - allQuestions.length)
+            const countForThisChunk = Math.min(chunkSize, totalToGenerate - allQuestions.length)
             if (countForThisChunk <= 0) break
 
             const response = await fetch('/api/generate-questions', {
@@ -293,9 +296,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
           if (allQuestions.length === 0) throw new Error('No questions generated')
 
-          // Pre-validate image URLs before saving — done once by the host at generation time.
-          // Questions with broken images are REMOVED entirely (not shown without image),
-          // because a "guess the logo" question without a logo is unanswerable.
+          // Pre-validate image URLs — done once by the host at generation time.
+          // Questions with broken images are dropped; the 40% buffer ensures we
+          // still have enough valid questions to reach totalRequested.
           const validateImageUrl = (url: string): Promise<boolean> =>
             new Promise((resolve) => {
               const img = new window.Image()
@@ -307,12 +310,13 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
           const validationResults = await Promise.all(
             allQuestions.map(async (q: any) => {
-              if (!q.image_url) return q          // text question — keep as-is
+              if (!q.image_url) return q      // text question — always keep
               const ok = await validateImageUrl(q.image_url)
-              return ok ? q : null               // null = broken image → drop question
+              return ok ? q : null            // null = broken image → drop
             })
           )
-          const validatedQuestions = validationResults.filter(Boolean)
+          // Slice to exactly totalRequested after filtering broken images
+          const validatedQuestions = validationResults.filter(Boolean).slice(0, totalRequested)
 
           // Save new hashes and texts to localStorage
           const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
