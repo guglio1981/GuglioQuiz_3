@@ -294,23 +294,25 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           if (allQuestions.length === 0) throw new Error('No questions generated')
 
           // Pre-validate image URLs before saving — done once by the host at generation time.
-          // Any broken URL is removed so clients never see a question with a missing image.
+          // Questions with broken images are REMOVED entirely (not shown without image),
+          // because a "guess the logo" question without a logo is unanswerable.
           const validateImageUrl = (url: string): Promise<boolean> =>
             new Promise((resolve) => {
               const img = new window.Image()
-              const timer = setTimeout(() => { img.src = ''; resolve(false) }, 6000)
+              const timer = setTimeout(() => { img.src = ''; resolve(false) }, 8000)
               img.onload = () => { clearTimeout(timer); resolve(true) }
               img.onerror = () => { clearTimeout(timer); resolve(false) }
               img.src = url
             })
 
-          const validatedQuestions = await Promise.all(
+          const validationResults = await Promise.all(
             allQuestions.map(async (q: any) => {
-              if (!q.image_url) return q
+              if (!q.image_url) return q          // text question — keep as-is
               const ok = await validateImageUrl(q.image_url)
-              return ok ? q : { ...q, image_url: null }
+              return ok ? q : null               // null = broken image → drop question
             })
           )
+          const validatedQuestions = validationResults.filter(Boolean)
 
           // Save new hashes and texts to localStorage
           const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
