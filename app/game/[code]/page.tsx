@@ -990,7 +990,7 @@ const handleNextFromLeaderboard = async () => {
   if (phase === 'loading') {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <div className="relative w-56 h-56 flex items-center justify-center">
+        <div className="relative w-48 h-48 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
@@ -1152,7 +1152,7 @@ const handleNextFromLeaderboard = async () => {
   if (!currentQuestion || !game || !currentPlayer) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <div className="relative w-56 h-56 flex items-center justify-center">
+        <div className="relative w-48 h-48 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
