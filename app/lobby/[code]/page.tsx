@@ -509,27 +509,34 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const handleStartGame = async () => {
     if (!game) return
 
-    const allReady = players.every(p => p.is_host || p.ready)
+    // Fresh read from DB — avoids stale React state where SSE update hasn't arrived yet
+    const freshPlayers = await getPlayers(game.id)
+    const freshGame = await getGameByCode(game.code)
+
+    const nonHostPlayers = freshPlayers.filter(p => !p.is_host)
+
+    const allReady = freshPlayers.every(p => p.is_host || p.ready)
     if (!allReady) {
       toast.error('Tutti i giocatori devono accettare le regole')
       return
     }
 
-    // If collaborative topic selection is still active, wait for all clients to confirm
-    if (game.topic_selection_mode) {
-      const allTopicsConfirmed = players.filter(p => !p.is_host).every(p => p.topics_confirmed)
+    // Block start if collaborative topic selection is active and any client hasn't confirmed
+    if (freshGame?.topic_selection_mode) {
+      const allTopicsConfirmed = nonHostPlayers.every(p => p.topics_confirmed)
       if (!allTopicsConfirmed) {
-        toast.error('Tutti i giocatori devono confermare la scelta degli argomenti')
+        const missing = nonHostPlayers.filter(p => !p.topics_confirmed).map(p => p.name).join(', ')
+        toast.error(`In attesa della conferma argomenti da: ${missing}`)
         return
       }
     }
 
-    if (players.length < 1) {
-      toast.error('Serve almeno 1 giocatore')
+    if (freshPlayers.length < 2) {
+      toast.error('Serve almeno 1 giocatore oltre all\'host')
       return
     }
 
-setIsStarting(true)
+    setIsStarting(true)
     await updateGameStatus(game.id, 'playing')
     // Use window.location for hard navigation to ensure page loads
     window.location.href = `/game/${game.code}`
