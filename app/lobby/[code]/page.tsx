@@ -626,7 +626,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           <CardHeader className="pb-2">
             <CardTitle className="text-foreground flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-primary" />
-              Regole e argomenti
+              Impostazioni partita
             </CardTitle>
           </CardHeader>
           {isHost && !game.manche_ready ? (
@@ -672,36 +672,39 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
             /* Show rules when topics are set */
             <CardContent className="space-y-2 pt-2 pb-3">
 
-              {/* Modalità — viola */}
-              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
-                <Clock className="h-7 w-7 text-purple-400 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-1.5">Modalità</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-purple-500/45 text-white">
-                      {game.game_profile === 'untimed' ? '⏳ Senza Tempo' : '⏱ A Tempo'}
-                    </span>
+              {/* Row 1: Modalità + Domande — affiancate */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Modalità — viola */}
+                <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
+                  <Clock className="h-7 w-7 text-purple-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-1.5">Modalità</p>
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-purple-500/45 text-white">
+                        {game.game_profile === 'untimed' ? '⏳ Senza Tempo' : '⏱ A Tempo'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Domande — oro */}
+                <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
+                  <HelpCircle className="h-7 w-7 text-primary shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1.5">Domande</p>
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-primary/45 text-white">
+                        {game.question_count} dom.
+                      </span>
+                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-primary/45 text-white">
+                        {game.difficulty === 'difficile' ? 'Difficile' : 'Interm.'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Domande — oro */}
-              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
-                <HelpCircle className="h-7 w-7 text-primary shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1.5">Domande</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/45 text-white">
-                      {game.question_count} domande
-                    </span>
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/45 text-white">
-                      {game.difficulty === 'difficile' ? 'Difficile' : 'Intermedio'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Argomenti — verde */}
+              {/* Row 2: Argomenti — intera larghezza */}
               <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
                 <Globe className="h-7 w-7 text-green-400 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
@@ -725,38 +728,54 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                 </div>
               </div>
 
-              {/* Astensioni — rosso */}
-              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
-                <MinusCircle className="h-7 w-7 text-red-400 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Astensioni</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-red-500/45 text-white">
-                      {game.max_abstentions} {game.max_abstentions === 1 ? 'astensione disponibile' : 'astensioni disponibili'}
-                    </span>
+              {/* Row 3: Astensioni + Arcade affiancati (o solo Astensioni a piena larghezza) */}
+              {game.arcade_games && (game.arcade_games as ArcadeGame[]).length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Astensioni — rosso */}
+                  <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
+                    <MinusCircle className="h-7 w-7 text-red-400 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Astensioni</p>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="text-xs font-semibold px-2 py-1 rounded-md bg-red-500/45 text-white">
+                          {game.max_abstentions} disp.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Giochi Arcade — blu */}
+                  <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
+                    <Gamepad2 className="h-7 w-7 text-blue-400 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Arcade</p>
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-xs font-bold text-white">
+                          {(game.arcade_games as ArcadeGame[]).length} {(game.arcade_games as ArcadeGame[]).length === 1 ? 'gioco' : 'giochi'}
+                        </span>
+                        <span className="text-muted-foreground text-xs">·</span>
+                        <span className="text-xs text-muted-foreground italic">/{game.arcade_frequency || 5}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(game.arcade_games as ArcadeGame[]).map((arcadeGame) => (
+                          <span key={arcadeGame} className="text-xs font-semibold px-2 py-1 rounded-md bg-blue-500/45 text-white">
+                            {ARCADE_GAME_LABELS[arcadeGame]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Giochi Arcade — blu */}
-              {game.arcade_games && (game.arcade_games as ArcadeGame[]).length > 0 && (
+              ) : (
+                /* Solo Astensioni — intera larghezza */
                 <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
-                  <Gamepad2 className="h-7 w-7 text-blue-400 shrink-0 mt-0.5" />
+                  <MinusCircle className="h-7 w-7 text-red-400 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Giochi Arcade</p>
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <span className="text-sm font-bold text-white">
-                        {(game.arcade_games as ArcadeGame[]).length} {(game.arcade_games as ArcadeGame[]).length === 1 ? 'gioco' : 'giochi'}
-                      </span>
-                      <span className="text-muted-foreground text-xs">·</span>
-                      <span className="text-xs text-muted-foreground italic">ogni {game.arcade_frequency || 5} domande</span>
-                    </div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Astensioni</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {(game.arcade_games as ArcadeGame[]).map((arcadeGame) => (
-                        <span key={arcadeGame} className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-500/45 text-white">
-                          {ARCADE_GAME_LABELS[arcadeGame]}
-                        </span>
-                      ))}
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-red-500/45 text-white">
+                        {game.max_abstentions} {game.max_abstentions === 1 ? 'astensione disponibile' : 'astensioni disponibili'}
+                      </span>
                     </div>
                   </div>
                 </div>
