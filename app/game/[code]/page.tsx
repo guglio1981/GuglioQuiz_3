@@ -1227,8 +1227,20 @@ const handleNextFromLeaderboard = async () => {
                   src={currentQuestion.image_url}
                   alt="Immagine domanda"
                   className="max-h-48 md:max-h-64 object-contain rounded-lg"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement
+                    img.style.display = 'none'
+                    const placeholder = img.nextElementSibling as HTMLElement | null
+                    if (placeholder) placeholder.style.display = 'flex'
+                  }}
                 />
+                <div
+                  style={{ display: 'none' }}
+                  className="flex-col items-center justify-center gap-2 w-32 h-32 rounded-xl bg-muted border border-border text-muted-foreground text-center text-sm p-3"
+                >
+                  <span className="text-3xl">🖼️</span>
+                  <span>Immagine non disponibile</span>
+                </div>
               </div>
             )}
             <p className="text-xl md:text-2xl font-semibold text-foreground text-center text-balance">
