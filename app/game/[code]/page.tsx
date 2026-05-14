@@ -293,8 +293,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
                   usedQuestionTexts: usedQuestionTexts.slice(-30),
                 }),
               }).then(async (res) => {
-                const data = await res.json()
-                if (!res.ok) throw new Error(data.details || data.error || 'Failed to generate questions')
+                const text = await res.text()
+                let data: any
+                try { data = JSON.parse(text) } catch { return { questions: [], hashes: [] } }
+                if (!res.ok) return { questions: [], hashes: [] }
                 chunksCompleted++
                 const pct = Math.round((chunksCompleted / numChunks) * 65)
                 setGenerationProgress(pct)
