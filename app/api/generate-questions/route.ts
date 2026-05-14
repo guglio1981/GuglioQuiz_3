@@ -52,12 +52,12 @@ const IMAGE_TOPICS: Topic[] = ['indovina_logo', 'indovina_bandiera', 'indovina_a
 const LOGO_DATA = [
   { name: 'Apple', url: 'https://cdn.simpleicons.org/apple/ffffff' },
   { name: 'Google', url: 'https://cdn.simpleicons.org/google/ffffff' },
-  { name: 'Nike', url: 'https://cdn.simpleicons.org/nike/ffffff' },
-  { name: 'McDonald\'s', url: 'https://cdn.simpleicons.org/mcdonalds/ffffff' }, // slug verified
+  { name: 'GitHub', url: 'https://cdn.simpleicons.org/github/ffffff' },
+  { name: 'Figma', url: 'https://cdn.simpleicons.org/figma/ffffff' },
   { name: 'Amazon', url: 'https://cdn.simpleicons.org/amazon/ffffff' },
   { name: 'Microsoft', url: 'https://cdn.simpleicons.org/microsoft/ffffff' },
-  { name: 'Adidas', url: 'https://cdn.simpleicons.org/adidas/ffffff' },
-  { name: 'IBM', url: 'https://cdn.simpleicons.org/ibm/ffffff' },
+  { name: 'Notion', url: 'https://cdn.simpleicons.org/notion/ffffff' },
+  { name: 'Zoom', url: 'https://cdn.simpleicons.org/zoom/ffffff' },
   { name: 'LinkedIn', url: 'https://cdn.simpleicons.org/linkedin/ffffff' },
   { name: 'Slack', url: 'https://cdn.simpleicons.org/slack/ffffff' },
   { name: 'Android', url: 'https://cdn.simpleicons.org/android/ffffff' },

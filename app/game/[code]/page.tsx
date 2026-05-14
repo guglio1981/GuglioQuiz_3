@@ -1223,10 +1223,11 @@ const handleNextFromLeaderboard = async () => {
           <CardContent className="p-6">
             {currentQuestion.image_url && (
               <div className="flex justify-center mb-4">
-                <img 
-                  src={currentQuestion.image_url} 
+                <img
+                  src={currentQuestion.image_url}
                   alt="Immagine domanda"
                   className="max-h-48 md:max-h-64 object-contain rounded-lg"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                 />
               </div>
             )}
