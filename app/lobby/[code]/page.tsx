@@ -672,36 +672,32 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
             /* Show rules when topics are set */
             <CardContent className="space-y-2 pt-2 pb-3">
 
-              {/* Row 1: Modalità + Domande — affiancate */}
-              <div className="grid grid-cols-2 gap-2">
-                {/* Modalità — viola */}
-                <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
-                  <Clock className="h-7 w-7 text-purple-400 shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-1.5">Modalità</p>
-                    <div className="flex flex-wrap gap-1">
-                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-purple-500/45 text-white flex items-center gap-1">
-                        {game.game_profile === 'untimed'
-                          ? <><TimerOff className="h-3 w-3 shrink-0" /> Senza Tempo</>
-                          : <><Clock className="h-3 w-3 shrink-0" /> A Tempo</>}
-                      </span>
-                    </div>
+              {/* Modalità — viola */}
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <Clock className="h-7 w-7 text-purple-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-1.5">Modalità</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-purple-500/45 text-white flex items-center gap-1">
+                      {game.game_profile === 'untimed' ? <TimerOff className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
+                      {game.game_profile === 'untimed' ? 'Senza Tempo' : 'A Tempo'}
+                    </span>
                   </div>
                 </div>
+              </div>
 
-                {/* Domande — oro */}
-                <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
-                  <HelpCircle className="h-7 w-7 text-primary shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1.5">Domande</p>
-                    <div className="flex flex-wrap gap-1">
-                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-primary/45 text-white">
-                        {game.question_count} dom.
-                      </span>
-                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-primary/45 text-white">
-                        {game.difficulty === 'difficile' ? 'Difficile' : 'Interm.'}
-                      </span>
-                    </div>
+              {/* Domande — oro */}
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <HelpCircle className="h-7 w-7 text-primary shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1.5">Domande</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/45 text-white">
+                      {game.question_count} domande
+                    </span>
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/45 text-white">
+                      {game.difficulty === 'difficile' ? 'Difficile' : 'Intermedio'}
+                    </span>
                   </div>
                 </div>
               </div>
