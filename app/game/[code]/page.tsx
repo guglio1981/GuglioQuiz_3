@@ -91,6 +91,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isClickable, setIsClickable] = useState(false) // Previene click accidentali su iOS
   const [isKeepingScores, setIsKeepingScores] = useState(false)
   const [isResettingScores, setIsResettingScores] = useState(false)
+  const [isRedirectingToLobby, setIsRedirectingToLobby] = useState(false)
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
   const [hostDisconnected, setHostDisconnected] = useState(false)
   
@@ -518,10 +519,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       
       const { isHost: latestIsHost, currentQuestionIndex: latestQIdx, questions: latestQuestions } = latestRef.current
       
-      // If game status changed to lobby, redirect to lobby (only for non-host players)
+      // If game status changed to lobby, show GQ screen immediately then redirect
       if (updatedGame.status === 'lobby' && !latestIsHost) {
         sessionStorage.setItem('guglioquiz_redirecting', 'true')
-        window.location.href = `/lobby/${updatedGame.code}`
+        setIsRedirectingToLobby(true)
+        setTimeout(() => { window.location.href = `/lobby/${updatedGame.code}` }, 50)
         return
       }
       
@@ -616,7 +618,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
       if (updatedGame.status === 'lobby' && !latestRef.current.isHost) {
         sessionStorage.setItem('guglioquiz_redirecting', 'true')
-        window.location.href = `/lobby/${updatedGame.code}`
+        setIsRedirectingToLobby(true)
+        setTimeout(() => { window.location.href = `/lobby/${updatedGame.code}` }, 50)
         return
       }
 
@@ -1226,7 +1229,7 @@ const handleNextFromLeaderboard = async () => {
   }
 
   // Full-screen loading while preparing new manche
-  if (isKeepingScores || isResettingScores) {
+  if (isKeepingScores || isResettingScores || isRedirectingToLobby) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <div className="relative w-48 h-48 flex items-center justify-center">
