@@ -349,23 +349,23 @@ export function ProfileDialog({
               <p className="text-sm text-muted-foreground">Pronto a giocare!</p>
             </div>
           </div>
-        </div>
 
-        <Button
-          onClick={handleSubmit}
-          disabled={!isValid || isChecking}
-          size="lg"
-          className="w-full h-14 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 mt-2"
-        >
-          {isChecking ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Verifica...
-            </>
-          ) : (
-            'Continua'
-          )}
-        </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid || isChecking}
+            size="lg"
+            className="w-full h-14 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 mt-2"
+          >
+            {isChecking ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Verifica...
+              </>
+            ) : (
+              'Continua'
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )
