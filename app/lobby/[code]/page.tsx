@@ -508,20 +508,30 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const handleStartGame = async () => {
     if (!game) return
 
-    // Fresh read from DB — avoids stale React state where SSE update hasn't arrived yet
-    const freshPlayers = await getPlayers(game.id)
-    const freshGame = await getGameByCode(game.code)
+    // Use local SSE-updated state first — only do a DB fetch if local state shows not ready
+    const localAllReady = players.every(p => p.is_host || p.ready)
+    const localTopicsOk = !game.topic_selection_mode || players.filter(p => !p.is_host).every(p => p.topics_confirmed)
 
-    const nonHostPlayers = freshPlayers.filter(p => !p.is_host)
+    let checkPlayers = players
+    let checkGame: typeof game | null = game
 
-    const allReady = freshPlayers.every(p => p.is_host || p.ready)
+    if (!localAllReady || !localTopicsOk || players.length < 2) {
+      // Fallback: fresh read to confirm (SSE might be slightly behind)
+      const [freshPlayers, freshGame] = await Promise.all([getPlayers(game.id), getGameByCode(game.code)])
+      checkPlayers = freshPlayers
+      checkGame = freshGame
+    }
+
+    const nonHostPlayers = checkPlayers.filter(p => !p.is_host)
+
+    const allReady = checkPlayers.every(p => p.is_host || p.ready)
     if (!allReady) {
       toast.error('Tutti i giocatori devono accettare le regole')
       return
     }
 
     // Block start if collaborative topic selection is active and any client hasn't confirmed
-    if (freshGame?.topic_selection_mode) {
+    if (checkGame?.topic_selection_mode) {
       const allTopicsConfirmed = nonHostPlayers.every(p => p.topics_confirmed)
       if (!allTopicsConfirmed) {
         const missing = nonHostPlayers.filter(p => !p.topics_confirmed).map(p => p.name).join(', ')
@@ -530,7 +540,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       }
     }
 
-    if (freshPlayers.length < 2) {
+    if (checkPlayers.length < 2) {
       toast.error('Serve almeno 1 giocatore oltre all\'host')
       return
     }

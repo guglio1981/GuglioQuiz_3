@@ -1179,6 +1179,8 @@ const handleNextFromLeaderboard = async () => {
 
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
+        {/* Preload logo so it appears instantly when switching to the GQ loading screen */}
+        <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-foreground">
             {isWinner ? 'Hai vinto!' : 'Fine Partita!'}
