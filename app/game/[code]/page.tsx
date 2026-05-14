@@ -337,11 +337,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
               const pct = 65 + Math.round((imagesValidated / totalToValidate) * 30)
               setGenerationProgress(pct)
               broadcastProgress(pct)
-              return ok ? q : null            // null = broken image → drop
+              // If image broken, keep the question but remove the image URL
+              return ok ? q : { ...q, image_url: null }
             })
           )
-          // Slice to exactly totalRequested after filtering broken images
-          const validatedQuestions = validationResults.filter(Boolean).slice(0, totalRequested)
+          // All questions are kept (broken images just lose their URL), cap at requested count
+          const validatedQuestions = validationResults.slice(0, totalRequested)
 
           // Save new hashes and texts to localStorage
           const allTexts = allQuestions.map((q: any) => q.question_text as string)
@@ -874,7 +875,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         if (updatedGame && (updatedGame.current_question > currentQuestionIndex + 1 || updatedGame.phase !== 'reveal')) {
           setGame(updatedGame)
         }
-      }, 20000)
+      }, 8000)
     } else if (phase === 'leaderboard') {
       // Fallback: if SSE missed the transition out of leaderboard, poll after 12s
       fallbackTimer = setTimeout(async () => {
