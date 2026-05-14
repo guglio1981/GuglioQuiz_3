@@ -728,54 +728,38 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                 </div>
               </div>
 
-              {/* Row 3: Astensioni + Arcade affiancati (o solo Astensioni a piena larghezza) */}
-              {game.arcade_games && (game.arcade_games as ArcadeGame[]).length > 0 ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Astensioni — rosso */}
-                  <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
-                    <MinusCircle className="h-7 w-7 text-red-400 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Astensioni</p>
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs font-semibold px-2 py-1 rounded-md bg-red-500/45 text-white">
-                          {game.max_abstentions} disp.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Giochi Arcade — blu */}
-                  <div className="flex items-start gap-2.5 rounded-xl p-3 bg-muted/40 border border-border">
-                    <Gamepad2 className="h-7 w-7 text-blue-400 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Arcade</p>
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="text-xs font-bold text-white">
-                          {(game.arcade_games as ArcadeGame[]).length} {(game.arcade_games as ArcadeGame[]).length === 1 ? 'gioco' : 'giochi'}
-                        </span>
-                        <span className="text-muted-foreground text-xs">·</span>
-                        <span className="text-xs text-muted-foreground italic">/{game.arcade_frequency || 5}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(game.arcade_games as ArcadeGame[]).map((arcadeGame) => (
-                          <span key={arcadeGame} className="text-xs font-semibold px-2 py-1 rounded-md bg-blue-500/45 text-white">
-                            {ARCADE_GAME_LABELS[arcadeGame]}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+              {/* Astensioni — rosso */}
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <MinusCircle className="h-7 w-7 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Astensioni</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-red-500/45 text-white">
+                      {game.max_abstentions} {game.max_abstentions === 1 ? 'astensione disponibile' : 'astensioni disponibili'}
+                    </span>
                   </div>
                 </div>
-              ) : (
-                /* Solo Astensioni — intera larghezza */
+              </div>
+
+              {/* Giochi Arcade — blu */}
+              {game.arcade_games && (game.arcade_games as ArcadeGame[]).length > 0 && (
                 <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
-                  <MinusCircle className="h-7 w-7 text-red-400 shrink-0 mt-0.5" />
+                  <Gamepad2 className="h-7 w-7 text-blue-400 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Astensioni</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-red-500/45 text-white">
-                        {game.max_abstentions} {game.max_abstentions === 1 ? 'astensione disponibile' : 'astensioni disponibili'}
+                    <p className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Giochi Arcade</p>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-sm font-bold text-white">
+                        {(game.arcade_games as ArcadeGame[]).length} {(game.arcade_games as ArcadeGame[]).length === 1 ? 'gioco' : 'giochi'}
                       </span>
+                      <span className="text-muted-foreground text-xs">·</span>
+                      <span className="text-xs text-muted-foreground italic">ogni {game.arcade_frequency || 5} domande</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(game.arcade_games as ArcadeGame[]).map((arcadeGame) => (
+                        <span key={arcadeGame} className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-500/45 text-white">
+                          {ARCADE_GAME_LABELS[arcadeGame]}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
