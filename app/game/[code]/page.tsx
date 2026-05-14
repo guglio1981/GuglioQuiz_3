@@ -270,12 +270,14 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const usedQuestionTexts: string[] = storedTexts ? JSON.parse(storedTexts) : []
 
           const totalRequested = gameData.question_count || 10
-          // Generate extra buffer: more if image-heavy topics selected (logo/flag/year
-          // discard the whole question on broken image), less for text-only topics
+          // Generate extra buffer to cover broken images.
+          // Image-heavy topics (logo/flag/year) discard the whole question on broken image
+          // → add a flat +10 spare. Other topics: decorative image removed but question kept
+          // → smaller +4 buffer is enough.
           const imageTopics = ['indovina_logo', 'indovina_bandiera', 'indovina_anno']
           const hasImageTopics = (gameData.topics as string[]).some(t => imageTopics.includes(t))
-          const bufferMultiplier = hasImageTopics ? 2.0 : 1.4
-          const totalToGenerate = Math.ceil(totalRequested * bufferMultiplier)
+          const buffer = hasImageTopics ? 10 : 4
+          const totalToGenerate = totalRequested + buffer
           const chunkSize = 5
           const numChunks = Math.ceil(totalToGenerate / chunkSize)
 
