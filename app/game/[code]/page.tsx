@@ -337,12 +337,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
               const pct = 65 + Math.round((imagesValidated / totalToValidate) * 30)
               setGenerationProgress(pct)
               broadcastProgress(pct)
-              // If image broken, keep the question but remove the image URL
-              return ok ? q : { ...q, image_url: null }
+              return ok ? q : null   // broken image → discard (buffer covers the gap)
             })
           )
-          // All questions are kept (broken images just lose their URL), cap at requested count
-          const validatedQuestions = validationResults.slice(0, totalRequested)
+          // Filter out broken-image questions, then cap at requested count
+          // The 40% buffer ensures enough valid questions remain
+          const validatedQuestions = validationResults.filter(Boolean).slice(0, totalRequested)
 
           // Save new hashes and texts to localStorage
           const allTexts = allQuestions.map((q: any) => q.question_text as string)
