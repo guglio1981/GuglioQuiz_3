@@ -388,8 +388,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       // Sync to host's current question index (default 0 = first question)
       const hostIdx = game.current_question > 0 ? game.current_question - 1 : 0
       setCurrentQuestionIndex(hostIdx)
-      // Use the phase the host already set, fallback to 'question'
-      const targetPhase = (game.phase as GamePhase) || 'question'
+      // Use the phase the host already set. If phase is 'loading' or empty it means
+      // questions are freshly generated and the game hasn't started yet → treat as 'question'.
+      const dbPhase = game.phase as GamePhase
+      const targetPhase = (dbPhase && dbPhase !== 'loading') ? dbPhase : 'question'
       setPhase(targetPhase)
       if (targetPhase === 'question') {
         setIsTimerActive(true)
