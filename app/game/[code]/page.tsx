@@ -749,7 +749,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     setMyResponseTime(SCORING.TIME_LIMIT_MS)
 
     // Check if this counts as abstention or wrong answer
-    const isAbstention = currentPlayer.abstentions_used < game.max_abstentions
+    const isAbstention = (currentPlayer?.abstentions_used ?? 0) < game.max_abstentions
 
     await submitAnswerV3(
       currentQuestion.id,
@@ -1480,7 +1480,7 @@ const handleNextFromLeaderboard = async () => {
 
           <AbstentionDots
             total={game.max_abstentions}
-            used={currentPlayer.abstentions_used}
+            used={currentPlayer?.abstentions_used ?? 0}
           />
         </div>
 
