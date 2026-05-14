@@ -129,7 +129,6 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
       sessionStorage.setItem('guglioquiz_profile', JSON.stringify(savedProfile))
       sessionStorage.setItem('guglioquiz_isHost', 'false')
       sessionStorage.setItem('guglioquiz_gameCode', game.code)
-      toast.success('Ti sei unito alla partita!')
       router.push(`/lobby/${code}`)
     } catch (error) {
       console.error('Error joining game:', error)

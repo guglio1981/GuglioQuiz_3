@@ -1273,8 +1273,10 @@ const handleNextFromLeaderboard = async () => {
   }
 
   // Question/Reveal phase — if question data isn't ready yet, show a spinner
-  // instead of a blank screen (prevents black screen during phase transitions)
-  if (!currentQuestion || !game || !currentPlayer) {
+  // instead of a blank screen (prevents black screen during phase transitions).
+  // Only block on missing question/game — currentPlayer may briefly lag behind
+  // on re-render; we skip the full-screen flash and handle its absence inline.
+  if (!currentQuestion || !game) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
         <div className="relative w-48 h-48 flex items-center justify-center">

@@ -330,31 +330,29 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     setIsLoadingUsers(true)
     try {
       const pb = getPocketBase();
-      const subscriptions = await pb.collection('push_subscriptions').getFullList({
-        fields: 'user_id,endpoint,p256dh,auth'
-      });
+      // Fetch subscriptions and all users in parallel
+      const [subscriptions, allUsers] = await Promise.all([
+        pb.collection('push_subscriptions').getFullList({ fields: 'user_id,endpoint,p256dh,auth' }),
+        pb.collection('app_users').getFullList({ fields: 'id,username,avatar,avatar_url' }),
+      ]);
       if (!subscriptions || subscriptions.length === 0) {
         setNotifiableUsers([]);
         setIsLoadingUsers(false);
         return;
       }
-      const userIds = [...new Set(subscriptions.map(s => s.user_id).filter(Boolean))];
-      const usersData = await pb.collection('app_users').getFullList({
-        filter: userIds.map(id => `id="${id}"`).join(' || '),
-        fields: 'id,username,avatar,avatar_url'
-      });
-      
-      const usersWithSubs = usersData.map(u => {
-        const sub = subscriptions.find(s => s.user_id === u.id);
-        return {
-          id: u.id as string,
-          username: u['username'] as string,
-          avatar: (u['avatar'] as string | null) ?? null,
-          avatar_url: (u['avatar_url'] as string | null) ?? null,
-          subscription: sub
-        };
-      });
-      
+      const userIds = new Set(subscriptions.map(s => s.user_id).filter(Boolean));
+      const usersWithSubs = allUsers
+        .filter(u => userIds.has(u.id))
+        .map(u => {
+          const sub = subscriptions.find(s => s.user_id === u.id);
+          return {
+            id: u.id as string,
+            username: u['username'] as string,
+            avatar: (u['avatar'] as string | null) ?? null,
+            avatar_url: (u['avatar_url'] as string | null) ?? null,
+            subscription: sub
+          };
+        });
       setNotifiableUsers(usersWithSubs);
     } catch (e) {
       console.error(e);
