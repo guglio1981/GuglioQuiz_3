@@ -293,13 +293,32 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
           if (allQuestions.length === 0) throw new Error('No questions generated')
 
+          // Pre-validate image URLs before saving — done once by the host at generation time.
+          // Any broken URL is removed so clients never see a question with a missing image.
+          const validateImageUrl = (url: string): Promise<boolean> =>
+            new Promise((resolve) => {
+              const img = new window.Image()
+              const timer = setTimeout(() => { img.src = ''; resolve(false) }, 6000)
+              img.onload = () => { clearTimeout(timer); resolve(true) }
+              img.onerror = () => { clearTimeout(timer); resolve(false) }
+              img.src = url
+            })
+
+          const validatedQuestions = await Promise.all(
+            allQuestions.map(async (q: any) => {
+              if (!q.image_url) return q
+              const ok = await validateImageUrl(q.image_url)
+              return ok ? q : { ...q, image_url: null }
+            })
+          )
+
           // Save new hashes and texts to localStorage
           const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           const trimmedTexts = [...usedQuestionTexts, ...allTexts].slice(-200)
           localStorage.setItem(usedTextsKey, JSON.stringify(trimmedTexts))
-          
-          questionsData = await saveQuestions(gameData.id, allQuestions, gameData.manche || 1)
+
+          questionsData = await saveQuestions(gameData.id, validatedQuestions, gameData.manche || 1)
         } catch (err) {
           toast.error(`Errore: ${err instanceof Error ? err.message : 'Generazione domande fallita'}`)
           router.push('/')
