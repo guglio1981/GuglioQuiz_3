@@ -809,20 +809,18 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     // total wait = max(DB_time, 400ms) instead of DB_time + 400ms
     if (latestIsHost) {
       await Promise.all([
-        new Promise(resolve => setTimeout(resolve, 400)),
-        (async () => {
-          await processAnswers(
-            latestGame.id,
-            latestQuestion.id,
-            latestQuestion.correct_answer,
-            latestGame.max_abstentions,
-            latestQIdx === 0,
-            latestGame.game_profile || 'timed'
-          )
-          const updatedPlayers = await getPlayers(latestGame.id)
-          setPlayers(updatedPlayers)
-        })(),
+        new Promise(resolve => setTimeout(resolve, 200)),
+        processAnswers(
+          latestGame.id,
+          latestQuestion.id,
+          latestQuestion.correct_answer,
+          latestGame.max_abstentions,
+          latestQIdx === 0,
+          latestGame.game_profile || 'timed'
+        ),
       ])
+      // getPlayers runs in background — don't block phase transition on it
+      getPlayers(latestGame.id).then(setPlayers).catch(console.error)
       processNextPhase()
       isRevealingRef.current = false
     } else {
