@@ -714,9 +714,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     setMyResponseTime(null)
     
     if (isHost && game) {
-      await updateCurrentQuestion(game.id, nextIndex + 1, true)
-      await updateGamePhase(game.id, 'question')
-      await syncLeaderboardPhase(game.id, '')
+      await Promise.all([
+        updateCurrentQuestion(game.id, nextIndex + 1, true),
+        updateGamePhase(game.id, 'question'),
+        syncLeaderboardPhase(game.id, ''),
+      ])
     }
   }, [game, currentQuestionIndex, isHost])
 
