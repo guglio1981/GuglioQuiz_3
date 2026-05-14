@@ -276,19 +276,37 @@ export async function addPlayer(
   const pb = getPocketBase()
   const safeName = (name || 'Giocatore').trim()
   const capitalizedName = capitalizeFirstLetter(safeName)
-    const record = await withRetry(() => pb.collection('players').create({
-      game_id: gameId,
-      name: capitalizedName,
-      avatar,
-      avatar_url: avatarUrl,
-      is_host: isHost,
-      score: 0,
-      abstentions_used: 0,
-      ready: false,
-      topics_confirmed: false,
-      selected_topics: []
-    }))
-    return record as unknown as Player
+
+  // Deduplication: if a non-host player with the same name already exists in this game,
+  // return the existing record instead of creating a duplicate.
+  // This handles the case where the user closes the browser (sessionStorage cleared)
+  // and rejoins via the same link.
+  if (!isHost) {
+    try {
+      const existing = await withRetry(() =>
+        pb.collection('players').getFirstListItem(
+          `game_id="${gameId}" && name="${capitalizedName}" && is_host=false`
+        )
+      )
+      if (existing) return existing as unknown as Player
+    } catch {
+      // Not found — proceed to create
+    }
+  }
+
+  const record = await withRetry(() => pb.collection('players').create({
+    game_id: gameId,
+    name: capitalizedName,
+    avatar,
+    avatar_url: avatarUrl,
+    is_host: isHost,
+    score: 0,
+    abstentions_used: 0,
+    ready: false,
+    topics_confirmed: false,
+    selected_topics: []
+  }))
+  return record as unknown as Player
 }
 
 export async function getPlayers(gameId: string): Promise<Player[]> {
