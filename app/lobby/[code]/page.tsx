@@ -10,12 +10,12 @@ import { getGameByCode, getPlayers, updatePlayerReady, subscribeToGame, subscrib
 import { getPocketBase } from '@/lib/pocketbase'
 import { TOPIC_LABELS, parseAvatar, ARCADE_GAME_LABELS, TOPICS, type Game, type Player, type AvatarId, type ArcadeGame, type Topic } from '@/lib/types'
 import { toast } from 'sonner'
-import { 
+import {
   Copy, Check, Users, Play, Crown, MessageCircle, X, Bell, Loader2, Settings2, Gamepad2,
   History, Globe, Cpu, Laptop, Zap, Languages, Scale, Tv, Church, Flag, Calculator,
   FileText, BookOpen, Clapperboard, Library, Music, MonitorPlay, Dices, Smile,
   FlaskConical, Trophy, Landmark, Palette, Star, Cat, Car, Image as ImageIcon,
-  FlagTriangleRight, Calendar
+  FlagTriangleRight, Calendar, Clock, HelpCircle, MinusCircle, TimerOff
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -509,27 +509,34 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const handleStartGame = async () => {
     if (!game) return
 
-    const allReady = players.every(p => p.is_host || p.ready)
+    // Fresh read from DB — avoids stale React state where SSE update hasn't arrived yet
+    const freshPlayers = await getPlayers(game.id)
+    const freshGame = await getGameByCode(game.code)
+
+    const nonHostPlayers = freshPlayers.filter(p => !p.is_host)
+
+    const allReady = freshPlayers.every(p => p.is_host || p.ready)
     if (!allReady) {
       toast.error('Tutti i giocatori devono accettare le regole')
       return
     }
 
-    // If collaborative topic selection is still active, wait for all clients to confirm
-    if (game.topic_selection_mode) {
-      const allTopicsConfirmed = players.filter(p => !p.is_host).every(p => p.topics_confirmed)
+    // Block start if collaborative topic selection is active and any client hasn't confirmed
+    if (freshGame?.topic_selection_mode) {
+      const allTopicsConfirmed = nonHostPlayers.every(p => p.topics_confirmed)
       if (!allTopicsConfirmed) {
-        toast.error('Tutti i giocatori devono confermare la scelta degli argomenti')
+        const missing = nonHostPlayers.filter(p => !p.topics_confirmed).map(p => p.name).join(', ')
+        toast.error(`In attesa della conferma argomenti da: ${missing}`)
         return
       }
     }
 
-    if (players.length < 1) {
-      toast.error('Serve almeno 1 giocatore')
+    if (freshPlayers.length < 2) {
+      toast.error('Serve almeno 1 giocatore oltre all\'host')
       return
     }
 
-setIsStarting(true)
+    setIsStarting(true)
     await updateGameStatus(game.id, 'playing')
     // Use window.location for hard navigation to ensure page loads
     window.location.href = `/game/${game.code}`
@@ -546,9 +553,9 @@ setIsStarting(true)
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <div className="relative w-40 h-40 flex items-center justify-center mx-auto">
-            <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent animate-spin" />
-            <img src="/logo-gq.png" alt="GQ" className="w-28 h-28 rounded-full" />
+          <div className="relative w-48 h-48 flex items-center justify-center mx-auto">
+            <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+            <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
           </div>
           <p className="text-muted-foreground text-lg">Caricamento lobby...</p>
         </div>
@@ -619,7 +626,7 @@ setIsStarting(true)
           <CardHeader className="pb-2">
             <CardTitle className="text-foreground flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-primary" />
-              Regole e argomenti
+              Impostazioni manche
             </CardTitle>
           </CardHeader>
           {isHost && !game.manche_ready ? (
@@ -663,74 +670,95 @@ setIsStarting(true)
             </CardContent>
           ) : (
             /* Show rules when topics are set */
-            <CardContent className="space-y-4 pt-0">
+            <CardContent className="space-y-2 pt-2 pb-3">
 
-              {/* Paragrafo 1: Domande — giallo */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">Domande</p>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30 text-foreground">
-                    {game.question_count} domande
-                  </Badge>
-                  <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30 text-foreground">
-                    {game.difficulty === 'difficile' ? 'Livello Difficile' : 'Livello Intermedio'}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30 text-foreground">
-                    {game.max_abstentions} {game.max_abstentions === 1 ? 'astensione' : 'astensioni'}
-                  </Badge>
-                </div>
-              </div>
-              {/* Paragrafo 1.5: Profilo — viola */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#a855f7' }}>Profilo</p>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="text-xs bg-purple-500/10 border-purple-500/30 text-foreground">
-                    {game.game_profile === 'untimed' ? 'Senza Tempo' : 'A Tempo'}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Paragrafo 2: Argomenti — verde */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-green-500">Argomenti</p>
-                  {game.topic_selection_mode && (
-                    <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30 animate-pulse">
-                      Live
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {game.topics.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">Nessun argomento selezionato</span>
-                  ) : game.topics.length >= TOPICS.length ? (
-                    <Badge variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-foreground">Tutti</Badge>
-                  ) : game.topics.map((topic) => (
-                    <Badge key={topic} variant="outline" className="text-xs bg-green-500/10 border-green-500/30 text-foreground">
-                      {TOPIC_LABELS[topic as keyof typeof TOPIC_LABELS]}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {/* Paragrafo 3: Arcade — blu */}
-              {game.arcade_games && (game.arcade_games as ArcadeGame[]).length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">Arcade</p>
-                    <Badge className="text-xs bg-blue-600 border-blue-600 text-white">
-                      {(game.arcade_games as ArcadeGame[]).length} {(game.arcade_games as ArcadeGame[]).length === 1 ? 'gioco' : 'giochi'}
-                    </Badge>
-                    <Badge className="text-xs bg-blue-600 border-blue-600 text-white">
-                      ogni {game.arcade_frequency || 5} domande
-                    </Badge>
+              {/* Modalità — viola */}
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <Clock className="h-7 w-7 text-purple-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-1.5">Modalità</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-purple-500/45 text-white flex items-center gap-1">
+                      {game.game_profile === 'untimed' ? <TimerOff className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
+                      {game.game_profile === 'untimed' ? 'Senza Tempo' : 'A Tempo'}
+                    </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {(game.arcade_games as ArcadeGame[]).map((arcadeGame) => (
-                      <Badge key={arcadeGame} className="text-xs bg-blue-600 border-blue-600 text-white">
-                        {ARCADE_GAME_LABELS[arcadeGame]}
-                      </Badge>
+                </div>
+              </div>
+
+              {/* Domande — oro */}
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <HelpCircle className="h-7 w-7 text-primary shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1.5">Domande</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/45 text-white">
+                      {game.question_count} domande
+                    </span>
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/45 text-white">
+                      {game.difficulty === 'difficile' ? 'Difficile' : 'Intermedio'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Argomenti — intera larghezza */}
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <Globe className="h-7 w-7 text-green-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-green-400">Argomenti</p>
+                    {game.topic_selection_mode && (
+                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {game.topics.length === 0 ? (
+                      <span className="text-xs text-muted-foreground italic">Nessun argomento</span>
+                    ) : game.topics.length >= TOPICS.length ? (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-green-500/45 text-white">Tutti</span>
+                    ) : game.topics.map((topic) => (
+                      <span key={topic} className="text-xs font-semibold px-2.5 py-1 rounded-md bg-green-500/45 text-white">
+                        {TOPIC_LABELS[topic as keyof typeof TOPIC_LABELS]}
+                      </span>
                     ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Astensioni — rosso */}
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <MinusCircle className="h-7 w-7 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-1.5">Astensioni</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-red-500/45 text-white">
+                      {game.max_abstentions} {game.max_abstentions === 1 ? 'astensione disponibile' : 'astensioni disponibili'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Giochi Arcade — blu */}
+              {game.arcade_games && (game.arcade_games as ArcadeGame[]).length > 0 && (
+                <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                  <Gamepad2 className="h-7 w-7 text-blue-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Giochi Arcade</p>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-sm font-bold text-white">
+                        {(game.arcade_games as ArcadeGame[]).length} {(game.arcade_games as ArcadeGame[]).length === 1 ? 'gioco' : 'giochi'}
+                      </span>
+                      <span className="text-muted-foreground text-xs">·</span>
+                      <span className="text-xs text-muted-foreground italic">ogni {game.arcade_frequency || 5} domande</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(game.arcade_games as ArcadeGame[]).map((arcadeGame) => (
+                        <span key={arcadeGame} className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-500/45 text-white">
+                          {ARCADE_GAME_LABELS[arcadeGame]}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -740,7 +768,7 @@ setIsStarting(true)
                 <Button
                   onClick={handleAcceptRules}
                   size="lg"
-                  className="w-full h-14 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="w-full h-14 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 mt-2"
                 >
                   <Check className="mr-2 h-5 w-5" />
                   Accetto le regole

@@ -78,6 +78,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isTimerActive, setIsTimerActive] = useState(false)
   const [questionStartTime, setQuestionStartTime] = useState<number>(0)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState(0)
   const [questionScore, setQuestionScore] = useState<number | null>(null)
   const [myResponseTime, setMyResponseTime] = useState<number | null>(null)
   
@@ -250,6 +251,16 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       
       if (questionsData.length === 0 && currentPlayerData?.is_host) {
         setIsGenerating(true)
+        // Broadcast progress to clients via phase="generating:XX" — no extra DB field needed
+        let lastBroadcastedPct = -10
+        const broadcastProgress = (pct: number) => {
+          const rounded = Math.min(99, Math.round(pct))
+          if (rounded - lastBroadcastedPct >= 8) {
+            lastBroadcastedPct = rounded
+            updateGamePhase(gameData.id, `generating:${rounded}`).catch(console.error)
+          }
+        }
+        broadcastProgress(0) // fires immediately: 0 - (-10) = 10 >= 8
         try {
           const usedHashesKey = 'guglioquiz_used_question_hashes'
           const usedTextsKey = 'guglioquiz_used_question_texts'
@@ -259,68 +270,126 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const usedQuestionTexts: string[] = storedTexts ? JSON.parse(storedTexts) : []
 
           const totalRequested = gameData.question_count || 10
+          // Generate 40% extra as buffer to compensate for any broken image questions
+          const totalToGenerate = Math.ceil(totalRequested * 1.4)
           const chunkSize = 5
-          const chunks = Math.ceil(totalRequested / chunkSize)
-          const allQuestions: any[] = []
-          const allHashes: string[] = []
-          const allTexts: string[] = []
+          const numChunks = Math.ceil(totalToGenerate / chunkSize)
 
-          for (let i = 0; i < chunks; i++) {
-            const countForThisChunk = Math.min(chunkSize, totalRequested - allQuestions.length)
-            if (countForThisChunk <= 0) break
-
-            const response = await fetch('/api/generate-questions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                topics: gameData.topics,
-                count: countForThisChunk,
-                difficulty: gameData.difficulty,
-                usedQuestionHashes: [...usedQuestionHashes, ...allHashes],
-                usedQuestionTexts: [...usedQuestionTexts, ...allTexts].slice(-30),
-              }),
+          // Run all chunks in PARALLEL — much faster than sequential
+          setGenerationProgress(0)
+          let chunksCompleted = 0
+          const chunkResults = await Promise.all(
+            Array.from({ length: numChunks }, (_, i) => {
+              const countForThisChunk = Math.min(chunkSize, totalToGenerate - i * chunkSize)
+              if (countForThisChunk <= 0) return Promise.resolve({ questions: [], hashes: [] })
+              return fetch('/api/generate-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  topics: gameData.topics,
+                  count: countForThisChunk,
+                  difficulty: gameData.difficulty,
+                  usedQuestionHashes,
+                  usedQuestionTexts: usedQuestionTexts.slice(-30),
+                }),
+              }).then(async (res) => {
+                const data = await res.json()
+                if (!res.ok) throw new Error(data.details || data.error || 'Failed to generate questions')
+                chunksCompleted++
+                const pct = Math.round((chunksCompleted / numChunks) * 65)
+                setGenerationProgress(pct)
+                broadcastProgress(pct)
+                return { questions: data.questions || [], hashes: data.hashes || [] }
+              })
             })
+          )
 
-            const responseData = await response.json()
-            if (!response.ok) throw new Error(responseData.details || responseData.error || 'Failed to generate questions')
-
-            const chunkQs = responseData.questions || []
-            const chunkHashes = responseData.hashes || []
-            allQuestions.push(...chunkQs)
-            allHashes.push(...chunkHashes)
-            allTexts.push(...chunkQs.map((q: any) => q.question_text as string))
-          }
+          const allQuestions = chunkResults.flatMap(r => r.questions)
+          const allHashes = chunkResults.flatMap(r => r.hashes)
 
           if (allQuestions.length === 0) throw new Error('No questions generated')
 
+          // Pre-validate image URLs in parallel — 4s timeout per image
+          const validateImageUrl = (url: string): Promise<boolean> =>
+            new Promise((resolve) => {
+              const img = new window.Image()
+              const timer = setTimeout(() => { img.src = ''; resolve(false) }, 4000)
+              img.onload = () => { clearTimeout(timer); resolve(true) }
+              img.onerror = () => { clearTimeout(timer); resolve(false) }
+              img.src = url
+            })
+
+          let imagesValidated = 0
+          const totalToValidate = allQuestions.length
+          const validationResults = await Promise.all(
+            allQuestions.map(async (q: any) => {
+              if (!q.image_url) {
+                imagesValidated++
+                const pct = 65 + Math.round((imagesValidated / totalToValidate) * 30)
+                setGenerationProgress(pct)
+                broadcastProgress(pct)
+                return q      // text question — always keep
+              }
+              const ok = await validateImageUrl(q.image_url)
+              imagesValidated++
+              const pct = 65 + Math.round((imagesValidated / totalToValidate) * 30)
+              setGenerationProgress(pct)
+              broadcastProgress(pct)
+              return ok ? q : null            // null = broken image → drop
+            })
+          )
+          // Slice to exactly totalRequested after filtering broken images
+          const validatedQuestions = validationResults.filter(Boolean).slice(0, totalRequested)
+
           // Save new hashes and texts to localStorage
+          const allTexts = allQuestions.map((q: any) => q.question_text as string)
           const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           const trimmedTexts = [...usedQuestionTexts, ...allTexts].slice(-200)
           localStorage.setItem(usedTextsKey, JSON.stringify(trimmedTexts))
-          
-          questionsData = await saveQuestions(gameData.id, allQuestions, gameData.manche || 1)
+
+          questionsData = await saveQuestions(gameData.id, validatedQuestions, gameData.manche || 1)
+
+          // After generation, directly initialize game for the host — don't wait for SSE
+          // because gameData.questions_ready is stale (was false when loadGame started).
+          setGenerationProgress(100)
+          setIsGenerating(false)
+          setQuestions(questionsData)
+          setCurrentQuestionIndex(0)
+          setPhase('question')
+          setIsTimerActive(true)
+          setQuestionStartTime(Date.now())
+          // Broadcast phase=question to DB so clients receive it via subscribeToGame SSE
+          updateGamePhase(gameData.id, 'question').catch(console.error)
+          return
         } catch (err) {
           toast.error(`Errore: ${err instanceof Error ? err.message : 'Generazione domande fallita'}`)
           router.push('/')
           return
         }
-        setIsGenerating(false)
       }
 
       // If we have questions AND they are ready, start the game
       if (questionsData.length > 0 && gameData.questions_ready) {
         setQuestions(questionsData)
-        
+
         // Use phase from DB if it exists, otherwise default to question if host is starting
         const hostNow = currentPlayerData?.is_host || false
         const initialPhase = (gameData.phase as GamePhase) || (hostNow ? 'question' : 'loading')
+
+        // For clients that load AFTER questions_ready is already set: sync to host's current
+        // question index so they don't get stuck showing Q0 while host is already ahead.
+        // (The questions_ready useEffect won't run because questions.length > 0 after setQuestions)
+        if (!hostNow && gameData.current_question > 0) {
+          setCurrentQuestionIndex(gameData.current_question - 1)
+        }
+
         setPhase(initialPhase)
 
         if (hostNow && !gameData.phase) {
           updateGamePhase(gameData.id, 'question').catch(console.error)
         }
-        
+
         if (initialPhase === 'question' || initialPhase === 'reveal') {
           setIsTimerActive(initialPhase === 'question')
           setQuestionStartTime(Date.now())
@@ -336,23 +405,35 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     if (!game?.id || questions.length > 0) return
     if (!game.questions_ready) return
 
+    const hostNow = latestRef.current.isHost
+
     getQuestions(game.id).then(qs => {
       if (qs.length === 0) return
       setQuestions(qs)
       // Sync to host's current question index (default 0 = first question)
       const hostIdx = game.current_question > 0 ? game.current_question - 1 : 0
       setCurrentQuestionIndex(hostIdx)
-      // Use the phase the host already set, fallback to 'question'
-      const targetPhase = (game.phase as GamePhase) || 'question'
+      // Use the LATEST game phase from latestRef (not the stale closure 'game'),
+      // because an SSE with phase='question' might have arrived while getQuestions() was in-flight
+      // and was skipped (questions not yet loaded). 'generating' is transient → treat as 'question'.
+      const latestDbPhase = (latestRef.current.game?.phase as string) || ''
+      const targetPhase: GamePhase = (latestDbPhase && latestDbPhase !== 'loading' && !latestDbPhase.startsWith('generating'))
+        ? latestDbPhase as GamePhase
+        : 'question'
       setPhase(targetPhase)
       if (targetPhase === 'question') {
         setIsTimerActive(true)
         setQuestionStartTime(Date.now())
+        // HOST: broadcast phase=question to DB so clients that load AFTER questions_ready
+        // was set can still receive the phase update via subscribeToGame and start their timer
+        if (hostNow) {
+          updateGamePhase(game.id, 'question').catch(console.error)
+        }
       }
     })
   }, [game?.id, game?.questions_ready, questions.length])
 
-  // Remove player when browser closes
+// Remove player when browser closes
   useEffect(() => {
     if (!currentPlayerId) return
 
@@ -417,11 +498,22 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
       // Sync phase (for non-host players)
       if (!latestIsHost && updatedGame.phase && updatedGame.phase !== latestRef.current.phase) {
-        const newPhase = updatedGame.phase as GamePhase
-        setPhase(newPhase)
-        
+        const rawPhase = updatedGame.phase as string
+        const newPhase = rawPhase as GamePhase
+
+        // Extract real progress from "generating:XX" broadcast by host
+        if (rawPhase.startsWith('generating')) {
+          const pct = rawPhase.includes(':') ? parseInt(rawPhase.split(':')[1]) : 0
+          if (!isNaN(pct)) setGenerationProgress(pct)
+          // Keep clients on loading/generating — don't change phase
+        } else if (newPhase === 'question' && latestQuestions.length === 0) {
+          // questions_ready useEffect will fire shortly and load questions + set phase
+        } else {
+          setPhase(newPhase)
+        }
+
         // Handle specific logic when entering a phase
-        if (newPhase === 'question') {
+        if (newPhase === 'question' && latestQuestions.length > 0) {
           setIsTimerActive(true)
           setQuestionStartTime(Date.now())
           setHasAnswered(false)
@@ -826,13 +918,14 @@ const handleNextFromLeaderboard = async () => {
       setIsAnimatingReset(false)
     }
 
-    // 3. Fire cleanup + game reset together — status='lobby' triggers client redirect
+    // 3. Fire game reset + player reset together — resetGameForNewManche now handles
+    // everything (merged with clearGameSettingsForNewManche) in a single DB write.
+    // clearAnswersForGame runs fire-and-forget — no need to block the redirect.
     await Promise.all([
       resetGameForNewManche(game.id),
       resetScores ? Promise.resolve() : resetPlayersForNewManche(game.id, false),
-      clearAnswersForGame(game.id),
-      clearGameSettingsForNewManche(game.id),
     ])
+    clearAnswersForGame(game.id) // fire-and-forget
 
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
     if (isHost) {
@@ -944,15 +1037,18 @@ const handleNextFromLeaderboard = async () => {
 
   const handleAbortMatch = async () => {
     if (!game || !isHost) return
-    
-    // Clear game settings, reset scores to 0, and go back to lobby
-    await clearGameSettingsForNewManche(game.id)
-    await resetPlayersForNewManche(game.id, true) // resetScores = true
-    await updateGameStatus(game.id, 'lobby')
-    
+
+    // Parallel: resetGameForNewManche (single DB write: clears game + sets status=lobby)
+    // + resetPlayersForNewManche (reset scores to 0).
+    // clearAnswersForGame fires and forgets — no need to block the redirect.
+    await Promise.all([
+      resetGameForNewManche(game.id),
+      resetPlayersForNewManche(game.id, true),
+    ])
+    clearAnswersForGame(game.id) // fire-and-forget
+
     // Set flag to prevent beforeunload from removing player
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
-    // Host goes to settings
     window.location.href = `/settings?code=${game.code}&manche=true`
   }
 
@@ -969,17 +1065,30 @@ const handleNextFromLeaderboard = async () => {
 
   // Loading state
   if (phase === 'loading') {
+    const isGen = isGenerating || ((game?.phase as string) || '').startsWith('generating')
+    const questionCount = game?.question_count || 10
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <div className="relative w-40 h-40 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent animate-spin" />
-          <img src="/logo-gq.png" alt="GQ" className="w-28 h-28 rounded-full" />
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
-        <p className="text-muted-foreground">
-          {isGenerating ? 'Generazione domande in corso...' : 'Caricamento partita...'}
-        </p>
+        {isGen ? (
+          <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+            <p className="text-foreground font-semibold">Generazione di {questionCount} domande</p>
+            <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${Math.min(100, generationProgress)}%` }}
+              />
+            </div>
+            <p className="text-muted-foreground text-sm">{Math.min(100, Math.round(generationProgress))}%</p>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">Caricamento partita...</p>
+        )}
         {!currentPlayerId && (
-          <Button variant="outline" onClick={() => router.push('/')} className="mt-4">
+          <Button variant="outline" onClick={() => router.push('/')} className="mt-2">
             <Home className="h-4 w-4 mr-2" />
             Torna alla Home
           </Button>
@@ -1003,6 +1112,16 @@ const handleNextFromLeaderboard = async () => {
           allResults={arcadeResults}
           hasCompleted={hasCompletedArcade}
         />
+        {isHost && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive text-xs"
+            onClick={handleAbortMatch}
+          >
+            Termina partita e torna a impostazioni
+          </Button>
+        )}
       </main>
     )
   }
@@ -1020,7 +1139,32 @@ const handleNextFromLeaderboard = async () => {
           maxAbstentions={game?.max_abstentions}
           onContinue={handleNextFromLeaderboard}
         />
+        {isHost && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive text-xs"
+            onClick={handleAbortMatch}
+          >
+            Termina partita e torna a impostazioni
+          </Button>
+        )}
       </main>
+    )
+  }
+
+  // Full-screen loading while preparing new manche
+  if (isKeepingScores || isResettingScores) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
+        </div>
+        <p className="text-muted-foreground text-lg">
+          {isResettingScores ? 'Azzeramento punteggi...' : 'Preparazione nuova manche...'}
+        </p>
+      </div>
     )
   }
 
@@ -1047,31 +1191,23 @@ const handleNextFromLeaderboard = async () => {
           totalQuestions={questions.length}
           maxAbstentions={game?.max_abstentions}
         >
-          {isAnimatingReset ? (
-            <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
-              <Loader2 className="h-8 w-8 animate-spin text-destructive" />
-              <p className="text-lg font-bold text-destructive">Azzeramento punteggi...</p>
-              <p className="text-sm text-muted-foreground">Preparazione nuova manche</p>
-            </div>
-          ) : isHost ? (
+          {isHost ? (
             <>
               <Button
                 onClick={() => handleNewManche(false)}
-                disabled={isKeepingScores || isResettingScores}
                 size="lg"
                 className="w-full h-14 text-sm md:text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 whitespace-normal"
               >
-                {isKeepingScores ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
+                <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />
                 <span>Nuova Manche (mantieni punteggi)</span>
               </Button>
               <Button
                 onClick={() => handleNewManche(true)}
-                disabled={isKeepingScores || isResettingScores}
                 size="lg"
                 className="w-full h-14 text-sm md:text-lg font-bold whitespace-normal"
                 variant="secondary"
               >
-                {isResettingScores ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
+                <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />
                 <span>Nuova Manche (azzera punteggi)</span>
               </Button>
               <Button
@@ -1113,9 +1249,9 @@ const handleNextFromLeaderboard = async () => {
   if (!currentQuestion || !game || !currentPlayer) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <div className="relative w-40 h-40 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent animate-spin" />
-          <img src="/logo-gq.png" alt="GQ" className="w-28 h-28 rounded-full" />
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
         <p className="text-muted-foreground">Caricamento...</p>
       </main>
@@ -1184,11 +1320,24 @@ const handleNextFromLeaderboard = async () => {
           <CardContent className="p-6">
             {currentQuestion.image_url && (
               <div className="flex justify-center mb-4">
-                <img 
-                  src={currentQuestion.image_url} 
+                <img
+                  src={currentQuestion.image_url}
                   alt="Immagine domanda"
                   className="max-h-48 md:max-h-64 object-contain rounded-lg"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement
+                    img.style.display = 'none'
+                    const placeholder = img.nextElementSibling as HTMLElement | null
+                    if (placeholder) placeholder.style.display = 'flex'
+                  }}
                 />
+                <div
+                  style={{ display: 'none' }}
+                  className="flex-col items-center justify-center gap-2 w-32 h-32 rounded-xl bg-muted border border-border text-muted-foreground text-center text-sm p-3"
+                >
+                  <span className="text-3xl">🖼️</span>
+                  <span>Immagine non disponibile</span>
+                </div>
               </div>
             )}
             <p className="text-xl md:text-2xl font-semibold text-foreground text-center text-balance">
