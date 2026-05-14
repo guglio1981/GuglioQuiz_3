@@ -875,6 +875,26 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           setGame(updatedGame)
         }
       }, 20000)
+    } else if (phase === 'leaderboard') {
+      // Fallback: if SSE missed the transition out of leaderboard, poll after 12s
+      fallbackTimer = setTimeout(async () => {
+        const updatedGame = await getGameByCode(game.code)
+        if (!updatedGame) return
+        // Host moved to next question or another phase
+        if (updatedGame.current_question > currentQuestionIndex + 1) {
+          setGame(updatedGame)
+          setCurrentQuestionIndex(updatedGame.current_question - 1)
+          setSelectedAnswer(null)
+          setHasAnswered(false)
+          setAnswers([])
+          setPhase('question')
+          setIsTimerActive(true)
+          setQuestionStartTime(Date.now())
+          isRevealingRef.current = false
+        } else if (updatedGame.phase && updatedGame.phase !== 'leaderboard') {
+          setGame(updatedGame)
+        }
+      }, 12000)
     }
 
     return () => clearTimeout(fallbackTimer)
@@ -1134,25 +1154,27 @@ const handleNextFromLeaderboard = async () => {
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
         {/* Preload logo so it appears instantly when switching to the GQ loading screen */}
         <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
-        <Leaderboard
-          players={sortedPlayers}
-          currentPlayerId={currentPlayerId}
-          questionNumber={currentQuestionIndex + 1}
-          totalQuestions={questions.length}
-          isHost={isHost}
-          maxAbstentions={game?.max_abstentions}
-          onContinue={handleNextFromLeaderboard}
-        />
-        {isHost && (
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-full font-bold bg-purple-600 text-white"
-            onClick={handleAbortMatch}
-          >
-            Termina partita e torna a impostazioni
-          </Button>
-        )}
+        <div className="w-full max-w-md flex flex-col gap-3">
+          <Leaderboard
+            players={sortedPlayers}
+            currentPlayerId={currentPlayerId}
+            questionNumber={currentQuestionIndex + 1}
+            totalQuestions={questions.length}
+            isHost={isHost}
+            maxAbstentions={game?.max_abstentions}
+            onContinue={handleNextFromLeaderboard}
+          />
+          {isHost && (
+            <Button
+              variant="ghost"
+              size="lg"
+              className="w-full font-bold bg-purple-600 text-white"
+              onClick={handleAbortMatch}
+            >
+              Termina partita e torna a impostazioni
+            </Button>
+          )}
+        </div>
       </main>
     )
   }
