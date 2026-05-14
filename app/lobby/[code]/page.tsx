@@ -477,6 +477,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const handleAcceptRules = () => {
     if (!currentPlayerId) return
     setHasAcceptedRules(true) // immediate — no wait
+    // Optimistically mark self as ready in local players array so checkmark
+    // and allPlayersReady appear instantly without waiting for SSE
+    setPlayers(prev => prev.map(p => p.id === currentPlayerId ? { ...p, ready: true } : p))
     updatePlayerReady(currentPlayerId, true).catch(console.error) // background
   }
 
