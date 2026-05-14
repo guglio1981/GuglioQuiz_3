@@ -382,6 +382,21 @@ function SettingsPageContent() {
     )
   }
 
+  // Full-screen loading while creating/updating the manche
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
+        </div>
+        <p className="text-muted-foreground text-lg">
+          {isMancheMode ? 'Aggiornamento manche...' : 'Creazione manche in corso...'}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <main className="min-h-screen p-4 md:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
