@@ -251,8 +251,16 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       
       if (questionsData.length === 0 && currentPlayerData?.is_host) {
         setIsGenerating(true)
-        // Broadcast to clients that questions are being generated
-        updateGamePhase(gameData.id, 'generating').catch(console.error)
+        // Broadcast progress to clients via phase="generating:XX" — no extra DB field needed
+        let lastBroadcastedPct = -1
+        const broadcastProgress = (pct: number) => {
+          const rounded = Math.min(99, Math.round(pct))
+          if (rounded - lastBroadcastedPct >= 8) {
+            lastBroadcastedPct = rounded
+            updateGamePhase(gameData.id, `generating:${rounded}`).catch(console.error)
+          }
+        }
+        broadcastProgress(0)
         try {
           const usedHashesKey = 'guglioquiz_used_question_hashes'
           const usedTextsKey = 'guglioquiz_used_question_texts'
@@ -288,7 +296,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.details || data.error || 'Failed to generate questions')
                 chunksCompleted++
-                setGenerationProgress(Math.round((chunksCompleted / numChunks) * 65))
+                const pct = Math.round((chunksCompleted / numChunks) * 65)
+                setGenerationProgress(pct)
+                broadcastProgress(pct)
                 return { questions: data.questions || [], hashes: data.hashes || [] }
               })
             })
@@ -315,12 +325,16 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
             allQuestions.map(async (q: any) => {
               if (!q.image_url) {
                 imagesValidated++
-                setGenerationProgress(65 + Math.round((imagesValidated / totalToValidate) * 30))
+                const pct = 65 + Math.round((imagesValidated / totalToValidate) * 30)
+                setGenerationProgress(pct)
+                broadcastProgress(pct)
                 return q      // text question — always keep
               }
               const ok = await validateImageUrl(q.image_url)
               imagesValidated++
-              setGenerationProgress(65 + Math.round((imagesValidated / totalToValidate) * 30))
+              const pct = 65 + Math.round((imagesValidated / totalToValidate) * 30)
+              setGenerationProgress(pct)
+              broadcastProgress(pct)
               return ok ? q : null            // null = broken image → drop
             })
           )
@@ -403,7 +417,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       // because an SSE with phase='question' might have arrived while getQuestions() was in-flight
       // and was skipped (questions not yet loaded). 'generating' is transient → treat as 'question'.
       const latestDbPhase = (latestRef.current.game?.phase as string) || ''
-      const targetPhase: GamePhase = (latestDbPhase && latestDbPhase !== 'loading' && latestDbPhase !== 'generating')
+      const targetPhase: GamePhase = (latestDbPhase && latestDbPhase !== 'loading' && !latestDbPhase.startsWith('generating'))
         ? latestDbPhase as GamePhase
         : 'question'
       setPhase(targetPhase)
@@ -419,22 +433,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     })
   }, [game?.id, game?.questions_ready, questions.length])
 
-  // Animate generation progress for non-host clients while phase='generating'
-  useEffect(() => {
-    if (isGenerating) return // host tracks real progress
-    const isGeneratingPhase = (game?.phase as string) === 'generating'
-    if (!isGeneratingPhase) return
-    setGenerationProgress(0)
-    const interval = setInterval(() => {
-      setGenerationProgress(prev => {
-        if (prev >= 85) { clearInterval(interval); return prev }
-        return prev + Math.random() * 4 + 1
-      })
-    }, 600)
-    return () => clearInterval(interval)
-  }, [game?.phase, isGenerating])
-
-  // Remove player when browser closes
+// Remove player when browser closes
   useEffect(() => {
     if (!currentPlayerId) return
 
@@ -499,16 +498,16 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
       // Sync phase (for non-host players)
       if (!latestIsHost && updatedGame.phase && updatedGame.phase !== latestRef.current.phase) {
-        const newPhase = updatedGame.phase as GamePhase
+        const rawPhase = updatedGame.phase as string
+        const newPhase = rawPhase as GamePhase
 
-        // Don't switch to 'question' phase if questions haven't been loaded yet —
-        // the questions_ready useEffect will handle that once questions are fetched.
-        // 'generating' is a transient host-only broadcast — keep clients on 'loading'.
-        if (newPhase === 'question' && latestQuestions.length === 0) {
+        // Extract real progress from "generating:XX" broadcast by host
+        if (rawPhase.startsWith('generating')) {
+          const pct = rawPhase.includes(':') ? parseInt(rawPhase.split(':')[1]) : 0
+          if (!isNaN(pct)) setGenerationProgress(pct)
+          // Keep clients on loading/generating — don't change phase
+        } else if (newPhase === 'question' && latestQuestions.length === 0) {
           // questions_ready useEffect will fire shortly and load questions + set phase
-        } else if ((newPhase as string) === 'generating') {
-          // Host is generating questions — clients stay on loading, game.phase update
-          // is enough to show "Creazione domande in corso..." in the loading screen
         } else {
           setPhase(newPhase)
         }
@@ -1065,8 +1064,8 @@ const handleNextFromLeaderboard = async () => {
   }
 
   // Loading state
-  if (phase === 'loading' || phase === ('generating' as any)) {
-    const isGen = isGenerating || (game?.phase as string) === 'generating'
+  if (phase === 'loading') {
+    const isGen = isGenerating || ((game?.phase as string) || '').startsWith('generating')
     const questionCount = game?.question_count || 10
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
