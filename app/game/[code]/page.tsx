@@ -1130,6 +1130,8 @@ const handleNextFromLeaderboard = async () => {
   if (phase === 'leaderboard' && currentPlayerId) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
+        {/* Preload logo so it appears instantly when switching to the GQ loading screen */}
+        <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
         <Leaderboard
           players={sortedPlayers}
           currentPlayerId={currentPlayerId}

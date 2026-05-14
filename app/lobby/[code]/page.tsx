@@ -476,11 +476,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     setIsSendingNotifications(false)
   }
 
-  const handleAcceptRules = async () => {
+  const handleAcceptRules = () => {
     if (!currentPlayerId) return
-    
-    await updatePlayerReady(currentPlayerId, true)
-    setHasAcceptedRules(true)
+    setHasAcceptedRules(true) // immediate — no wait
+    updatePlayerReady(currentPlayerId, true).catch(console.error) // background
   }
 
   const handleRemovePlayer = async (playerId: string) => {
@@ -548,6 +547,18 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const allPlayersReady = players.every(p => p.is_host || p.ready)
   const allTopicsConfirmed = !game?.topic_selection_mode || players.filter(p => !p.is_host).every(p => p.topics_confirmed)
   const canStart = allPlayersReady && allTopicsConfirmed
+
+  if (isStarting) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
+        </div>
+        <p className="text-muted-foreground text-lg">Avvio partita...</p>
+      </div>
+    )
+  }
 
   if (!game || !currentPlayerId || players.length === 0) {
     return (
