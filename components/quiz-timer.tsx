@@ -14,6 +14,8 @@ export function QuizTimer({ duration, onComplete, isActive, questionKey = 0 }: Q
   const [timeLeft, setTimeLeft] = useState(duration)
   const startTimeRef = useRef(Date.now())
   const hasCompletedRef = useRef(false)
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
 
   // Reset timer when questionKey changes or when timer becomes active
   useEffect(() => {
@@ -24,8 +26,6 @@ export function QuizTimer({ duration, onComplete, isActive, questionKey = 0 }: Q
 
   useEffect(() => {
     if (!isActive) return
-    // Reset start time here too — ensures fresh start when question changes
-    // even if isActive stays true between questions
     startTimeRef.current = Date.now()
     hasCompletedRef.current = false
 
@@ -37,12 +37,12 @@ export function QuizTimer({ duration, onComplete, isActive, questionKey = 0 }: Q
       if (remaining <= 0 && !hasCompletedRef.current) {
         hasCompletedRef.current = true
         clearInterval(interval)
-        onComplete()
+        onCompleteRef.current()
       }
     }, 100)
 
     return () => clearInterval(interval)
-  }, [isActive, duration, onComplete, questionKey])
+  }, [isActive, duration, questionKey])
 
   const progress = (timeLeft / duration) * 100
   const circumference = 2 * Math.PI * 45 // radius = 45

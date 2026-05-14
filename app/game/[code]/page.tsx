@@ -54,6 +54,9 @@ import {
   type ArcadeGame,
 } from '@/lib/types'
 import { ArcadeGameWrapper } from '@/components/arcade/arcade-game-wrapper'
+import { PodiumAnimation } from '@/components/podium-animation'
+import { AnimatedLeaderboard } from '@/components/animated-leaderboard'
+import { CountdownOverlay } from '@/components/countdown-overlay'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { RotateCcw, Home, Loader2, HandHelping } from 'lucide-react'
@@ -91,6 +94,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isClickable, setIsClickable] = useState(false) // Previene click accidentali su iOS
   const [isKeepingScores, setIsKeepingScores] = useState(false)
   const [isResettingScores, setIsResettingScores] = useState(false)
+  const [podiumDone, setPodiumDone] = useState(false)
+  const [showCountdown, setShowCountdown] = useState(false)
   const [isRedirectingToLobby, setIsRedirectingToLobby] = useState(false)
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
   const [hostDisconnected, setHostDisconnected] = useState(false)
@@ -404,7 +409,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           setQuestions(questionsData)
           setCurrentQuestionIndex(0)
           setPhase('question')
-          setIsTimerActive(true)
+          setShowCountdown(true)
+          setIsTimerActive(false)
           setQuestionStartTime(Date.now())
           // Broadcast phase=question to DB so clients receive it via subscribeToGame SSE
           updateGamePhase(gameData.id, 'question').catch(console.error)
@@ -438,7 +444,13 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         }
 
         if (initialPhase === 'question' || initialPhase === 'reveal') {
-          setIsTimerActive(initialPhase === 'question')
+          const qIdx = gameData.current_question > 0 ? gameData.current_question - 1 : 0
+          if (!hostNow && initialPhase === 'question' && qIdx === 0) {
+            setShowCountdown(true)
+            setIsTimerActive(false)
+          } else {
+            setIsTimerActive(initialPhase === 'question')
+          }
           setQuestionStartTime(Date.now())
         }
       }
@@ -469,7 +481,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         : 'question'
       setPhase(targetPhase)
       if (targetPhase === 'question') {
-        setIsTimerActive(true)
+        if (!hostNow && hostIdx === 0) {
+          setShowCountdown(true)
+          setIsTimerActive(false)
+        } else {
+          setIsTimerActive(true)
+        }
         setQuestionStartTime(Date.now())
         // HOST: broadcast phase=question to DB so clients that load AFTER questions_ready
         // was set can still receive the phase update via subscribeToGame and start their timer
@@ -519,6 +536,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       
       const { isHost: latestIsHost, currentQuestionIndex: latestQIdx, questions: latestQuestions } = latestRef.current
       
+      // If host broadcast 'resetting', show GQ screen immediately on client
+      if (!latestIsHost && (updatedGame as any).topic_selection_mode === 'resetting') {
+        setIsResettingScores(true)
+      }
+
       // If game status changed to lobby, show GQ screen immediately then redirect
       if (updatedGame.status === 'lobby' && !latestIsHost) {
         sessionStorage.setItem('guglioquiz_redirecting', 'true')
@@ -536,7 +558,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           setHasAnswered(false)
           setAnswers([])
           setPhase('question')
-          setIsTimerActive(true)
+          if (serverQuestionIndex === 0) {
+            setShowCountdown(true)
+            setIsTimerActive(false)
+          } else {
+            setIsTimerActive(true)
+          }
           setQuestionStartTime(Date.now())
           setQuestionScore(null)
           setMyResponseTime(null)
@@ -568,9 +595,23 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           setSelectedAnswer(null)
           setAnswers([])
         } else if (newPhase === 'reveal') {
-          setIsTimerActive(false)
-          // Trigger local reveal for clients to show their score
-          handleReveal()
+          // Guard against truly stale SSEs (e.g. Q4 reveal arriving after Q5 question).
+          // Allow reveals for the current question OR one ahead (latestRef may lag by 1
+          // render if question+reveal SSEs arrive back-to-back before React flushes).
+          const eventQIdx = (updatedGame.current_question || 1) - 1
+          const currentIdx = latestRef.current.currentQuestionIndex
+          if (eventQIdx === currentIdx) {
+            setIsTimerActive(false)
+            handleReveal()
+          } else if (eventQIdx === currentIdx + 1) {
+            // Ref is one render behind — wait for React to flush the question
+            // index state update before handleReveal reads latestRef.current
+            setTimeout(() => {
+              setIsTimerActive(false)
+              handleReveal()
+            }, 50)
+          }
+          // eventQIdx < currentIdx: stale event, discard
         }
       }
 
@@ -840,6 +881,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           updateGamePhase(nowGame.id, 'finished').catch(console.error)
         }
         setPhase('finished')
+        setPodiumDone(false)
       } else if (showLeaderboard) {
         if (nowIsHost && nowGame) {
           syncLeaderboardPhase(nowGame.id, 'leaderboard').catch(console.error)
@@ -855,15 +897,21 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     // DB calls and minimum display time run in PARALLEL:
     // total wait = max(DB_time, 400ms) instead of DB_time + 400ms
     if (latestIsHost) {
+      const withTimeout = (p: Promise<unknown>, ms: number) =>
+        Promise.race([p, new Promise<void>(resolve => setTimeout(resolve, ms))])
+
       await Promise.all([
         new Promise(resolve => setTimeout(resolve, 200)),
-        processAnswers(
-          latestGame.id,
-          latestQuestion.id,
-          latestQuestion.correct_answer,
-          latestGame.max_abstentions,
-          latestQIdx === 0,
-          latestGame.game_profile || 'timed'
+        withTimeout(
+          processAnswers(
+            latestGame.id,
+            latestQuestion.id,
+            latestQuestion.correct_answer,
+            latestGame.max_abstentions,
+            latestQIdx === 0,
+            latestGame.game_profile || 'timed'
+          ).catch(console.error),
+          12000
         ),
       ])
       // getPlayers runs in background — don't block phase transition on it
@@ -877,9 +925,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   // Minimal deps — actual values are read from latestRef
   }, [goToNextQuestion])
 
-  // Check if all players answered
+  // Check if all players answered — HOST only. Clients are driven by SSE phase events.
   useEffect(() => {
-    if (phase !== 'question' || !currentQuestion) return
+    if (!isHost || phase !== 'question' || !currentQuestion) return
     // Guard: only auto-reveal if at least 800ms have passed since question started
     // Prevents spurious immediate triggers on manche transition
     if (answers.length >= players.length && players.length > 0 && questionStartTime > 0 && Date.now() - questionStartTime >= 800) {
@@ -918,8 +966,49 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     } else if (phase === 'reveal') {
       fallbackTimer = setTimeout(async () => {
         const updatedGame = await getGameByCode(game.code)
-        if (updatedGame && (updatedGame.current_question > currentQuestionIndex + 1 || updatedGame.phase !== 'reveal')) {
+        if (!updatedGame) return
+        if (updatedGame.phase === 'leaderboard' || updatedGame.phase === 'finished') {
           setGame(updatedGame)
+          setPhase(updatedGame.phase as GamePhase)
+        } else if (updatedGame.current_question > currentQuestionIndex + 1) {
+          setGame(updatedGame)
+          const newQIdx = updatedGame.current_question - 1
+          setCurrentQuestionIndex(newQIdx)
+          setSelectedAnswer(null)
+          setHasAnswered(false)
+          setAnswers([])
+          setPhase('question')
+          if (newQIdx === 0) {
+            setShowCountdown(true)
+            setIsTimerActive(false)
+          } else {
+            setIsTimerActive(true)
+          }
+          setQuestionStartTime(Date.now())
+          isRevealingRef.current = false
+        } else if (updatedGame.phase === 'reveal') {
+          // Both host and client stuck in reveal (host's processAnswers is hanging).
+          // Retry after another 15s — by then the host's 12s timeout will have fired.
+          setTimeout(async () => {
+            const retryGame = await getGameByCode(game.code)
+            if (!retryGame) return
+            if (retryGame.phase !== 'reveal') {
+              setGame(retryGame)
+              setPhase(retryGame.phase as GamePhase)
+            } else if (retryGame.current_question > currentQuestionIndex + 1) {
+              setGame(retryGame)
+              const newQIdx = retryGame.current_question - 1
+              setCurrentQuestionIndex(newQIdx)
+              setSelectedAnswer(null)
+              setHasAnswered(false)
+              setAnswers([])
+              setPhase('question')
+              setIsTimerActive(newQIdx !== 0)
+              if (newQIdx === 0) setShowCountdown(true)
+              setQuestionStartTime(Date.now())
+              isRevealingRef.current = false
+            }
+          }, 15000)
         }
       }, 8000)
     } else if (phase === 'leaderboard') {
@@ -930,12 +1019,18 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         // Host moved to next question or another phase
         if (updatedGame.current_question > currentQuestionIndex + 1) {
           setGame(updatedGame)
-          setCurrentQuestionIndex(updatedGame.current_question - 1)
+          const newQIdx = updatedGame.current_question - 1
+          setCurrentQuestionIndex(newQIdx)
           setSelectedAnswer(null)
           setHasAnswered(false)
           setAnswers([])
           setPhase('question')
-          setIsTimerActive(true)
+          if (newQIdx === 0) {
+            setShowCountdown(true)
+            setIsTimerActive(false)
+          } else {
+            setIsTimerActive(true)
+          }
           setQuestionStartTime(Date.now())
           isRevealingRef.current = false
         } else if (updatedGame.phase && updatedGame.phase !== 'leaderboard') {
@@ -978,21 +1073,18 @@ const handleNextFromLeaderboard = async () => {
     if (resetScores) setIsResettingScores(true)
     else setIsKeepingScores(true)
 
+    // Let React render the loading screen before starting async operations
+    await new Promise(resolve => setTimeout(resolve, 80))
+
     if (resetScores) {
-      // 1. Zero scores in DB first — subscription updates leaderboard on ALL clients
-      await resetPlayersForNewManche(game.id, true)
-      // 2. Show zeroed leaderboard for 1.5s so everyone sees it
-      setIsAnimatingReset(true)
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      setIsAnimatingReset(false)
+      // Broadcast 'resetting' so clients show the appropriate loading message
+      await syncLeaderboardPhase(game.id, 'resetting')
     }
 
-    // 3. Fire game reset + player reset together — resetGameForNewManche now handles
-    // everything (merged with clearGameSettingsForNewManche) in a single DB write.
-    // clearAnswersForGame runs fire-and-forget — no need to block the redirect.
+    // Fire game reset + player reset together in parallel — no animation delay.
     await Promise.all([
       resetGameForNewManche(game.id),
-      resetScores ? Promise.resolve() : resetPlayersForNewManche(game.id, false),
+      resetPlayersForNewManche(game.id, resetScores),
     ])
     clearAnswersForGame(game.id) // fire-and-forget
 
@@ -1204,7 +1296,7 @@ const handleNextFromLeaderboard = async () => {
         {/* Preload logo so it appears instantly when switching to the GQ loading screen */}
         <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
         <div className="w-full max-w-md flex flex-col gap-3">
-          <Leaderboard
+          <AnimatedLeaderboard
             players={sortedPlayers}
             currentPlayerId={currentPlayerId}
             questionNumber={currentQuestionIndex + 1}
@@ -1237,7 +1329,7 @@ const handleNextFromLeaderboard = async () => {
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
         <p className="text-muted-foreground text-lg">
-          {isResettingScores ? 'Azzeramento punteggi...' : 'Preparazione nuova manche...'}
+          {isResettingScores ? 'Nuova manche con punteggi azzerati' : 'Preparazione nuova manche...'}
         </p>
       </div>
     )
@@ -1248,19 +1340,43 @@ const handleNextFromLeaderboard = async () => {
     const winner = sortedPlayers[0]
     const isWinner = winner?.id === currentPlayerId
 
+    // Podium animation screen
+    if (!podiumDone) {
+      return (
+        <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
+          <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
+          <div className="text-center space-y-1">
+            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Classifica finale</p>
+            <h1 className="text-3xl font-black text-foreground">
+              {isWinner ? '🎉 Hai vinto!' : 'Fine Partita!'}
+            </h1>
+          </div>
+          <div className="w-full max-w-md" style={{ height: '340px' }}>
+            <PodiumAnimation
+              players={sortedPlayers.map(p => ({
+                id: p.id,
+                name: p.name,
+                score: p.score,
+                avatar: p.avatar ?? null,
+                avatarUrl: p.avatar_url ?? null,
+              }))}
+              onDone={() => setTimeout(() => setPodiumDone(true), 300)}
+            />
+          </div>
+          <button
+            onClick={() => setPodiumDone(true)}
+            className="text-sm text-muted-foreground underline underline-offset-4"
+          >
+            Salta →
+          </button>
+        </main>
+      )
+    }
+
+    // Leaderboard + buttons
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
-        {/* Preload logo so it appears instantly when switching to the GQ loading screen */}
         <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-foreground">
-            {isWinner ? 'Hai vinto!' : 'Fine Partita!'}
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            Vincitore: {winner?.name} con {winner?.score} punti
-          </p>
-        </div>
-
         <Leaderboard
           players={sortedPlayers}
           currentPlayerId={currentPlayerId}
@@ -1340,6 +1456,14 @@ const handleNextFromLeaderboard = async () => {
   const correctAnswer = currentQuestion.correct_answer
 
   return (
+    <>
+    {showCountdown && (
+      <CountdownOverlay onDone={() => {
+        setShowCountdown(false)
+        setIsTimerActive(true)
+        setQuestionStartTime(Date.now())
+      }} />
+    )}
     <main className="min-h-screen flex flex-col p-4 md:p-8">
       <div className="max-w-2xl mx-auto w-full space-y-6">
         {/* Header */}
@@ -1438,8 +1562,10 @@ const handleNextFromLeaderboard = async () => {
                 key={`${currentQuestionIndex}-${index}`}
                 onClick={() => handleAnswerSelect(option)}
                 disabled={hasAnswered || !isClickable}
+                style={{ animationDelay: `${index * 250}ms` }}
                 className={cn(
                   'w-full p-4 md:p-5 rounded-xl text-left font-medium transition-all border-2 focus:outline-none',
+                  'animate-slide-in-left',
                   'text-foreground',
                   // Default state
                   !hasAnswered &&
@@ -1511,5 +1637,6 @@ const handleNextFromLeaderboard = async () => {
         )}
       </div>
     </main>
+    </>
   )
 }

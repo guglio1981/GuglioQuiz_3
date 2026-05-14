@@ -25,3 +25,6 @@ pb/*.db
 push-env.bat
 
 .vercel
+
+# Local Netlify folder
+.netlify

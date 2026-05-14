@@ -191,8 +191,9 @@ function SettingsPageContent() {
   }, [maxArcadeGames, selectedArcadeGames.length])
 
   const handleTopicToggle = async (topic: Topic) => {
-    if (mixMode) return
-    
+    // Exit mix mode when manually toggling a topic
+    if (mixMode) setMixMode(false)
+
     // If collaborative selection is closed, and the host clicks a client-selected topic,
     // they want to deselect it. Remove it from any client's DB record.
     if (!isTopicSelectionActive) {
@@ -491,7 +492,6 @@ function SettingsPageContent() {
                   <div
                     key={topic}
                     onClick={() => {
-                      if (mixMode) return;
                       // Host cannot toggle topics selected by clients during active selection
                       if (isTopicSelectionActive && isClientSelected) return;
                       handleTopicToggle(topic);
@@ -499,7 +499,7 @@ function SettingsPageContent() {
                     style={isClientSelected ? { borderWidth: '2px', borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.2)', boxShadow: '0 0 20px rgba(34,197,94,0.4)' } : {}}
                     className={`
                       flex items-center gap-3 p-3 rounded-lg border-2 transition-all relative
-                      ${mixMode ? 'cursor-not-allowed opacity-50' : (isTopicSelectionActive && isClientSelected) ? 'cursor-not-allowed' : 'cursor-pointer hover:border-primary/50'}
+                      ${(isTopicSelectionActive && isClientSelected) ? 'cursor-not-allowed' : 'cursor-pointer hover:border-primary/50'}
                       ${isClientSelected
                         ? '' // Styles applied via style prop to bypass JIT compilation issues
                         : (selectedTopics.includes(topic) || mixMode)
