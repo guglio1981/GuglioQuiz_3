@@ -325,12 +325,23 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           localStorage.setItem(usedTextsKey, JSON.stringify(trimmedTexts))
 
           questionsData = await saveQuestions(gameData.id, validatedQuestions, gameData.manche || 1)
+
+          // After generation, directly initialize game for the host — don't wait for SSE
+          // because gameData.questions_ready is stale (was false when loadGame started).
+          setIsGenerating(false)
+          setQuestions(questionsData)
+          setCurrentQuestionIndex(0)
+          setPhase('question')
+          setIsTimerActive(true)
+          setQuestionStartTime(Date.now())
+          // Broadcast phase=question to DB so clients receive it via subscribeToGame SSE
+          updateGamePhase(gameData.id, 'question').catch(console.error)
+          return
         } catch (err) {
           toast.error(`Errore: ${err instanceof Error ? err.message : 'Generazione domande fallita'}`)
           router.push('/')
           return
         }
-        setIsGenerating(false)
       }
 
       // If we have questions AND they are ready, start the game
@@ -458,10 +469,17 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       // Sync phase (for non-host players)
       if (!latestIsHost && updatedGame.phase && updatedGame.phase !== latestRef.current.phase) {
         const newPhase = updatedGame.phase as GamePhase
-        setPhase(newPhase)
-        
+
+        // Don't switch to 'question' phase if questions haven't been loaded yet —
+        // the questions_ready useEffect will handle that once questions are fetched.
+        if (newPhase === 'question' && latestQuestions.length === 0) {
+          // questions_ready useEffect will fire shortly and load questions + set phase
+        } else {
+          setPhase(newPhase)
+        }
+
         // Handle specific logic when entering a phase
-        if (newPhase === 'question') {
+        if (newPhase === 'question' && latestQuestions.length > 0) {
           setIsTimerActive(true)
           setQuestionStartTime(Date.now())
           setHasAnswered(false)
