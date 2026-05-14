@@ -352,8 +352,40 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
             })
           )
           // Filter out broken-image questions, then cap at requested count
-          // The 40% buffer ensures enough valid questions remain
-          const validatedQuestions = validationResults.filter(Boolean).slice(0, totalRequested)
+          let validatedQuestions = validationResults.filter(Boolean).slice(0, totalRequested)
+
+          // Retry: if buffer wasn't enough (AI returned fewer than asked), generate the missing count
+          if (validatedQuestions.length < totalRequested) {
+            const missing = totalRequested - validatedQuestions.length
+            console.warn(`[Quiz] Only ${validatedQuestions.length}/${totalRequested} questions — retrying ${missing} more`)
+            try {
+              const retryText = await fetch('/api/generate-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  topics: gameData.topics,
+                  count: missing + 2, // small extra buffer on retry
+                  difficulty: gameData.difficulty,
+                  usedQuestionHashes: usedQuestionHashes.slice(-30),
+                  usedQuestionTexts: usedQuestionTexts.slice(-30),
+                }),
+              }).then(r => r.text())
+              const retryData = (() => { try { return JSON.parse(retryText) } catch { return { questions: [] } } })()
+              const retryQs: any[] = retryData.questions || []
+              // Validate images for retry questions too
+              const retryValidated = await Promise.all(retryQs.map(async (q: any) => {
+                if (!q.image_url) return q
+                const ok = await validateImageUrl(q.image_url)
+                if (ok) return q
+                const imgTopics = ['indovina_logo', 'indovina_bandiera', 'indovina_anno']
+                return imgTopics.includes(q.topic) ? null : { ...q, image_url: null }
+              }))
+              const retryFiltered = retryValidated.filter(Boolean)
+              validatedQuestions = [...validatedQuestions, ...retryFiltered].slice(0, totalRequested)
+            } catch (e) {
+              console.error('[Quiz] Retry generation failed:', e)
+            }
+          }
 
           // Save new hashes and texts to localStorage
           const allTexts = allQuestions.map((q: any) => q.question_text as string)
