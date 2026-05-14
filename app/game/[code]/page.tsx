@@ -311,16 +311,24 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       // If we have questions AND they are ready, start the game
       if (questionsData.length > 0 && gameData.questions_ready) {
         setQuestions(questionsData)
-        
+
         // Use phase from DB if it exists, otherwise default to question if host is starting
         const hostNow = currentPlayerData?.is_host || false
         const initialPhase = (gameData.phase as GamePhase) || (hostNow ? 'question' : 'loading')
+
+        // For clients that load AFTER questions_ready is already set: sync to host's current
+        // question index so they don't get stuck showing Q0 while host is already ahead.
+        // (The questions_ready useEffect won't run because questions.length > 0 after setQuestions)
+        if (!hostNow && gameData.current_question > 0) {
+          setCurrentQuestionIndex(gameData.current_question - 1)
+        }
+
         setPhase(initialPhase)
 
         if (hostNow && !gameData.phase) {
           updateGamePhase(gameData.id, 'question').catch(console.error)
         }
-        
+
         if (initialPhase === 'question' || initialPhase === 'reveal') {
           setIsTimerActive(initialPhase === 'question')
           setQuestionStartTime(Date.now())
@@ -336,6 +344,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     if (!game?.id || questions.length > 0) return
     if (!game.questions_ready) return
 
+    const hostNow = latestRef.current.isHost
+
     getQuestions(game.id).then(qs => {
       if (qs.length === 0) return
       setQuestions(qs)
@@ -348,6 +358,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       if (targetPhase === 'question') {
         setIsTimerActive(true)
         setQuestionStartTime(Date.now())
+        // HOST: broadcast phase=question to DB so clients that load AFTER questions_ready
+        // was set can still receive the phase update via subscribeToGame and start their timer
+        if (hostNow) {
+          updateGamePhase(game.id, 'question').catch(console.error)
+        }
       }
     })
   }, [game?.id, game?.questions_ready, questions.length])
@@ -826,13 +841,14 @@ const handleNextFromLeaderboard = async () => {
       setIsAnimatingReset(false)
     }
 
-    // 3. Fire cleanup + game reset together — status='lobby' triggers client redirect
+    // 3. Fire game reset + player reset together — resetGameForNewManche now handles
+    // everything (merged with clearGameSettingsForNewManche) in a single DB write.
+    // clearAnswersForGame runs fire-and-forget — no need to block the redirect.
     await Promise.all([
       resetGameForNewManche(game.id),
       resetScores ? Promise.resolve() : resetPlayersForNewManche(game.id, false),
-      clearAnswersForGame(game.id),
-      clearGameSettingsForNewManche(game.id),
     ])
+    clearAnswersForGame(game.id) // fire-and-forget
 
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
     if (isHost) {
@@ -944,15 +960,18 @@ const handleNextFromLeaderboard = async () => {
 
   const handleAbortMatch = async () => {
     if (!game || !isHost) return
-    
-    // Clear game settings, reset scores to 0, and go back to lobby
-    await clearGameSettingsForNewManche(game.id)
-    await resetPlayersForNewManche(game.id, true) // resetScores = true
-    await updateGameStatus(game.id, 'lobby')
-    
+
+    // Parallel: resetGameForNewManche (single DB write: clears game + sets status=lobby)
+    // + resetPlayersForNewManche (reset scores to 0).
+    // clearAnswersForGame fires and forgets — no need to block the redirect.
+    await Promise.all([
+      resetGameForNewManche(game.id),
+      resetPlayersForNewManche(game.id, true),
+    ])
+    clearAnswersForGame(game.id) // fire-and-forget
+
     // Set flag to prevent beforeunload from removing player
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
-    // Host goes to settings
     window.location.href = `/settings?code=${game.code}&manche=true`
   }
 
@@ -971,9 +990,9 @@ const handleNextFromLeaderboard = async () => {
   if (phase === 'loading') {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <div className="relative w-40 h-40 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent animate-spin" />
-          <img src="/logo-gq.png" alt="GQ" className="w-28 h-28 rounded-full" />
+        <div className="relative w-56 h-56 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
         <p className="text-muted-foreground">
           {isGenerating ? 'Generazione domande in corso...' : 'Caricamento partita...'}
@@ -1003,6 +1022,16 @@ const handleNextFromLeaderboard = async () => {
           allResults={arcadeResults}
           hasCompleted={hasCompletedArcade}
         />
+        {isHost && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive text-xs"
+            onClick={handleAbortMatch}
+          >
+            Termina partita e torna a impostazioni
+          </Button>
+        )}
       </main>
     )
   }
@@ -1020,6 +1049,16 @@ const handleNextFromLeaderboard = async () => {
           maxAbstentions={game?.max_abstentions}
           onContinue={handleNextFromLeaderboard}
         />
+        {isHost && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive text-xs"
+            onClick={handleAbortMatch}
+          >
+            Termina partita e torna a impostazioni
+          </Button>
+        )}
       </main>
     )
   }
@@ -1113,9 +1152,9 @@ const handleNextFromLeaderboard = async () => {
   if (!currentQuestion || !game || !currentPlayer) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-        <div className="relative w-40 h-40 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent animate-spin" />
-          <img src="/logo-gq.png" alt="GQ" className="w-28 h-28 rounded-full" />
+        <div className="relative w-56 h-56 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
         <p className="text-muted-foreground">Caricamento...</p>
       </main>

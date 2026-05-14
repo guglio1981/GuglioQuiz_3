@@ -57,48 +57,20 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
     return record as unknown as Game
 }
 
+// Kept for backward compatibility — callers should prefer resetGameForNewManche
+// which merges this call into the same DB write.
 export async function clearGameSettingsForNewManche(gameId: string): Promise<boolean> {
-  const pb = getPocketBase()
-  
-  try {
-    // Clear topics and arcade state to indicate "waiting for host to configure new manche"
-    // Also clear phase so clients on the new game page start from 'loading', not a stale 'question'
-    await withRetry(() => pb.collection('games').update(gameId, {
-      topics: [],
-      current_arcade_game: '',
-      current_arcade_round: 0,
-      manche_ready: false,
-      topic_selection_mode: '',
-      phase: '',
-      questions_json: [],
-      questions_ready: false,
-    }))
-    
-    // Delete all arcade_results for this game to start fresh in new manche
-    const results = await withRetry(() => pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` }))
-    await runInBatches(results, 5, r => pb.collection('arcade_results').delete(r.id))
-    
-    return true
-  } catch (error) {
-    console.error('Error clearing game settings:', error)
-    return false
-  }
+  return resetGameForNewManche(gameId)
 }
 
 export async function updateGameSettings(gameId: string, settings: GameSettings): Promise<boolean> {
   const pb = getPocketBase()
-  
-  try {
-    // Delete old questions first
-    const questions = await withRetry(() => pb.collection('questions').getFullList({ filter: `game_id="${gameId}"` }))
-    await runInBatches(questions, 5, q => pb.collection('questions').delete(q.id))
-    
-    // First read current manche to increment properly
-    const currentGame = await withRetry(() => pb.collection('games').getOne(gameId))
-    const nextManche = (currentGame.manche || 0) + 1
 
-    // Update game settings and increment manche
-    // Also clear questions_json and questions_ready so new questions are generated
+  try {
+    // Update game settings and atomically increment manche counter.
+    // Uses PocketBase atomic increment ('manche+': 1) to avoid a read-then-write round trip.
+    // questions_json / questions_ready are cleared so the game page generates fresh questions.
+    // NOTE: legacy 'questions' collection cleanup removed — questions now live in questions_json.
     await withRetry(() => pb.collection('games').update(gameId, {
       topics: settings.topics,
       question_count: settings.questionCount,
@@ -108,7 +80,7 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
       current_question: 0,
-      manche: nextManche,
+      'manche+': 1,
       questions_json: [],
       questions_ready: false,
       // topic_selection_mode intentionally NOT reset here:
@@ -257,8 +229,11 @@ export async function updateGamePhase(gameId: string, phase: string): Promise<bo
   }
 }
 
-// Sets phase AND status in ONE PocketBase call → clients receive both changes in a single
-// subscription event and redirect to lobby immediately, without waiting for a second update.
+// Resets ALL game state for a new manche in a SINGLE DB write.
+// Merges the old resetGameForNewManche + clearGameSettingsForNewManche into one call
+// to avoid the race condition where two parallel writes to the same record
+// could overwrite each other.
+// Arcade results deletion runs fire-and-forget (non-blocking).
 export async function resetGameForNewManche(gameId: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
@@ -269,8 +244,14 @@ export async function resetGameForNewManche(gameId: string): Promise<boolean> {
       topics: [],
       questions_json: [],
       questions_ready: false,
-      manche_ready: false,         // clients see "waiting for host" immediately
+      manche_ready: false,
+      current_arcade_game: '',
+      current_arcade_round: 0,
     }))
+    // Delete arcade results in the background — no need to block the redirect
+    pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
+      .then(results => runInBatches(results, 5, r => pb.collection('arcade_results').delete(r.id)))
+      .catch(console.error)
     return true
   } catch (error) {
     console.error('Error resetting game for new manche:', error)
@@ -576,17 +557,22 @@ export async function processAnswers(
     ops.push({ answer, player, isCorrect, points, needsAbstentionIncrement })
   }
 
-  // Process answers one at a time — max 3 writes per answer, sequential to avoid 429
-  for (const op of ops as any[]) {
+  // Process answers in batches of 3 (was sequential) — ~3× faster for 4-6 players.
+  // Each batch item runs its own writes in parallel (answer update + score + abstention).
+  // withRetry handles any 429s automatically.
+  await runInBatches(ops as any[], 3, async (op: any) => {
     const { answer: ans, player: pl, isCorrect: ic, points: pts, needsAbstentionIncrement: nai } = op
-    await withRetry(() => pb.collection('answers').update(ans.id, {
-      is_correct: ic,
-      points_earned: pts,
-      points_processed: true,
-    })).catch(e => console.error('Error updating answer:', e))
-    if (pts !== 0) await updatePlayerScore(pl.id, pts)
-    if (nai) await updatePlayerAbstentions(pl.id)
-  }
+    const writes: Promise<unknown>[] = [
+      withRetry(() => pb.collection('answers').update(ans.id, {
+        is_correct: ic,
+        points_earned: pts,
+        points_processed: true,
+      })).catch(e => console.error('Error updating answer:', e)),
+    ]
+    if (pts !== 0) writes.push(updatePlayerScore(pl.id, pts))
+    if (nai) writes.push(updatePlayerAbstentions(pl.id))
+    await Promise.all(writes)
+  })
 }
 
 // Realtime subscriptions

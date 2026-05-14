@@ -546,9 +546,9 @@ setIsStarting(true)
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <div className="relative w-40 h-40 flex items-center justify-center mx-auto">
-            <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent animate-spin" />
-            <img src="/logo-gq.png" alt="GQ" className="w-28 h-28 rounded-full" />
+          <div className="relative w-56 h-56 flex items-center justify-center mx-auto">
+            <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+            <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
           </div>
           <p className="text-muted-foreground text-lg">Caricamento lobby...</p>
         </div>
