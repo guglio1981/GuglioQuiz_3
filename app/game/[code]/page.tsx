@@ -1123,27 +1123,29 @@ const handleNextFromLeaderboard = async () => {
   if ((phase === 'arcade' || phase === 'arcade_results') && currentPlayerId && currentArcadeGame && currentPlayer) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
-        <ArcadeGameWrapper
-          game={currentArcadeGame}
-          playerId={currentPlayerId}
-          playerName={currentPlayer.name}
-          players={players}
-          isHost={isHost}
-          onComplete={handleArcadeComplete}
-          onContinue={handleContinueFromArcade}
-          allResults={arcadeResults}
-          hasCompleted={hasCompletedArcade}
-        />
-        {isHost && (
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-full font-bold bg-purple-600 text-white"
-            onClick={handleAbortMatch}
-          >
-            Termina partita e torna a impostazioni
-          </Button>
-        )}
+        <div className="w-full max-w-md flex flex-col gap-3">
+          <ArcadeGameWrapper
+            game={currentArcadeGame}
+            playerId={currentPlayerId}
+            playerName={currentPlayer.name}
+            players={players}
+            isHost={isHost}
+            onComplete={handleArcadeComplete}
+            onContinue={handleContinueFromArcade}
+            allResults={arcadeResults}
+            hasCompleted={hasCompletedArcade}
+          />
+          {isHost && (
+            <Button
+              variant="ghost"
+              size="lg"
+              className="w-full font-bold bg-purple-600 text-white"
+              onClick={handleAbortMatch}
+            >
+              Termina partita e torna a impostazioni
+            </Button>
+          )}
+        </div>
       </main>
     )
   }
