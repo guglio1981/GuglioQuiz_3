@@ -252,7 +252,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       if (questionsData.length === 0 && currentPlayerData?.is_host) {
         setIsGenerating(true)
         // Broadcast progress to clients via phase="generating:XX" — no extra DB field needed
-        let lastBroadcastedPct = -1
+        let lastBroadcastedPct = -10
         const broadcastProgress = (pct: number) => {
           const rounded = Math.min(99, Math.round(pct))
           if (rounded - lastBroadcastedPct >= 8) {
@@ -260,7 +260,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
             updateGamePhase(gameData.id, `generating:${rounded}`).catch(console.error)
           }
         }
-        broadcastProgress(0)
+        broadcastProgress(0) // fires immediately: 0 - (-10) = 10 >= 8
         try {
           const usedHashesKey = 'guglioquiz_used_question_hashes'
           const usedTextsKey = 'guglioquiz_used_question_texts'
