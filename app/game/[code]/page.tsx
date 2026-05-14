@@ -1119,8 +1119,8 @@ const handleNextFromLeaderboard = async () => {
         {isHost && (
           <Button
             variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-destructive text-xs"
+            size="lg"
+            className="w-full font-bold bg-purple-600 text-white"
             onClick={handleAbortMatch}
           >
             Termina partita e torna a impostazioni
@@ -1148,8 +1148,8 @@ const handleNextFromLeaderboard = async () => {
         {isHost && (
           <Button
             variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-destructive text-xs"
+            size="lg"
+            className="w-full font-bold bg-purple-600 text-white"
             onClick={handleAbortMatch}
           >
             Termina partita e torna a impostazioni
