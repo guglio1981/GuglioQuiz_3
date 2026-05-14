@@ -1108,6 +1108,21 @@ const handleNextFromLeaderboard = async () => {
     )
   }
 
+  // Full-screen loading while preparing new manche
+  if (isKeepingScores || isResettingScores) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
+        </div>
+        <p className="text-muted-foreground text-lg">
+          {isResettingScores ? 'Azzeramento punteggi...' : 'Preparazione nuova manche...'}
+        </p>
+      </div>
+    )
+  }
+
   // Finished phase
   if (phase === 'finished' && currentPlayerId) {
     const winner = sortedPlayers[0]
@@ -1131,31 +1146,23 @@ const handleNextFromLeaderboard = async () => {
           totalQuestions={questions.length}
           maxAbstentions={game?.max_abstentions}
         >
-          {isAnimatingReset ? (
-            <div className="flex flex-col items-center gap-3 py-4 animate-in fade-in duration-300">
-              <Loader2 className="h-8 w-8 animate-spin text-destructive" />
-              <p className="text-lg font-bold text-destructive">Azzeramento punteggi...</p>
-              <p className="text-sm text-muted-foreground">Preparazione nuova manche</p>
-            </div>
-          ) : isHost ? (
+          {isHost ? (
             <>
               <Button
                 onClick={() => handleNewManche(false)}
-                disabled={isKeepingScores || isResettingScores}
                 size="lg"
                 className="w-full h-14 text-sm md:text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 whitespace-normal"
               >
-                {isKeepingScores ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
+                <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />
                 <span>Nuova Manche (mantieni punteggi)</span>
               </Button>
               <Button
                 onClick={() => handleNewManche(true)}
-                disabled={isKeepingScores || isResettingScores}
                 size="lg"
                 className="w-full h-14 text-sm md:text-lg font-bold whitespace-normal"
                 variant="secondary"
               >
-                {isResettingScores ? <Loader2 className="mr-2 h-5 w-5 animate-spin flex-shrink-0" /> : <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />}
+                <RotateCcw className="mr-2 h-5 w-5 flex-shrink-0" />
                 <span>Nuova Manche (azzera punteggi)</span>
               </Button>
               <Button
