@@ -15,7 +15,7 @@ import {
   History, Globe, Cpu, Laptop, Zap, Languages, Scale, Tv, Church, Flag, Calculator,
   FileText, BookOpen, Clapperboard, Library, Music, MonitorPlay, Dices, Smile,
   FlaskConical, Trophy, Landmark, Palette, Star, Cat, Car, Image as ImageIcon,
-  FlagTriangleRight, Calendar, Clock, HelpCircle, MinusCircle
+  FlagTriangleRight, Calendar, Clock, HelpCircle, MinusCircle, TimerOff
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -680,8 +680,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-1.5">Modalità</p>
                     <div className="flex flex-wrap gap-1">
-                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-purple-500/45 text-white">
-                        {game.game_profile === 'untimed' ? '⏳ Senza Tempo' : '⏱ A Tempo'}
+                      <span className="text-xs font-semibold px-2 py-1 rounded-md bg-purple-500/45 text-white flex items-center gap-1">
+                        {game.game_profile === 'untimed'
+                          ? <><TimerOff className="h-3 w-3 shrink-0" /> Senza Tempo</>
+                          : <><Clock className="h-3 w-3 shrink-0" /> A Tempo</>}
                       </span>
                     </div>
                   </div>
