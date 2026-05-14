@@ -250,6 +250,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       
       if (questionsData.length === 0 && currentPlayerData?.is_host) {
         setIsGenerating(true)
+        // Broadcast to clients that questions are being generated
+        updateGamePhase(gameData.id, 'generating').catch(console.error)
         try {
           const usedHashesKey = 'guglioquiz_used_question_hashes'
           const usedTextsKey = 'guglioquiz_used_question_texts'
@@ -260,49 +262,43 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
           const totalRequested = gameData.question_count || 10
           // Generate 40% extra as buffer to compensate for any broken image questions
-          // that will be dropped during validation. Ensures we always hit totalRequested.
           const totalToGenerate = Math.ceil(totalRequested * 1.4)
           const chunkSize = 5
-          const chunks = Math.ceil(totalToGenerate / chunkSize)
-          const allQuestions: any[] = []
-          const allHashes: string[] = []
-          const allTexts: string[] = []
+          const numChunks = Math.ceil(totalToGenerate / chunkSize)
 
-          for (let i = 0; i < chunks; i++) {
-            const countForThisChunk = Math.min(chunkSize, totalToGenerate - allQuestions.length)
-            if (countForThisChunk <= 0) break
-
-            const response = await fetch('/api/generate-questions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                topics: gameData.topics,
-                count: countForThisChunk,
-                difficulty: gameData.difficulty,
-                usedQuestionHashes: [...usedQuestionHashes, ...allHashes],
-                usedQuestionTexts: [...usedQuestionTexts, ...allTexts].slice(-30),
-              }),
+          // Run all chunks in PARALLEL — much faster than sequential
+          const chunkResults = await Promise.all(
+            Array.from({ length: numChunks }, (_, i) => {
+              const countForThisChunk = Math.min(chunkSize, totalToGenerate - i * chunkSize)
+              if (countForThisChunk <= 0) return Promise.resolve({ questions: [], hashes: [] })
+              return fetch('/api/generate-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  topics: gameData.topics,
+                  count: countForThisChunk,
+                  difficulty: gameData.difficulty,
+                  usedQuestionHashes,
+                  usedQuestionTexts: usedQuestionTexts.slice(-30),
+                }),
+              }).then(async (res) => {
+                const data = await res.json()
+                if (!res.ok) throw new Error(data.details || data.error || 'Failed to generate questions')
+                return { questions: data.questions || [], hashes: data.hashes || [] }
+              })
             })
+          )
 
-            const responseData = await response.json()
-            if (!response.ok) throw new Error(responseData.details || responseData.error || 'Failed to generate questions')
-
-            const chunkQs = responseData.questions || []
-            const chunkHashes = responseData.hashes || []
-            allQuestions.push(...chunkQs)
-            allHashes.push(...chunkHashes)
-            allTexts.push(...chunkQs.map((q: any) => q.question_text as string))
-          }
+          const allQuestions = chunkResults.flatMap(r => r.questions)
+          const allHashes = chunkResults.flatMap(r => r.hashes)
 
           if (allQuestions.length === 0) throw new Error('No questions generated')
 
-          // Pre-validate image URLs — done once by the host at generation time.
-          // Questions with broken images are dropped; the 40% buffer ensures we
-          // still have enough valid questions to reach totalRequested.
+          // Pre-validate image URLs in parallel — 4s timeout per image
           const validateImageUrl = (url: string): Promise<boolean> =>
             new Promise((resolve) => {
               const img = new window.Image()
-              const timer = setTimeout(() => { img.src = ''; resolve(false) }, 8000)
+              const timer = setTimeout(() => { img.src = ''; resolve(false) }, 4000)
               img.onload = () => { clearTimeout(timer); resolve(true) }
               img.onerror = () => { clearTimeout(timer); resolve(false) }
               img.src = url
@@ -319,6 +315,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const validatedQuestions = validationResults.filter(Boolean).slice(0, totalRequested)
 
           // Save new hashes and texts to localStorage
+          const allTexts = allQuestions.map((q: any) => q.question_text as string)
           const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           const trimmedTexts = [...usedQuestionTexts, ...allTexts].slice(-200)
@@ -474,8 +471,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
         // Don't switch to 'question' phase if questions haven't been loaded yet —
         // the questions_ready useEffect will handle that once questions are fetched.
+        // 'generating' is a transient host-only broadcast — keep clients on 'loading'.
         if (newPhase === 'question' && latestQuestions.length === 0) {
           // questions_ready useEffect will fire shortly and load questions + set phase
+        } else if ((newPhase as string) === 'generating') {
+          // Host is generating questions — clients stay on loading, game.phase update
+          // is enough to show "Creazione domande in corso..." in the loading screen
         } else {
           setPhase(newPhase)
         }
@@ -1032,7 +1033,12 @@ const handleNextFromLeaderboard = async () => {
   }
 
   // Loading state
-  if (phase === 'loading') {
+  if (phase === 'loading' || phase === ('generating' as any)) {
+    const loadingText = isGenerating
+      ? 'Generazione domande in corso...'
+      : game?.phase === 'generating'
+        ? 'Creazione domande in corso...'
+        : 'Caricamento partita...'
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
         <div className="relative w-48 h-48 flex items-center justify-center">
@@ -1040,7 +1046,7 @@ const handleNextFromLeaderboard = async () => {
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
         <p className="text-muted-foreground">
-          {isGenerating ? 'Generazione domande in corso...' : 'Caricamento partita...'}
+          {loadingText}
         </p>
         {!currentPlayerId && (
           <Button variant="outline" onClick={() => router.push('/')} className="mt-4">
