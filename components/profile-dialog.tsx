@@ -151,8 +151,8 @@ export function ProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md bg-card border-border">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md bg-card border-border flex flex-col max-h-[90dvh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="text-2xl font-bold text-center text-foreground">
             {title}
           </DialogTitle>
@@ -161,7 +161,7 @@ export function ProfileDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto flex-1 pr-1">
           {/* Name input */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-foreground">Nome utente</Label>
@@ -355,7 +355,7 @@ export function ProfileDialog({
           onClick={handleSubmit}
           disabled={!isValid || isChecking}
           size="lg"
-          className="w-full h-14 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+          className="w-full h-14 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 mt-2"
         >
           {isChecking ? (
             <>
