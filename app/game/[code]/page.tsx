@@ -270,8 +270,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const usedQuestionTexts: string[] = storedTexts ? JSON.parse(storedTexts) : []
 
           const totalRequested = gameData.question_count || 10
-          // Generate 40% extra as buffer to compensate for any broken image questions
-          const totalToGenerate = Math.ceil(totalRequested * 1.4)
+          // Generate extra buffer: more if image-heavy topics selected (logo/flag/year
+          // discard the whole question on broken image), less for text-only topics
+          const imageTopics = ['indovina_logo', 'indovina_bandiera', 'indovina_anno']
+          const hasImageTopics = (gameData.topics as string[]).some(t => imageTopics.includes(t))
+          const bufferMultiplier = hasImageTopics ? 2.0 : 1.4
+          const totalToGenerate = Math.ceil(totalRequested * bufferMultiplier)
           const chunkSize = 5
           const numChunks = Math.ceil(totalToGenerate / chunkSize)
 
@@ -337,7 +341,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
               const pct = 65 + Math.round((imagesValidated / totalToValidate) * 30)
               setGenerationProgress(pct)
               broadcastProgress(pct)
-              return ok ? q : null   // broken image → discard (buffer covers the gap)
+              if (ok) return q
+              // Image-based topics (logo/flag/year): image IS the question → discard
+              const imageTopics = ['indovina_logo', 'indovina_bandiera', 'indovina_anno']
+              if (imageTopics.includes(q.topic)) return null
+              // Other topics: image is decorative → keep without image
+              return { ...q, image_url: null }
             })
           )
           // Filter out broken-image questions, then cap at requested count
