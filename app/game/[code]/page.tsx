@@ -78,6 +78,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isTimerActive, setIsTimerActive] = useState(false)
   const [questionStartTime, setQuestionStartTime] = useState<number>(0)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState(0)
   const [questionScore, setQuestionScore] = useState<number | null>(null)
   const [myResponseTime, setMyResponseTime] = useState<number | null>(null)
   
@@ -267,6 +268,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const numChunks = Math.ceil(totalToGenerate / chunkSize)
 
           // Run all chunks in PARALLEL — much faster than sequential
+          setGenerationProgress(0)
+          let chunksCompleted = 0
           const chunkResults = await Promise.all(
             Array.from({ length: numChunks }, (_, i) => {
               const countForThisChunk = Math.min(chunkSize, totalToGenerate - i * chunkSize)
@@ -284,6 +287,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
               }).then(async (res) => {
                 const data = await res.json()
                 if (!res.ok) throw new Error(data.details || data.error || 'Failed to generate questions')
+                chunksCompleted++
+                setGenerationProgress(Math.round((chunksCompleted / numChunks) * 65))
                 return { questions: data.questions || [], hashes: data.hashes || [] }
               })
             })
@@ -304,10 +309,18 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
               img.src = url
             })
 
+          let imagesValidated = 0
+          const totalToValidate = allQuestions.length
           const validationResults = await Promise.all(
             allQuestions.map(async (q: any) => {
-              if (!q.image_url) return q      // text question — always keep
+              if (!q.image_url) {
+                imagesValidated++
+                setGenerationProgress(65 + Math.round((imagesValidated / totalToValidate) * 30))
+                return q      // text question — always keep
+              }
               const ok = await validateImageUrl(q.image_url)
+              imagesValidated++
+              setGenerationProgress(65 + Math.round((imagesValidated / totalToValidate) * 30))
               return ok ? q : null            // null = broken image → drop
             })
           )
@@ -325,6 +338,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
           // After generation, directly initialize game for the host — don't wait for SSE
           // because gameData.questions_ready is stale (was false when loadGame started).
+          setGenerationProgress(100)
           setIsGenerating(false)
           setQuestions(questionsData)
           setCurrentQuestionIndex(0)
@@ -404,6 +418,21 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       }
     })
   }, [game?.id, game?.questions_ready, questions.length])
+
+  // Animate generation progress for non-host clients while phase='generating'
+  useEffect(() => {
+    if (isGenerating) return // host tracks real progress
+    const isGeneratingPhase = (game?.phase as string) === 'generating'
+    if (!isGeneratingPhase) return
+    setGenerationProgress(0)
+    const interval = setInterval(() => {
+      setGenerationProgress(prev => {
+        if (prev >= 85) { clearInterval(interval); return prev }
+        return prev + Math.random() * 4 + 1
+      })
+    }, 600)
+    return () => clearInterval(interval)
+  }, [game?.phase, isGenerating])
 
   // Remove player when browser closes
   useEffect(() => {
@@ -1037,22 +1066,30 @@ const handleNextFromLeaderboard = async () => {
 
   // Loading state
   if (phase === 'loading' || phase === ('generating' as any)) {
-    const loadingText = isGenerating
-      ? 'Generazione domande in corso...'
-      : game?.phase === 'generating'
-        ? 'Generazione domande in corso...'
-        : 'Caricamento partita...'
+    const isGen = isGenerating || (game?.phase as string) === 'generating'
+    const questionCount = game?.question_count || 10
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
         <div className="relative w-48 h-48 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
-        <p className="text-muted-foreground">
-          {loadingText}
-        </p>
+        {isGen ? (
+          <div className="flex flex-col items-center gap-3 w-full max-w-xs">
+            <p className="text-foreground font-semibold">Generazione di {questionCount} domande</p>
+            <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${Math.min(100, generationProgress)}%` }}
+              />
+            </div>
+            <p className="text-muted-foreground text-sm">{Math.min(100, Math.round(generationProgress))}%</p>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">Caricamento partita...</p>
+        )}
         {!currentPlayerId && (
-          <Button variant="outline" onClick={() => router.push('/')} className="mt-4">
+          <Button variant="outline" onClick={() => router.push('/')} className="mt-2">
             <Home className="h-4 w-4 mr-2" />
             Torna alla Home
           </Button>
