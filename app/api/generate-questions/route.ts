@@ -466,7 +466,13 @@ RISPONDI SOLO CON UN ARRAY JSON VALIDO (inizia con [ e finisci con ]):
   if (!jsonMatch) {
     throw new Error('No JSON array in AI response')
   }
-  const questions: GeneratedQuestion[] = JSON.parse(jsonMatch[0])
+  let questions: GeneratedQuestion[]
+  try {
+    questions = JSON.parse(jsonMatch[0])
+  } catch {
+    console.error('AI returned malformed JSON:', jsonMatch[0].slice(0, 200))
+    return [] // trigger fill/backup logic upstream
+  }
 
   
   // Filter out duplicates
