@@ -1037,7 +1037,7 @@ const handleNextFromLeaderboard = async () => {
     const loadingText = isGenerating
       ? 'Generazione domande in corso...'
       : game?.phase === 'generating'
-        ? 'Creazione domande in corso...'
+        ? 'Generazione domande in corso...'
         : 'Caricamento partita...'
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
