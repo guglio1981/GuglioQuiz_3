@@ -167,8 +167,90 @@ const YEAR_EVENTS = [
   { year: 1953, event: 'Scoperta del DNA', wrong: ['Scoperta della penicillina', 'Primo trapianto di cuore', 'Clonazione della pecora Dolly'] },
 ]
 
-interface GeneratedQuestionWithImage extends GeneratedQuestion {
-  image_url?: string
+type GeneratedQuestionWithImage = GeneratedQuestion
+
+const AUDIO_QUESTIONS_POOL = [
+  { options: ['Ed Sheeran', 'Justin Bieber', 'Bruno Mars', 'Shawn Mendes'], correct_answer: 'Ed Sheeran', search_query: 'Ed Sheeran Shape of You' },
+  { options: ['The Weeknd', 'Drake', 'Travis Scott', 'Post Malone'], correct_answer: 'The Weeknd', search_query: 'The Weeknd Blinding Lights' },
+  { options: ['Billie Eilish', 'Lorde', 'Olivia Rodrigo', 'Dua Lipa'], correct_answer: 'Billie Eilish', search_query: 'Billie Eilish Bad Guy' },
+  { options: ['Queen', 'The Beatles', 'Led Zeppelin', 'Pink Floyd'], correct_answer: 'Queen', search_query: 'Queen Bohemian Rhapsody' },
+  { options: ['Michael Jackson', 'Prince', 'Madonna', 'David Bowie'], correct_answer: 'Michael Jackson', search_query: 'Michael Jackson Thriller' },
+  { options: ['Adele', 'Amy Winehouse', 'Sam Smith', 'Paloma Faith'], correct_answer: 'Adele', search_query: 'Adele Hello' },
+  { options: ['Coldplay', 'U2', 'Radiohead', 'Muse'], correct_answer: 'Coldplay', search_query: 'Coldplay The Scientist' },
+  { options: ['Eminem', 'Jay-Z', 'Kanye West', 'Kendrick Lamar'], correct_answer: 'Eminem', search_query: 'Eminem Lose Yourself' },
+  { options: ['Rihanna', 'Beyoncé', 'Nicki Minaj', 'Cardi B'], correct_answer: 'Rihanna', search_query: 'Rihanna Umbrella' },
+  { options: ['Taylor Swift', 'Katy Perry', 'Lady Gaga', 'Selena Gomez'], correct_answer: 'Taylor Swift', search_query: 'Taylor Swift Shake It Off' },
+  { options: ['Bruno Mars', 'Jason Derulo', 'Pharrell Williams', 'Charlie Puth'], correct_answer: 'Bruno Mars', search_query: 'Bruno Mars Uptown Funk' },
+  { options: ['Dua Lipa', 'Ava Max', 'Zara Larsson', 'Anne-Marie'], correct_answer: 'Dua Lipa', search_query: 'Dua Lipa Levitating' },
+  { options: ['Harry Styles', 'Niall Horan', 'Zayn', 'Liam Payne'], correct_answer: 'Harry Styles', search_query: 'Harry Styles Watermelon Sugar' },
+  { options: ['Ariana Grande', 'Halsey', 'Bebe Rexha', 'Meghan Trainor'], correct_answer: 'Ariana Grande', search_query: 'Ariana Grande Thank U Next' },
+  { options: ['Bad Bunny', 'J Balvin', 'Daddy Yankee', 'Maluma'], correct_answer: 'Bad Bunny', search_query: 'Bad Bunny Dakiti' },
+  { options: ['Vasco Rossi', 'Zucchero', 'Eros Ramazzotti', 'Lucio Battisti'], correct_answer: 'Vasco Rossi', search_query: 'Vasco Rossi Albachiara' },
+  { options: ['Laura Pausini', 'Giorgia', 'Elisa', 'Fiorella Mannoia'], correct_answer: 'Laura Pausini', search_query: 'Laura Pausini La Solitudine' },
+  { options: ['Tiziano Ferro', 'Marco Mengoni', 'Piero Pelù', 'Jovanotti'], correct_answer: 'Tiziano Ferro', search_query: 'Tiziano Ferro Perdono' },
+]
+
+const ORDER_EVENTS = [
+  { items: ['Invenzione della stampa (1440)', 'Scoperta dell\'America (1492)', 'Rivoluzione Francese (1789)', 'Unità d\'Italia (1861)'] },
+  { items: ['Prima Guerra Mondiale (1914)', 'Rivoluzione Russa (1917)', 'Crollo di Wall Street (1929)', 'Seconda Guerra Mondiale (1939)'] },
+  { items: ['Fine della Seconda Guerra Mondiale (1945)', 'Uomo sulla Luna (1969)', 'Caduta del Muro di Berlino (1989)', 'Nascita del Web (1991)'] },
+  { items: ['Primo volo dei Wright (1903)', 'Lancio dello Sputnik (1957)', 'Apollo 11 sulla Luna (1969)', 'Primo Space Shuttle (1981)'] },
+  { items: ['Nascita del Cinema (1895)', 'Prima radio (1906)', 'Prima TV (1936)', 'Primo computer personale (1977)'] },
+  { items: ['Fondazione di Apple (1976)', 'Nascita del Web (1991)', 'Lancio di Google (1998)', 'Nascita di Facebook (2004)'] },
+  { items: ['Nascita di Facebook (2004)', 'Primo iPhone (2007)', 'Nascita di WhatsApp (2009)', 'Lancio di Instagram (2010)'] },
+  { items: ['Scoperta della penicillina (1928)', 'Scoperta del DNA (1953)', 'Primo trapianto di cuore (1967)', 'Clonazione pecora Dolly (1996)'] },
+]
+
+async function resolveDeezerPreview(query: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=1`, {
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return (data.data?.[0]?.preview as string) ?? null
+  } catch { return null }
+}
+
+function generateAudioQuestionsLocal(count: number, usedHashes: Set<string>): GeneratedQuestion[] {
+  const shuffled = [...AUDIO_QUESTIONS_POOL].sort(() => Math.random() - 0.5)
+  const questions: GeneratedQuestion[] = []
+  for (const item of shuffled) {
+    if (questions.length >= count) break
+    const hash = hashQuestion(`audio_${item.search_query}`)
+    if (usedHashes.has(hash)) continue
+    usedHashes.add(hash)
+    questions.push({
+      topic: 'musica',
+      question_text: "Riconosci l'artista di questa canzone",
+      question_type: 'audio',
+      options: [...item.options].sort(() => Math.random() - 0.5),
+      correct_answer: item.correct_answer,
+      audio_search_query: item.search_query,
+    })
+  }
+  return questions
+}
+
+function generateOrderQuestionsLocal(count: number, usedHashes: Set<string>): GeneratedQuestion[] {
+  const shuffled = [...ORDER_EVENTS].sort(() => Math.random() - 0.5)
+  const questions: GeneratedQuestion[] = []
+  for (const event of shuffled) {
+    if (questions.length >= count) break
+    const hash = hashQuestion(`order_${event.items[0]}`)
+    if (usedHashes.has(hash)) continue
+    usedHashes.add(hash)
+    const shuffledOptions = [...event.items].sort(() => Math.random() - 0.5)
+    questions.push({
+      topic: 'storia',
+      question_text: 'Metti in ordine cronologico questi eventi (dal più antico al più recente):',
+      question_type: 'order',
+      options: shuffledOptions,
+      correct_answer: JSON.stringify(event.items),
+      correct_order: event.items,
+    })
+  }
+  return questions
 }
 
 // Generate image-based questions
@@ -181,54 +263,81 @@ function generateImageQuestions(
   
   if (topic === 'indovina_logo') {
     const shuffledLogos = [...LOGO_DATA].sort(() => Math.random() - 0.5)
+    let qi = 0
     for (let i = 0; i < Math.min(count, shuffledLogos.length); i++) {
       const correct = shuffledLogos[i]
-      const hash = hashQuestion(`logo_${correct.name}`)
+      const useImageOptions = qi % 2 === 1  // alternate: even=multiple, odd=image_options
+      const hash = hashQuestion(`logo_${correct.name}_${useImageOptions ? 'img' : 'txt'}`)
       if (usedHashes.has(hash)) continue
       usedHashes.add(hash)
-      
-      // Get 3 random wrong answers
-      const wrongOptions = shuffledLogos
+      qi++
+
+      const wrongLogos = shuffledLogos
         .filter(l => l.name !== correct.name)
         .sort(() => Math.random() - 0.5)
         .slice(0, 3)
-        .map(l => l.name)
-      
-      const options = [correct.name, ...wrongOptions].sort(() => Math.random() - 0.5)
-      
-      questions.push({
-        topic: 'indovina_logo',
-        question_text: 'A quale azienda appartiene questo logo?',
-        question_type: 'multiple',
-        options,
-        correct_answer: correct.name,
-        image_url: correct.url,
-      })
+
+      if (useImageOptions) {
+        // image_options: text question, 4 logo images as options
+        const allOptions = [correct, ...wrongLogos].sort(() => Math.random() - 0.5)
+        questions.push({
+          topic: 'indovina_logo',
+          question_text: 'Identifica il marchio',
+          question_type: 'image_options',
+          options: allOptions.map(l => l.name),
+          correct_answer: correct.name,
+          option_images: allOptions.map(l => l.url),
+        })
+      } else {
+        // multiple: show one logo, pick company name from text options
+        const options = [correct.name, ...wrongLogos.map(l => l.name)].sort(() => Math.random() - 0.5)
+        questions.push({
+          topic: 'indovina_logo',
+          question_text: 'A quale azienda appartiene questo logo?',
+          question_type: 'multiple',
+          options,
+          correct_answer: correct.name,
+          image_url: correct.url,
+        })
+      }
     }
   } else if (topic === 'indovina_bandiera') {
     const shuffledFlags = [...FLAG_DATA].sort(() => Math.random() - 0.5)
+    let qi = 0
     for (let i = 0; i < Math.min(count, shuffledFlags.length); i++) {
       const correct = shuffledFlags[i]
-      const hash = hashQuestion(`flag_${correct.name}`)
+      const useImageOptions = qi % 2 === 1
+      const hash = hashQuestion(`flag_${correct.name}_${useImageOptions ? 'img' : 'txt'}`)
       if (usedHashes.has(hash)) continue
       usedHashes.add(hash)
-      
-      const wrongOptions = shuffledFlags
+      qi++
+
+      const wrongFlags = shuffledFlags
         .filter(f => f.name !== correct.name)
         .sort(() => Math.random() - 0.5)
         .slice(0, 3)
-        .map(f => f.name)
-      
-      const options = [correct.name, ...wrongOptions].sort(() => Math.random() - 0.5)
-      
-      questions.push({
-        topic: 'indovina_bandiera',
-        question_text: 'A quale nazione appartiene questa bandiera?',
-        question_type: 'multiple',
-        options,
-        correct_answer: correct.name,
-        image_url: correct.url,
-      })
+
+      if (useImageOptions) {
+        const allOptions = [correct, ...wrongFlags].sort(() => Math.random() - 0.5)
+        questions.push({
+          topic: 'indovina_bandiera',
+          question_text: 'Identifica la bandiera',
+          question_type: 'image_options',
+          options: allOptions.map(f => f.name),
+          correct_answer: correct.name,
+          option_images: allOptions.map(f => f.url),
+        })
+      } else {
+        const options = [correct.name, ...wrongFlags.map(f => f.name)].sort(() => Math.random() - 0.5)
+        questions.push({
+          topic: 'indovina_bandiera',
+          question_text: 'A quale nazione appartiene questa bandiera?',
+          question_type: 'multiple',
+          options,
+          correct_answer: correct.name,
+          image_url: correct.url,
+        })
+      }
     }
   } else if (topic === 'indovina_anno') {
     const shuffledEvents = [...YEAR_EVENTS].sort(() => Math.random() - 0.5)
@@ -274,9 +383,14 @@ interface TriviaQuestion {
 interface GeneratedQuestion {
   topic: string
   question_text: string
-  question_type: 'multiple' | 'true_false'
+  question_type: 'multiple' | 'true_false' | 'audio' | 'image_options' | 'order'
   options: string[]
   correct_answer: string
+  image_url?: string
+  audio_url?: string | null
+  option_images?: (string | null)[]
+  correct_order?: string[]
+  audio_search_query?: string
 }
 
 // Decode HTML entities
@@ -495,12 +609,13 @@ RISPONDI SOLO CON UN ARRAY JSON VALIDO (inizia con [ e finisci con ]):
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { topics, count, difficulty, usedQuestionHashes = [], usedQuestionTexts = [] } = body as {
+    const { topics, count, difficulty, usedQuestionHashes = [], usedQuestionTexts = [], enableAudioQuestions = true } = body as {
       topics: Topic[]
       count: number
       difficulty: Difficulty
       usedQuestionHashes?: string[]
       usedQuestionTexts?: string[]
+      enableAudioQuestions?: boolean
     }
 
     if (!topics || !count || !difficulty) {
@@ -567,7 +682,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. AI-only topics
+    // 3. Audio questions for musica topic (when enabled)
+    if (enableAudioQuestions && topics.includes('musica')) {
+      const audioCount = Math.max(1, Math.ceil(questionsPerTopic * 0.35))
+      parallelTasks.push(Promise.resolve(generateAudioQuestionsLocal(audioCount, usedHashes)))
+    }
+
+    // 3b. Order questions for storia topic
+    if (topics.includes('storia')) {
+      const orderCount = Math.max(1, Math.ceil(questionsPerTopic * 0.25))
+      parallelTasks.push(Promise.resolve(generateOrderQuestionsLocal(orderCount, usedHashes)))
+    }
+
+    // 4. AI-only topics
     if (aiTopics.length > 0) {
       const aiCount = Math.max(questionsPerTopic * aiTopics.length, 1)
       parallelTasks.push(
@@ -587,6 +714,20 @@ export async function POST(request: Request) {
     // Wait for everything
     const results = await Promise.all(parallelTasks)
     results.forEach(qs => allQuestions.push(...qs))
+
+    // Resolve Deezer preview URLs for audio questions (server-side, no CORS issue)
+    const audioQs = allQuestions.filter(q => q.question_type === 'audio' && q.audio_search_query)
+    if (audioQs.length > 0) {
+      await Promise.all(audioQs.map(async q => {
+        q.audio_url = await resolveDeezerPreview(q.audio_search_query!)
+      }))
+      // Drop audio questions that failed to get a preview URL
+      for (let i = allQuestions.length - 1; i >= 0; i--) {
+        if (allQuestions[i].question_type === 'audio' && !allQuestions[i].audio_url) {
+          allQuestions.splice(i, 1)
+        }
+      }
+    }
 
     // Fill up with AI if we don't have enough (single attempt, all-topics)
     // Final attempt if still short (up to 5 retries for the whole batch)

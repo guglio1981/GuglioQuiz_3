@@ -17,7 +17,7 @@ import {
   History, Globe, Cpu, Laptop, Zap, Languages, Scale, Tv, Church, Flag, Calculator,
   FileText, BookOpen, Clapperboard, Library, Music, MonitorPlay, Dices, Smile,
   FlaskConical, Trophy, Landmark, Palette, Star, Cat, Car, Image as ImageIcon,
-  FlagTriangleRight, Calendar, ChevronDown, ChevronUp
+  FlagTriangleRight, Calendar, ChevronDown, ChevronUp, Volume2, VolumeX
 } from 'lucide-react'
 
 const TOPIC_ICONS: Record<Topic, any> = {
@@ -72,6 +72,7 @@ function SettingsPageContent() {
   const [selectedArcadeGames, setSelectedArcadeGames] = useState<ArcadeGame[]>([])
   const [arcadeFrequency, setArcadeFrequency] = useState<number>(5)
   const [gameProfile, setGameProfile] = useState<GameProfile>('timed')
+  const [enableAudioQuestions, setEnableAudioQuestions] = useState(true)
 
   
   // Collaborative topic selection
@@ -303,8 +304,8 @@ function SettingsPageContent() {
       maxAbstentions,
       gameProfile,
       arcadeGames: arcadeEnabled && selectedArcadeGames.length > 0 ? selectedArcadeGames : undefined,
-
       arcadeFrequency: arcadeEnabled && selectedArcadeGames.length > 0 ? arcadeFrequency : undefined,
+      enableAudioQuestions,
     }
 
     const generateUUID = () => {
@@ -784,6 +785,38 @@ function SettingsPageContent() {
                 )}
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Audio Questions */}
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-0">
+            <CardTitle className="flex items-center justify-between text-foreground">
+              <div className="flex items-center gap-2">
+                {enableAudioQuestions ? <Volume2 className="h-5 w-5 text-primary" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+                Domande Audio
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnableAudioQuestions(!enableAudioQuestions)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  enableAudioQuestions ? 'bg-primary' : 'bg-muted'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    enableAudioQuestions ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-3">
+            <p className="text-sm text-muted-foreground">
+              {enableAudioQuestions
+                ? 'Includi clip musicali da riconoscere (topic Musica)'
+                : 'Nessuna domanda audio — utile in ambienti rumorosi'}
+            </p>
           </CardContent>
         </Card>
 

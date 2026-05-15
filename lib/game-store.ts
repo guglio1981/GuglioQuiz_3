@@ -48,6 +48,7 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       game_profile: settings.gameProfile || 'timed',
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
+      enable_audio_questions: settings.enableAudioQuestions !== false,
       status: 'lobby',
       manche_ready: true,  // First manche is ready by default
       manche: 1,
@@ -79,6 +80,7 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       game_profile: settings.gameProfile || 'timed',
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
+      enable_audio_questions: settings.enableAudioQuestions !== false,
       current_question: 0,
       'manche+': 1,
       questions_json: [],

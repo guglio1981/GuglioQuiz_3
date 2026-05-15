@@ -54,6 +54,9 @@ import {
   type ArcadeGame,
 } from '@/lib/types'
 import { ArcadeGameWrapper } from '@/components/arcade/arcade-game-wrapper'
+import { AudioQuestion } from '@/components/audio-question'
+import { ImageOptionsQuestion } from '@/components/image-options-question'
+import { OrderQuestion } from '@/components/order-question'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { RotateCcw, Home, Loader2, HandHelping } from 'lucide-react'
@@ -94,6 +97,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isRedirectingToLobby, setIsRedirectingToLobby] = useState(false)
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
   const [hostDisconnected, setHostDisconnected] = useState(false)
+  const [audioDisabled, setAudioDisabled] = useState(false)
   
   // Memoize player calculations to avoid expensive filter/find on every render
   const sortedPlayers = useMemo(() => {
@@ -121,6 +125,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       return () => clearTimeout(timer)
     }
   }, [phase, currentQuestionIndex])
+
+  useEffect(() => {
+    setAudioDisabled(localStorage.getItem('guglioquiz_audio_disabled') === 'true')
+  }, [])
 
   // Guard ref to prevent handleReveal from being called multiple times
   const isRevealingRef = useRef(false)
@@ -298,6 +306,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
                   difficulty: gameData.difficulty,
                   usedQuestionHashes,
                   usedQuestionTexts: usedQuestionTexts.slice(-30),
+                  enableAudioQuestions: gameData.enable_audio_questions !== false,
                 }),
               }).then(async (res) => {
                 const text = await res.text()
@@ -365,10 +374,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   topics: gameData.topics,
-                  count: missing + 2, // small extra buffer on retry
+                  count: missing + 2,
                   difficulty: gameData.difficulty,
                   usedQuestionHashes: usedQuestionHashes.slice(-30),
                   usedQuestionTexts: usedQuestionTexts.slice(-30),
+                  enableAudioQuestions: gameData.enable_audio_questions !== false,
                 }),
               }).then(r => r.text())
               const retryData = (() => { try { return JSON.parse(retryText) } catch { return { questions: [] } } })()
@@ -1394,93 +1404,134 @@ const handleNextFromLeaderboard = async () => {
           )}
         </div>
 
-        {/* Question */}
-        <Card className="bg-card border-border">
-          <CardContent className="p-6">
-            {currentQuestion.image_url && (
-              <div className="flex justify-center mb-4">
-                <img
-                  src={currentQuestion.image_url}
-                  alt="Immagine domanda"
-                  className="max-h-48 md:max-h-64 object-contain rounded-lg"
-                  onError={(e) => {
-                    const img = e.target as HTMLImageElement
-                    img.style.display = 'none'
-                    const placeholder = img.nextElementSibling as HTMLElement | null
-                    if (placeholder) placeholder.style.display = 'flex'
-                  }}
-                />
-                <div
-                  style={{ display: 'none' }}
-                  className="flex-col items-center justify-center gap-2 w-32 h-32 rounded-xl bg-muted border border-border text-muted-foreground text-center text-sm p-3"
-                >
-                  <span className="text-3xl">🖼️</span>
-                  <span>Immagine non disponibile</span>
-                </div>
+        {/* Question + Answers — type dispatch */}
+        {currentQuestion.question_type === 'audio' ? (
+          <AudioQuestion
+            key={currentQuestionIndex}
+            questionText={currentQuestion.question_text}
+            audioUrl={currentQuestion.audio_url}
+            options={currentQuestion.options}
+            correctAnswer={correctAnswer}
+            questionIndex={currentQuestionIndex}
+            audioDisabled={audioDisabled}
+            phase={phase}
+            selectedAnswer={selectedAnswer}
+            hasAnswered={hasAnswered}
+            isClickable={isClickable}
+            onSelect={handleAnswerSelect}
+          />
+        ) : currentQuestion.question_type === 'image_options' ? (
+          <ImageOptionsQuestion
+            key={currentQuestionIndex}
+            questionText={currentQuestion.question_text}
+            options={currentQuestion.options}
+            optionImages={currentQuestion.option_images ?? []}
+            correctAnswer={correctAnswer}
+            questionIndex={currentQuestionIndex}
+            phase={phase}
+            selectedAnswer={selectedAnswer}
+            hasAnswered={hasAnswered}
+            isClickable={isClickable}
+            onSelect={handleAnswerSelect}
+          />
+        ) : currentQuestion.question_type === 'order' ? (
+          <OrderQuestion
+            key={currentQuestionIndex}
+            questionText={currentQuestion.question_text}
+            options={currentQuestion.options}
+            correctOrder={currentQuestion.correct_order ?? currentQuestion.options}
+            questionIndex={currentQuestionIndex}
+            phase={phase}
+            hasAnswered={hasAnswered}
+            isClickable={isClickable}
+            onSubmit={handleAnswerSelect}
+          />
+        ) : (
+          <>
+            {/* Standard question card */}
+            <Card className="bg-card border-border">
+              <CardContent className="p-6">
+                {currentQuestion.image_url && (
+                  <div className="flex justify-center mb-4">
+                    <img
+                      src={currentQuestion.image_url}
+                      alt="Immagine domanda"
+                      className="max-h-48 md:max-h-64 object-contain rounded-lg"
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement
+                        img.style.display = 'none'
+                        const placeholder = img.nextElementSibling as HTMLElement | null
+                        if (placeholder) placeholder.style.display = 'flex'
+                      }}
+                    />
+                    <div
+                      style={{ display: 'none' }}
+                      className="flex-col items-center justify-center gap-2 w-32 h-32 rounded-xl bg-muted border border-border text-muted-foreground text-center text-sm p-3"
+                    >
+                      <span className="text-3xl">🖼️</span>
+                      <span>Immagine non disponibile</span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xl md:text-2xl font-semibold text-foreground text-center text-balance">
+                  {currentQuestion.question_text}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Answers */}
+            <div className="grid gap-3">
+              {currentQuestion.options.map((option, index) => {
+                const isSelected = selectedAnswer === option
+                const isCorrect = option === correctAnswer
+                const showCorrect = phase === 'reveal' && isCorrect
+                const showWrong = phase === 'reveal' && isSelected && !isCorrect
+
+                return (
+                  <button
+                    key={`${currentQuestionIndex}-${index}`}
+                    onClick={() => handleAnswerSelect(option)}
+                    disabled={hasAnswered || !isClickable}
+                    className={cn(
+                      'w-full p-4 md:p-5 rounded-xl text-left font-medium transition-all border-2 focus:outline-none',
+                      'text-foreground',
+                      !hasAnswered &&
+                        !isSelected &&
+                        'bg-muted border-border hover:border-primary/50 hover:bg-muted/80',
+                      isSelected &&
+                        phase !== 'reveal' &&
+                        'bg-quiz-selected border-quiz-selected text-primary-foreground',
+                      showCorrect &&
+                        'bg-quiz-correct border-quiz-correct text-white animate-pulse-correct',
+                      showWrong && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
+                      hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border'
+                    )}
+                  >
+                    <span className="flex-1">{option}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Answer status indicator */}
+            {phase === 'reveal' && (
+              <div className="text-center py-2">
+                {selectedAnswer === correctAnswer ? (
+                  <p className="text-accent font-bold text-lg">Risposta corretta!</p>
+                ) : selectedAnswer ? (
+                  <p className="text-destructive font-bold text-lg">Risposta sbagliata!</p>
+                ) : game.game_profile === 'untimed' ? (
+                  <p className="text-muted-foreground font-bold text-lg">Astenuto!</p>
+                ) : (
+                  <p className="text-muted-foreground font-bold text-lg">Tempo scaduto!</p>
+                )}
               </div>
             )}
-            <p className="text-xl md:text-2xl font-semibold text-foreground text-center text-balance">
-              {currentQuestion.question_text}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Answers */}
-        <div className="grid gap-3">
-          {currentQuestion.options.map((option, index) => {
-            const isSelected = selectedAnswer === option
-            const isCorrect = option === correctAnswer
-            const showCorrect = phase === 'reveal' && isCorrect
-            const showWrong = phase === 'reveal' && isSelected && !isCorrect
-
-            return (
-              <button
-                key={`${currentQuestionIndex}-${index}`}
-                onClick={() => handleAnswerSelect(option)}
-                disabled={hasAnswered || !isClickable}
-                className={cn(
-                  'w-full p-4 md:p-5 rounded-xl text-left font-medium transition-all border-2 focus:outline-none',
-                  'text-foreground',
-                  // Default state
-                  !hasAnswered &&
-                    !isSelected &&
-                    'bg-muted border-border hover:border-primary/50 hover:bg-muted/80',
-                  // Selected (before reveal)
-                  isSelected &&
-                    phase !== 'reveal' &&
-                    'bg-quiz-selected border-quiz-selected text-primary-foreground',
-                  // Correct answer (reveal)
-                  showCorrect &&
-                    'bg-quiz-correct border-quiz-correct text-white animate-pulse-correct',
-                  // Wrong answer selected (reveal)
-                  showWrong && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
-                  // Non-selected answers stay the same (no visual change)
-                  hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border'
-                )}
-              >
-                <span className="flex-1">{option}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Answer status indicator - no card wrapper */}
-        {phase === 'reveal' && (
-          <div className="text-center py-2">
-            {selectedAnswer === correctAnswer ? (
-              <p className="text-accent font-bold text-lg">Risposta corretta!</p>
-            ) : selectedAnswer ? (
-              <p className="text-destructive font-bold text-lg">Risposta sbagliata!</p>
-            ) : game.game_profile === 'untimed' ? (
-              <p className="text-muted-foreground font-bold text-lg">Astenuto!</p>
-            ) : (
-              <p className="text-muted-foreground font-bold text-lg">Tempo scaduto!</p>
-            )}
-          </div>
+          </>
         )}
 
-        {/* Abstain Button (Only in untimed mode and before answering) */}
-        {game.game_profile === 'untimed' && phase === 'question' && !hasAnswered && (
+        {/* Abstain Button (Only in untimed mode and before answering, not for order questions) */}
+        {game.game_profile === 'untimed' && phase === 'question' && !hasAnswered && currentQuestion.question_type !== 'order' && (
           <div className="mt-4">
             <Button
               variant="outline"

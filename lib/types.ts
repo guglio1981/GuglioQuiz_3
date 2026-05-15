@@ -96,7 +96,7 @@ export const ARCADE_GAME_DESCRIPTIONS: Record<ArcadeGame, string> = {
 
 export type Difficulty = 'intermedia' | 'difficile'
 
-export type QuestionType = 'multiple' | 'true_false'
+export type QuestionType = 'multiple' | 'true_false' | 'audio' | 'image_options' | 'order'
 
 export type GameStatus = 'lobby' | 'playing' | 'finished'
 
@@ -116,6 +116,7 @@ export interface Game {
 
   arcade_games?: ArcadeGame[] | null
   arcade_frequency?: number | null
+  enable_audio_questions?: boolean
   current_arcade_game?: ArcadeGame | null
   current_arcade_round?: number
   current_question: number
@@ -154,6 +155,9 @@ export interface Question {
   options: string[]
   correct_answer: string
   image_url?: string | null
+  audio_url?: string | null
+  option_images?: (string | null)[]
+  correct_order?: string[]
   created: string
 }
 
@@ -176,8 +180,8 @@ export interface GameSettings {
   maxAbstentions: number
   gameProfile?: GameProfile
   arcadeGames?: ArcadeGame[]
-
   arcadeFrequency?: number
+  enableAudioQuestions?: boolean
 }
 
 export interface PlayerProfile {

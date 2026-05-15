@@ -15,7 +15,7 @@ import {
   History, Globe, Cpu, Laptop, Zap, Languages, Scale, Tv, Church, Flag, Calculator,
   FileText, BookOpen, Clapperboard, Library, Music, MonitorPlay, Dices, Smile,
   FlaskConical, Trophy, Landmark, Palette, Star, Cat, Car, Image as ImageIcon,
-  FlagTriangleRight, Calendar, Clock, HelpCircle, MinusCircle, TimerOff
+  FlagTriangleRight, Calendar, Clock, HelpCircle, MinusCircle, TimerOff, Volume2, VolumeX
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -69,6 +69,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [mySelectedTopics, setMySelectedTopics] = useState<Topic[]>([])
   const [localGameTopics, setLocalGameTopics] = useState<Topic[]>([])
   const [hasSubmittedTopics, setHasSubmittedTopics] = useState(false)
+  const [audioDisabled, setAudioDisabled] = useState(false)
   const isHostRef = useRef(false)
   const hasSubmittedTopicsRef = useRef(false)
 
@@ -79,6 +80,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       return
     }
     setCurrentPlayerId(playerId)
+    setAudioDisabled(localStorage.getItem('guglioquiz_audio_disabled') === 'true')
 
     const loadGame = async () => {
       // Small stagger to prevent thundering herd when many clients load simultaneously
@@ -474,6 +476,12 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     setIsSendingNotifications(false)
   }
 
+  const toggleAudio = () => {
+    const newVal = !audioDisabled
+    setAudioDisabled(newVal)
+    localStorage.setItem('guglioquiz_audio_disabled', newVal ? 'true' : 'false')
+  }
+
   const handleAcceptRules = () => {
     if (!currentPlayerId) return
     setHasAcceptedRules(true) // immediate — no wait
@@ -784,6 +792,23 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                   </div>
                 </div>
               )}
+
+              {/* Audio toggle */}
+              <div className="flex justify-center pt-1">
+                <button
+                  onClick={toggleAudio}
+                  className={cn(
+                    'flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-all',
+                    audioDisabled
+                      ? 'border-destructive/50 text-destructive bg-destructive/10'
+                      : 'border-border text-muted-foreground hover:border-primary/50'
+                  )}
+                  title={audioDisabled ? 'Audio domande disabilitato' : 'Audio domande abilitato'}
+                >
+                  {audioDisabled ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  <span>{audioDisabled ? 'Audio OFF' : 'Audio ON'}</span>
+                </button>
+              </div>
 
               {/* Accept button for non-host players */}
               {!isHost && !hasAcceptedRules && (
