@@ -444,7 +444,7 @@ REGOLE GENERALI:
 3. Le domande devono essere VERIFICABILI e CORRETTE (non inventare fatti)
 4. Distribuisci equamente tra gli argomenti richiesti
 5. NON ripetere mai la stessa domanda
-6. LUNGHEZZA: la domanda deve essere BREVE e DIRETTA, massimo 80 caratteri. Le opzioni massimo 40 caratteri ciascuna (possono essere leggermente più lunghe della domanda). Evita frasi subordinate, contesti inutili o introduzioni verbose.
+6. LUNGHEZZA: la domanda deve essere BREVE e DIRETTA, massimo 80 caratteri. Le opzioni devono essere il più concise possibile: per nomi, date, luoghi usa poche parole; per concetti complessi (economia, diritto, scienza) puoi usare fino a 100 caratteri se necessario. Evita frasi subordinate, contesti inutili o introduzioni verbose.
 
 RISPONDI SOLO CON UN ARRAY JSON VALIDO (inizia con [ e finisci con ]):
 [
