@@ -4,13 +4,17 @@ export const dynamic = 'force-dynamic'
 import { getPocketBase } from '@/lib/pocketbase'
 import webpush from 'web-push'
 
-// Configure web-push
+// Configure web-push only when valid VAPID keys are available
 if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    'mailto:admin@guglioquiz.com',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  )
+  try {
+    webpush.setVapidDetails(
+      'mailto:admin@guglioquiz.com',
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    )
+  } catch (e) {
+    console.warn('VAPID configuration failed:', e)
+  }
 }
 
 export async function POST(request: Request) {
