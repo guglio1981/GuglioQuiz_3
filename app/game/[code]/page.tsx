@@ -320,7 +320,15 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
             })
           )
 
-          const allQuestions = chunkResults.flatMap(r => r.questions)
+          const allQuestionsRaw = chunkResults.flatMap(r => r.questions)
+          // Deduplicate across parallel chunks (each chunk doesn't know about others)
+          const seenTexts = new Set<string>()
+          const allQuestions = allQuestionsRaw.filter((q: any) => {
+            const key = (q.question_text as string).trim().toLowerCase()
+            if (seenTexts.has(key)) return false
+            seenTexts.add(key)
+            return true
+          })
           const allHashes = chunkResults.flatMap(r => r.hashes)
 
           if (allQuestions.length === 0) throw new Error('No questions generated')
@@ -1403,7 +1411,7 @@ const handleNextFromLeaderboard = async () => {
                 avatar: p.avatar ?? null,
                 avatarUrl: p.avatar_url ?? null,
               }))}
-              onDone={() => setTimeout(() => setPodiumDone(true), 300)}
+              onDone={() => setTimeout(() => setPodiumDone(true), 5000)}
             />
           </div>
           <button
