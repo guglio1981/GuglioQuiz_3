@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 
 interface AnimatedLeaderboardProps {
   players: Player[]
+  initialPlayers?: Player[]
   currentPlayerId: string
   questionNumber: number
   totalQuestions: number
@@ -48,6 +49,7 @@ function getRankIcon(index: number) {
 
 export function AnimatedLeaderboard({
   players,
+  initialPlayers,
   currentPlayerId,
   questionNumber,
   totalQuestions,
@@ -56,10 +58,12 @@ export function AnimatedLeaderboard({
   onContinue,
   children,
 }: AnimatedLeaderboardProps) {
-  // Snapshot at first render = old scores/order
+  // Use initialPlayers (pre-scoring snapshot) when available so the animation
+  // starts from old scores and counts up to new ones. Falls back to players
+  // if no snapshot was provided (e.g. page refresh mid-game).
   const prevRef = useRef<Player[] | null>(null)
   if (prevRef.current === null) {
-    prevRef.current = sortPlayers(players)
+    prevRef.current = sortPlayers(initialPlayers ?? players)
   }
 
   const oldSorted = prevRef.current
@@ -75,10 +79,19 @@ export function AnimatedLeaderboard({
 
   const rafRef  = useRef<number | null>(null)
   const prevPlayersRef = useRef(players)
+  // Track whether the initial animation (initialPlayers → players) already ran
+  const didInitialAnimRef = useRef(false)
 
   useEffect(() => {
-    if (players === prevPlayersRef.current) return
-    prevPlayersRef.current = players
+    // Case 1: initialPlayers provided — animate from snapshot to current on mount
+    if (initialPlayers && !didInitialAnimRef.current) {
+      didInitialAnimRef.current = true
+      prevPlayersRef.current = players
+    } else {
+      // Case 2: players prop changed after mount (live update)
+      if (players === prevPlayersRef.current) return
+      prevPlayersRef.current = players
+    }
 
     const newSorted = sortPlayers(players)
     const newTops   = Object.fromEntries(newSorted.map((p, i) => [p.id, i * (ROW_H + GAP)]))
@@ -149,7 +162,8 @@ export function AnimatedLeaderboard({
       clearTimeout(t1)
       cancelAnim()
     }
-  }, [players])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, initialPlayers])
 
   useEffect(() => {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }

@@ -72,6 +72,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   // State
   const [game, setGame] = useState<Game | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
+  const [playersBeforeScoring, setPlayersBeforeScoring] = useState<Player[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null)
@@ -604,6 +605,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const currentIdx = latestRef.current.currentQuestionIndex
           if (eventQIdx === currentIdx) {
             setIsTimerActive(false)
+            setPlayersBeforeScoring(latestRef.current.players)
             handleReveal()
           } else if (eventQIdx === currentIdx + 1) {
             // Ref is one render behind — wait for React to flush the question
@@ -895,6 +897,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     // DB calls and minimum display time run in PARALLEL:
     // total wait = max(DB_time, 400ms) instead of DB_time + 400ms
     if (latestIsHost) {
+      // Snapshot scores BEFORE processAnswers so AnimatedLeaderboard can animate from old → new
+      setPlayersBeforeScoring([...latestPlayers])
+
       const withTimeout = (p: Promise<unknown>, ms: number) =>
         Promise.race([p, new Promise<void>(resolve => setTimeout(resolve, ms))])
 
@@ -1335,6 +1340,7 @@ const handleNextFromLeaderboard = async () => {
         <div className="w-full max-w-md flex flex-col gap-3">
           <AnimatedLeaderboard
             players={sortedPlayers}
+            initialPlayers={playersBeforeScoring.length > 0 ? playersBeforeScoring : undefined}
             currentPlayerId={currentPlayerId}
             questionNumber={currentQuestionIndex + 1}
             totalQuestions={questions.length}
