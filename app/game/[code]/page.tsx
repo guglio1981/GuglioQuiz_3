@@ -1315,8 +1315,8 @@ const handleNextFromLeaderboard = async () => {
       const results = await getArcadeResults(game!.id, arcadeRound)
       if (!isMounted) return
 
-      // Non aggiornare i risultati mentre il calcolo non è finalizzato
-      // (evita che i giocatori vedano i punteggi cambiare sotto gli occhi)
+      // Mostra subito i risultati parziali (raw score + chi ha completato)
+      if (!resultsFinalized) setArcadeResults(results)
 
       // Check if all players completed
       if (results.length === players.length && results.length > 0) {
@@ -1328,8 +1328,8 @@ const handleNextFromLeaderboard = async () => {
             const updatedPlayers = await getPlayers(game!.id)
             if (isMounted) setPlayers(updatedPlayers)
           } else {
-            // Clients wait for host to process
-            await new Promise(resolve => setTimeout(resolve, 3000))
+            // Clients: aspetta che l'host processi (max 2s invece di 3s)
+            await new Promise(resolve => setTimeout(resolve, 2000))
             const updatedPlayers = await getPlayers(game!.id)
             if (isMounted) setPlayers(updatedPlayers)
           }
@@ -1337,7 +1337,7 @@ const handleNextFromLeaderboard = async () => {
           console.error("Error processing arcade results:", error)
         }
 
-        // Final single fetch after processing — freeze display
+        // Fetch finale con points_earned calcolati — mostra risultati definitivi
         const finalResults = await getArcadeResults(game!.id, arcadeRound)
         if (isMounted) {
           resultsFinalized = true
@@ -1350,11 +1350,12 @@ const handleNextFromLeaderboard = async () => {
     // Initial fetch
     fetchAndCheckResults()
 
-    // Poll every 8 seconds as fallback (subscription handles real-time)
-    const pollInterval = setInterval(fetchAndCheckResults, 8000)
+    // Poll ogni 4s come fallback
+    const pollInterval = setInterval(fetchAndCheckResults, 4000)
 
-    // Subscribe to realtime — aggiorna solo dopo finalizzazione per evitare flicker sui punteggi
+    // Realtime: aggiorna subito quando arrivano nuovi risultati
     const channel = subscribeToArcadeResults(game!.id, arcadeRound, (freshResults) => {
+      if (isMounted && !resultsFinalized) setArcadeResults(freshResults)
       if (!allCompleted) fetchAndCheckResults()
     })
 
@@ -1532,6 +1533,7 @@ const handleNextFromLeaderboard = async () => {
         </div>
         <p className="text-muted-foreground text-lg">Rivincita in arrivo!</p>
         <p className="text-red-500 font-black uppercase tracking-widest text-base">Punteggi azzerati</p>
+        <p className="text-primary font-black uppercase tracking-widest text-base">Stesse impostazioni</p>
       </div>
     )
   }

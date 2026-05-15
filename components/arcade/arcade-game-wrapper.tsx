@@ -84,6 +84,7 @@ export const ArcadeGameWrapper = memo(function ArcadeGameWrapper({
   isHost = false,
   allResults = [],
   hasCompleted: externalHasCompleted = false,
+  resultsReady = false,
 }: ArcadeGameWrapperProps) {
   const [internalHasCompleted, setInternalHasCompleted] = useState(false)
   const [myRawScore, setMyRawScore] = useState<number | null>(null)
@@ -250,7 +251,10 @@ export const ArcadeGameWrapper = memo(function ArcadeGameWrapper({
                   <span>{result.playerName}</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-primary">+{result.points_earned}</span>
+                  {resultsReady
+                    ? <span className="font-bold text-primary">+{result.points_earned}</span>
+                    : <span className="font-bold text-muted-foreground">…</span>
+                  }
                   <span className="text-xs text-muted-foreground ml-2">
                     {isLowerBetter 
                       ? `${(result.raw_score / 1000).toFixed(1)}s`
