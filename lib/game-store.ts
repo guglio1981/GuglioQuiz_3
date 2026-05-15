@@ -594,7 +594,7 @@ export async function processAnswers(
   const normalizedCorrect = correctAnswer.trim().toLowerCase()
 
   // Build a list of all update operations to run in parallel
-  const ops: Promise<unknown>[] = []
+  const ops: { answer: Answer; player: Player; isCorrect: boolean; points: number; needsAbstentionIncrement: boolean }[] = []
 
   for (const answer of answers) {
     // Skip answers already processed

@@ -314,16 +314,17 @@ export function PodiumAnimation({ players, onDone }: PodiumAnimationProps) {
 
     // Confetti
     function startConfetti() {
-      if (!canvas) return
-      canvas.width  = stage.offsetWidth
-      canvas.height = stage.offsetHeight
-      const ctx = canvas.getContext('2d')!
+      if (!canvas || !stage) return
+      const c = canvas
+      c.width  = stage.offsetWidth
+      c.height = stage.offsetHeight
+      const ctx = c.getContext('2d')!
       const COLORS = [
         'oklch(0.75 0.18 85)', 'oklch(0.55 0.22 300)',
         'oklch(0.65 0.25 160)', 'oklch(0.60 0.22 25)', '#fff'
       ]
       const pieces = Array.from({ length: 90 }, () => ({
-        x: Math.random() * canvas.width,
+        x: Math.random() * c.width,
         y: -10 - Math.random() * 60,
         w: 5 + Math.random() * 6, h: 3 + Math.random() * 4,
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
@@ -331,11 +332,11 @@ export function PodiumAnimation({ players, onDone }: PodiumAnimationProps) {
         rot: Math.random() * 360, vrot: (Math.random() - .5) * 8, alpha: 1,
       }))
       function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.clearRect(0, 0, c.width, c.height)
         let alive = false
         pieces.forEach(p => {
           p.x += p.vx; p.y += p.vy; p.rot += p.vrot; p.vy += 0.06
-          if (p.y > canvas.height - 40) p.alpha -= 0.025
+          if (p.y > c.height - 40) p.alpha -= 0.025
           if (p.alpha > 0) {
             alive = true
             ctx.save()
@@ -348,7 +349,7 @@ export function PodiumAnimation({ players, onDone }: PodiumAnimationProps) {
           }
         })
         if (alive) confRef.current = requestAnimationFrame(draw)
-        else ctx.clearRect(0, 0, canvas.width, canvas.height)
+        else ctx.clearRect(0, 0, c.width, c.height)
       }
       confRef.current = requestAnimationFrame(draw)
     }

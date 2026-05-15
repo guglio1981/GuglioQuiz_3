@@ -71,6 +71,7 @@ interface ArcadeGameWrapperProps {
   isHost?: boolean
   allResults?: { player_id: string; raw_score: number; points_earned: number; position: number | null }[]
   hasCompleted?: boolean
+  resultsReady?: boolean
 }
 
 export const ArcadeGameWrapper = memo(function ArcadeGameWrapper({
