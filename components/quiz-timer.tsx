@@ -15,6 +15,7 @@ export function QuizTimer({ duration, onComplete, isActive, questionKey = 0 }: Q
   const [timeLeft, setTimeLeft] = useState(duration)
   const startTimeRef = useRef(Date.now())
   const hasCompletedRef = useRef(false)
+  const lastTickRef = useRef(-1) // ultimo secondo in cui abbiamo suonato il tick
   const onCompleteRef = useRef(onComplete)
   onCompleteRef.current = onComplete
 
@@ -23,6 +24,7 @@ export function QuizTimer({ duration, onComplete, isActive, questionKey = 0 }: Q
     setTimeLeft(duration)
     startTimeRef.current = Date.now()
     hasCompletedRef.current = false
+    lastTickRef.current = -1
   }, [questionKey, duration])
 
   useEffect(() => {
@@ -35,7 +37,11 @@ export function QuizTimer({ duration, onComplete, isActive, questionKey = 0 }: Q
       const remaining = Math.max(0, duration - elapsed)
       setTimeLeft(remaining)
 
-      if (remaining <= 5 && remaining > 0) playTick()
+      // Tick una sola volta per secondo (non ogni 100ms)
+      if (remaining <= 5 && remaining > 0 && remaining !== lastTickRef.current) {
+        lastTickRef.current = remaining
+        playTick()
+      }
 
       if (remaining <= 0 && !hasCompletedRef.current) {
         hasCompletedRef.current = true

@@ -26,26 +26,40 @@ function playNote(freq: number, startTime: number, duration: number, type: Oscil
   osc.stop(startTime + duration)
 }
 
+// Tic secco una volta al secondo (chiamato dall'esterno solo quando il secondo cambia)
 export function playTick() {
   const c = getCtx()
   if (!c) return
-  playNote(900, c.currentTime, 0.05, 'square', 0.15)
+  // Click secco: breve impulso a 1200Hz, decay rapidissimo
+  playNote(1200, c.currentTime, 0.04, 'square', 0.12)
 }
 
+// Risposta corretta: ding brillante ascendente (Do5 → Mi5 → Sol5)
 export function playCorrect() {
   const c = getCtx()
   if (!c) return
   const t = c.currentTime
-  playNote(523, t,        0.18, 'sine', 0.35) // Do
-  playNote(659, t + 0.15, 0.25, 'sine', 0.35) // Mi
+  playNote(1047, t,        0.15, 'sine', 0.4)  // Do5
+  playNote(1319, t + 0.12, 0.15, 'sine', 0.4)  // Mi5
+  playNote(1568, t + 0.24, 0.30, 'sine', 0.45) // Sol5
 }
 
+// Risposta sbagliata: buzzer basso dissonante (Fa#2 → Re2)
 export function playWrong() {
   const c = getCtx()
   if (!c) return
   const t = c.currentTime
-  playNote(440, t,        0.20, 'triangle', 0.35) // La
-  playNote(349, t + 0.18, 0.28, 'triangle', 0.30) // Fa
+  // Nota bassa + distorsione sawtooth = suono "errore" inconfondibile
+  playNote(185, t,        0.25, 'sawtooth', 0.5) // Fa#3
+  playNote(155, t + 0.22, 0.35, 'sawtooth', 0.4) // Re#3 (dissonanza)
+}
+
+// Astensione: singolo "clunk" piatto neutro (nota media smorzata)
+export function playAbstain() {
+  const c = getCtx()
+  if (!c) return
+  const t = c.currentTime
+  playNote(370, t, 0.18, 'triangle', 0.25) // Fa#4 smorzato
 }
 
 export function playFanfare() {

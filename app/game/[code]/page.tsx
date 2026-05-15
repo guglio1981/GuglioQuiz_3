@@ -67,7 +67,7 @@ import { AnimatedLeaderboard } from '@/components/animated-leaderboard'
 import { CountdownOverlay } from '@/components/countdown-overlay'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { initAudioContext, playCorrect, playWrong, playFanfare } from '@/lib/sounds'
+import { initAudioContext, playCorrect, playWrong, playAbstain, playFanfare } from '@/lib/sounds'
 import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
 import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound } from 'lucide-react'
 
@@ -148,7 +148,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     if (phase === 'reveal') {
       const correct = questions[currentQuestionIndex]?.correct_answer
-      if (selectedAnswer && selectedAnswer === correct) playCorrect()
+      if (!selectedAnswer) playAbstain()
+      else if (selectedAnswer === correct) playCorrect()
       else playWrong()
     } else if (phase === 'finished') {
       setPodiumDone(false)
