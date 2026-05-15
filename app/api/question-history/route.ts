@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       filter: `user = "${userId}"`,
       fields: 'hashes',
     })
-    const hashes = records.flatMap((r: { hashes: string[] }) => r.hashes ?? [])
+    const hashes = records.flatMap((r) => ((r as unknown as { hashes: string[] }).hashes ?? []))
     return NextResponse.json({ hashes })
   } catch {
     return NextResponse.json({ hashes: [] })
