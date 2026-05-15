@@ -27,6 +27,9 @@ import {
   updateGamePhaseAndSync,
   resetGameForNewManche,
   resetPlayersForNewManche,
+  rematchGame,
+  saveSoloResult,
+  getSoloResults,
   syncLeaderboardPhase,
   clearGameSettingsForNewManche,
   clearAnswersForGame,
@@ -53,6 +56,7 @@ import {
   type Answer,
   type AvatarId,
   type ArcadeGame,
+  type SoloResult,
 } from '@/lib/types'
 import { ArcadeGameWrapper } from '@/components/arcade/arcade-game-wrapper'
 import { PodiumAnimation } from '@/components/podium-animation'
@@ -62,7 +66,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { initAudioContext, playCorrect, playWrong, playFanfare } from '@/lib/sounds'
 import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
-import { RotateCcw, Home, Loader2, HandHelping, FileDown } from 'lucide-react'
+import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound } from 'lucide-react'
 
 
 type GamePhase = 'loading' | 'question' | 'reveal' | 'leaderboard' | 'arcade' | 'arcade_results' | 'finished'
@@ -98,6 +102,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isClickable, setIsClickable] = useState(false) // Previene click accidentali su iOS
   const [isKeepingScores, setIsKeepingScores] = useState(false)
   const [isResettingScores, setIsResettingScores] = useState(false)
+  const [isStartingRematch, setIsStartingRematch] = useState(false)
+  const [showRematchPopup, setShowRematchPopup] = useState(false)
+  const [soloHistory, setSoloHistory] = useState<SoloResult[]>([])
+  const [soloResultSaved, setSoloResultSaved] = useState(false)
+  const soloStatsRef = useRef({ correctCount: 0, totalTimeMs: 0, answeredCount: 0 })
   const [podiumDone, setPodiumDone] = useState(false)
   const [showCountdown, setShowCountdown] = useState(false)
   const [isRedirectingToLobby, setIsRedirectingToLobby] = useState(false)
@@ -567,6 +576,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         else if (tsm === 'keeping') setIsKeepingScores(true)
       }
 
+      // Host ha avviato rivincita: mostra popup ai client
+      if (!latestIsHost && updatedGame.phase === 'rematch_pending') {
+        setShowRematchPopup(true)
+      }
+
       // If game status changed to lobby, show GQ screen immediately then redirect
       if (updatedGame.status === 'lobby' && !latestIsHost) {
         sessionStorage.setItem('guglioquiz_redirecting', 'true')
@@ -876,6 +890,13 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     const isCorrect = actualSelectedAnswer === latestQuestion.correct_answer
     const didNotAnswer = !actualSelectedAnswer
     const canStillAbstain = latestPlayer.abstentions_used < latestGame.max_abstentions
+
+    // Track solo stats
+    if (latestGame.solo_mode && !didNotAnswer) {
+      soloStatsRef.current.answeredCount++
+      soloStatsRef.current.totalTimeMs += actualResponseTime
+      if (isCorrect) soloStatsRef.current.correctCount++
+    }
     const isUntimed = latestGame.game_profile === 'untimed'
 
     let score = 0
@@ -1195,6 +1216,46 @@ const handleNextFromLeaderboard = async () => {
     }
   }
 
+  // Save solo result and load history when solo game finishes
+  useEffect(() => {
+    if (phase !== 'finished' || !game?.solo_mode || !currentPlayerId || soloResultSaved) return
+    const me = players.find(p => p.id === currentPlayerId)
+    if (!me) return
+    setSoloResultSaved(true)
+
+    const userId = sessionStorage.getItem('guglioquiz_userId') || ''
+    const { correctCount, totalTimeMs, answeredCount } = soloStatsRef.current
+    const avgTime = answeredCount > 0 ? Math.round(totalTimeMs / answeredCount) : 0
+
+    if (userId) {
+      saveSoloResult({
+        user_id: userId,
+        score: me.score,
+        correct_answers: correctCount,
+        total_questions: questions.length,
+        topics: game.topics as any,
+        difficulty: game.difficulty,
+        game_profile: (game.game_profile || 'timed') as any,
+        avg_response_time_ms: avgTime,
+      })
+      getSoloResults(userId, 10).then(setSoloHistory).catch(console.error)
+    }
+  }, [phase, game?.solo_mode, currentPlayerId, soloResultSaved, players, questions.length, game])
+
+  const handleQuickRematch = async () => {
+    if (!game || isStartingRematch) return
+    setIsStartingRematch(true)
+    await updateGamePhase(game.id, 'rematch_pending')
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    await Promise.all([
+      rematchGame(game.id),
+      resetPlayersForNewManche(game.id, true),
+    ])
+    clearAnswersForGame(game.id).catch(console.error)
+    sessionStorage.setItem('guglioquiz_redirecting', 'true')
+    window.location.href = `/lobby/${game.code}`
+  }
+
   const handleGoHome = () => {
     sessionStorage.clear()
     router.push('/')
@@ -1427,6 +1488,31 @@ const handleNextFromLeaderboard = async () => {
   }
 
   // Full-screen loading while preparing new manche
+  if (isStartingRematch) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
+        </div>
+        <p className="text-primary font-black uppercase tracking-widest text-base">Rivincita in corso...</p>
+      </div>
+    )
+  }
+
+  if (showRematchPopup) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="relative w-48 h-48 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
+        </div>
+        <p className="text-muted-foreground text-lg">Rivincita in arrivo!</p>
+        <p className="text-red-500 font-black uppercase tracking-widest text-base">Punteggi azzerati</p>
+      </div>
+    )
+  }
+
   if (isKeepingScores || isResettingScores || isRedirectingToLobby) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
@@ -1444,7 +1530,103 @@ const handleNextFromLeaderboard = async () => {
     )
   }
 
-  // Finished phase
+  // Finished phase — solo mode end screen
+  if (phase === 'finished' && currentPlayerId && game?.solo_mode) {
+    const me = players.find(p => p.id === currentPlayerId)
+    const { correctCount, totalTimeMs, answeredCount } = soloStatsRef.current
+    const avgTimeSec = answeredCount > 0 ? (totalTimeMs / answeredCount / 1000).toFixed(1) : '—'
+    const pct = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0
+
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
+        <div className="w-full max-w-sm space-y-4">
+          <div className="text-center space-y-1">
+            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Modalità solitaria</p>
+            <h1 className="text-3xl font-black text-foreground">Partita completata!</h1>
+          </div>
+
+          {/* Stats */}
+          <Card className="bg-card border-border">
+            <CardContent className="pt-4 space-y-2">
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <Trophy className="h-7 w-7 text-primary shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1.5">Punteggio</p>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-primary/45 text-white">{me?.score ?? 0} pt</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <Target className="h-7 w-7 text-green-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-green-400 mb-1.5">Corrette</p>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-green-500/45 text-white">{correctCount} / {questions.length} — {pct}%</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                <Timer className="h-7 w-7 text-blue-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-1.5">Tempo medio</p>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-500/45 text-white">{avgTimeSec}s per risposta</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* History */}
+          {soloHistory.length > 1 && (
+            <Card className="bg-card border-border">
+              <CardContent className="pt-4 pb-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Le tue ultime partite</p>
+                <div className="space-y-2">
+                  {soloHistory.map((r, i) => {
+                    const rPct = r.total_questions > 0 ? Math.round((r.correct_answers / r.total_questions) * 100) : 0
+                    const isToday = new Date(r.created).toDateString() === new Date().toDateString()
+                    const dateLabel = isToday ? 'oggi' : new Date(r.created).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })
+                    return (
+                      <div key={r.id} className={`flex items-center justify-between text-sm px-3 py-2 rounded-lg ${i === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/40'}`}>
+                        <span className="font-bold text-foreground">{r.score} pt</span>
+                        <span className="text-muted-foreground">{rPct}%</span>
+                        <span className="text-muted-foreground">{r.total_questions} dom</span>
+                        <span className="text-muted-foreground text-xs">{dateLabel}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Actions */}
+          <div className="space-y-3">
+            <Button
+              onClick={handleQuickRematch}
+              disabled={isStartingRematch}
+              size="lg"
+              className="w-full h-14 text-lg font-bold bg-green-600 hover:bg-green-700 text-white"
+            >
+              <RefreshCw className="mr-2 h-5 w-5" />
+              Gioca ancora
+            </Button>
+            <Button
+              onClick={() => { sessionStorage.setItem('guglioquiz_redirecting', 'true'); window.location.href = `/settings?code=${game.code}&manche=true` }}
+              size="lg"
+              variant="secondary"
+              className="w-full h-14 text-lg font-bold"
+            >
+              <RotateCcw className="mr-2 h-5 w-5" />
+              Cambia impostazioni
+            </Button>
+            <Button onClick={handleGoHome} size="lg" variant="outline" className="w-full h-14 text-lg font-bold">
+              <Home className="mr-2 h-5 w-5" />
+              Torna alla Home
+            </Button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // Finished phase — multiplayer
   if (phase === 'finished' && currentPlayerId) {
     const winner = sortedPlayers[0]
     const isWinner = winner?.id === currentPlayerId
@@ -1495,6 +1677,15 @@ const handleNextFromLeaderboard = async () => {
         >
           {isHost ? (
             <>
+              <Button
+                onClick={handleQuickRematch}
+                disabled={isStartingRematch}
+                size="lg"
+                className="w-full h-14 text-sm md:text-lg font-bold bg-green-600 hover:bg-green-700 text-white whitespace-normal"
+              >
+                <RefreshCw className="mr-2 h-5 w-5 flex-shrink-0" />
+                <span>Rivincita (stesse impostazioni)</span>
+              </Button>
               <Button
                 onClick={() => handleNewManche(false)}
                 size="lg"
@@ -1551,6 +1742,7 @@ const handleNextFromLeaderboard = async () => {
             Scarica PDF domande
           </Button>
         </Leaderboard>
+
       </main>
     )
   }

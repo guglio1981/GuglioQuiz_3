@@ -125,8 +125,22 @@ export interface Game {
   questions_ready?: boolean
   questions_json?: Question[] | null
   phase?: string | null
+  solo_mode?: boolean
   created: string
   updated: string
+}
+
+export interface SoloResult {
+  id: string
+  user_id: string
+  score: number
+  correct_answers: number
+  total_questions: number
+  topics: Topic[]
+  difficulty: Difficulty
+  game_profile: GameProfile
+  avg_response_time_ms: number
+  created: string
 }
 
 export interface Player {
@@ -176,8 +190,8 @@ export interface GameSettings {
   maxAbstentions: number
   gameProfile?: GameProfile
   arcadeGames?: ArcadeGame[]
-
   arcadeFrequency?: number
+  soloMode?: boolean
 }
 
 export interface PlayerProfile {

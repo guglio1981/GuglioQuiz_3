@@ -13,7 +13,7 @@ import { createGame, addPlayer, getGameByCode, updateGameSettings, updateGameSta
 import { TOPICS, TOPIC_LABELS, ARCADE_GAMES, ARCADE_GAME_LABELS, ARCADE_GAME_DESCRIPTIONS, parseAvatar, type Topic, type Difficulty, type GameProfile, type GameSettings, type PlayerProfile, type ArcadeGame, type Game, type Player } from '@/lib/types'
 import { toast } from 'sonner'
 import { 
-  ArrowLeft, Shuffle, Settings2, Loader2, Hash, Gauge, HandHelping, Gamepad2, Users, X, Check,
+  ArrowLeft, Shuffle, Settings2, Loader2, Hash, Gauge, HandHelping, Gamepad2, Users, X, Check, UserRound,
   History, Globe, Cpu, Laptop, Zap, Languages, Scale, Tv, Church, Flag, Calculator,
   FileText, BookOpen, Clapperboard, Library, Music, MonitorPlay, Dices, Smile,
   FlaskConical, Trophy, Landmark, Palette, Star, Cat, Car, Image as ImageIcon,
@@ -73,6 +73,7 @@ function SettingsPageContent() {
   const [selectedArcadeGames, setSelectedArcadeGames] = useState<ArcadeGame[]>([])
   const [arcadeFrequency, setArcadeFrequency] = useState<number>(5)
   const [gameProfile, setGameProfile] = useState<GameProfile>('timed')
+  const [soloMode, setSoloMode] = useState(false)
 
   
   // Collaborative topic selection
@@ -306,8 +307,8 @@ function SettingsPageContent() {
       maxAbstentions,
       gameProfile,
       arcadeGames: arcadeEnabled && selectedArcadeGames.length > 0 ? selectedArcadeGames : undefined,
-
       arcadeFrequency: arcadeEnabled && selectedArcadeGames.length > 0 ? arcadeFrequency : undefined,
+      soloMode: !isMancheMode && soloMode,
     }
 
     const generateUUID = () => {
@@ -361,7 +362,11 @@ function SettingsPageContent() {
         if (player) {
           sessionStorage.setItem('guglioquiz_playerId', player.id)
           sessionStorage.setItem('guglioquiz_gameCode', newGame.code)
-          router.push(`/lobby/${newGame.code}`)
+          if (soloMode) {
+            router.push(`/game/${newGame.code}`)
+          } else {
+            router.push(`/lobby/${newGame.code}`)
+          }
         } else {
           toast.error('Errore durante la creazione del giocatore host (nessun giocatore restituito)')
           setIsLoading(false)
@@ -422,6 +427,30 @@ function SettingsPageContent() {
             </p>
           </div>
         </div>
+
+        {/* Solo mode toggle — hidden in manche mode */}
+        {!isMancheMode && (
+          <Card className="bg-card border-border">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <UserRound className={`h-5 w-5 ${soloMode ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div>
+                    <p className="font-semibold text-foreground">Modalità solitaria</p>
+                    <p className="text-xs text-muted-foreground">Gioca da solo, nessuna lobby</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSoloMode(v => !v)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${soloMode ? 'bg-primary' : 'bg-muted'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${soloMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Game Profile */}
         <Card className="bg-card border-border">

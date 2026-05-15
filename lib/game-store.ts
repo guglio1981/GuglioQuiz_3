@@ -1,7 +1,7 @@
 'use client'
 
 import { getPocketBase } from '@/lib/pocketbase'
-import type { Game, Player, Question, Answer, GameSettings, GameProfile } from '@/lib/types'
+import type { Game, Player, Question, Answer, GameSettings, GameProfile, SoloResult } from '@/lib/types'
 import { generateGameCode, calculateCorrectPoints, calculateWrongPoints, SCORING } from '@/lib/types'
 
 // Retry a single PocketBase call with exponential backoff on 429 errors
@@ -48,11 +48,12 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       game_profile: settings.gameProfile || 'timed',
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
-      status: 'lobby',
-      manche_ready: true,  // First manche is ready by default
+      status: settings.soloMode ? 'playing' : 'lobby',
+      manche_ready: true,
       manche: 1,
       current_question: 0,
-      questions_ready: false
+      questions_ready: false,
+      solo_mode: settings.soloMode || false,
     }))
     return record as unknown as Game
 }
@@ -265,6 +266,31 @@ export async function updateGamePhase(gameId: string, phase: string): Promise<bo
 // to avoid the race condition where two parallel writes to the same record
 // could overwrite each other.
 // Arcade results deletion runs fire-and-forget (non-blocking).
+export async function rematchGame(gameId: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await withRetry(() => pb.collection('games').update(gameId, {
+      phase: 'lobby',
+      status: 'lobby',
+      topic_selection_mode: '',
+      questions_json: [],
+      questions_ready: false,
+      manche_ready: true,
+      current_question: 0,
+      current_arcade_game: '',
+      current_arcade_round: 0,
+      'manche+': 1,
+    }))
+    pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
+      .then(results => runInBatches(results, 5, r => pb.collection('arcade_results').delete(r.id)))
+      .catch(console.error)
+    return true
+  } catch (error) {
+    console.error('Error starting rematch:', error)
+    return false
+  }
+}
+
 export async function resetGameForNewManche(gameId: string): Promise<boolean> {
   const pb = getPocketBase()
   try {
@@ -885,6 +911,29 @@ export function subscribeToArcadeResults(gameId: string, arcadeRound: number, ca
   return () => {
     if (unsubFn) unsubFn()
     else pb.collection('arcade_results').unsubscribe('*')
+  }
+}
+
+export async function saveSoloResult(result: Omit<SoloResult, 'id' | 'created'>): Promise<void> {
+  const pb = getPocketBase()
+  try {
+    await withRetry(() => pb.collection('solo_results').create(result))
+  } catch (error) {
+    console.error('Error saving solo result:', error)
+  }
+}
+
+export async function getSoloResults(userId: string, limit = 10): Promise<SoloResult[]> {
+  const pb = getPocketBase()
+  try {
+    const records = await withRetry(() => pb.collection('solo_results').getList(1, limit, {
+      filter: `user_id = "${userId}"`,
+      sort: '-created',
+    }))
+    return records.items as unknown as SoloResult[]
+  } catch (error) {
+    console.error('Error fetching solo results:', error)
+    return []
   }
 }
 
