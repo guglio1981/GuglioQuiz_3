@@ -434,7 +434,7 @@ function SettingsPageContent() {
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <UserRound className={`h-5 w-5 ${soloMode ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <UserRound className="h-5 w-5 text-primary" />
                   <div>
                     <p className="font-semibold text-foreground">Modalità solitaria</p>
                     <p className="text-xs text-muted-foreground">Gioca da solo, nessuna lobby</p>

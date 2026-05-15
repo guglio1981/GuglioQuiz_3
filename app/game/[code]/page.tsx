@@ -1315,8 +1315,8 @@ const handleNextFromLeaderboard = async () => {
       const results = await getArcadeResults(game!.id, arcadeRound)
       if (!isMounted) return
 
-      // Only update live results if not yet finalized
-      if (!resultsFinalized) setArcadeResults(results)
+      // Non aggiornare i risultati mentre il calcolo non è finalizzato
+      // (evita che i giocatori vedano i punteggi cambiare sotto gli occhi)
 
       // Check if all players completed
       if (results.length === players.length && results.length > 0) {
@@ -1353,9 +1353,8 @@ const handleNextFromLeaderboard = async () => {
     // Poll every 8 seconds as fallback (subscription handles real-time)
     const pollInterval = setInterval(fetchAndCheckResults, 8000)
 
-    // Subscribe to realtime — only update results before finalization to prevent flicker
+    // Subscribe to realtime — aggiorna solo dopo finalizzazione per evitare flicker sui punteggi
     const channel = subscribeToArcadeResults(game!.id, arcadeRound, (freshResults) => {
-      if (isMounted && !resultsFinalized) setArcadeResults(freshResults)
       if (!allCompleted) fetchAndCheckResults()
     })
 
@@ -1777,10 +1776,10 @@ const handleNextFromLeaderboard = async () => {
   // on re-render; we skip the full-screen flash and handle its absence inline.
   if (!currentQuestion || !game) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4 animate-[fadeIn_0.25s_ease_0.08s_both]">
         <div className="relative w-48 h-48 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
-          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
+          <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" fetchPriority="high" />
         </div>
         <p className="text-muted-foreground">Caricamento...</p>
       </main>

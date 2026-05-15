@@ -556,6 +556,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const isHost = currentPlayer?.is_host || false
   isHostRef.current = isHost
   const allPlayersReady = players.every(p => p.is_host || p.ready)
+  // Per il banner del client: verde solo se tutti gli altri (non solo io) hanno accettato sul DB
+  // Non usiamo l'update ottimistico locale per evitare falsi positivi
+  const allOthersReady = players.filter(p => !p.is_host && p.id !== currentPlayerId).every(p => p.ready)
   const allTopicsConfirmed = !game?.topic_selection_mode || players.filter(p => !p.is_host).every(p => p.topics_confirmed)
   const canStart = allPlayersReady && allTopicsConfirmed
 
@@ -815,9 +818,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
         {/* Ready message for non-host players */}
         {!isHost && hasAcceptedRules && game.manche_ready && (
-          <div className={`text-center py-4 px-6 rounded-xl ${allPlayersReady ? 'bg-green-500' : 'bg-destructive'}`}>
+          <div className={`text-center py-4 px-6 rounded-xl ${allOthersReady ? 'bg-green-500' : 'bg-destructive'}`}>
             <p className="text-white font-semibold text-lg">
-              {allPlayersReady
+              {allOthersReady
                 ? 'In attesa che l\'host avvii la manche...'
                 : 'In attesa che tutti i giocatori accettino le regole...'}
             </p>

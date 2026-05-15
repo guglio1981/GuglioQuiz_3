@@ -59,6 +59,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="GuglioQuiz" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="preload" as="image" href="/logo-gq.png" />
       </head>
       <body className="font-sans antialiased min-h-screen">
         {children}
