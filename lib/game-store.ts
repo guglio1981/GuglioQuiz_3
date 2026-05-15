@@ -218,6 +218,37 @@ export async function updateCurrentQuestion(gameId: string, questionNumber: numb
   }
 }
 
+// Advances to next question in a single DB write → single SSE event on clients
+export async function advanceToNextQuestion(gameId: string, questionNumber: number): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await withRetry(() => pb.collection('games').update(gameId, {
+      current_question: questionNumber,
+      phase: 'question',
+      topic_selection_mode: '',
+    }))
+    return true
+  } catch (error) {
+    console.error('Error advancing to next question:', error)
+    return false
+  }
+}
+
+// Sets phase + topic_selection_mode in one DB write → single SSE event on clients
+export async function updateGamePhaseAndSync(gameId: string, phase: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await withRetry(() => pb.collection('games').update(gameId, {
+      phase,
+      topic_selection_mode: phase,
+    }))
+    return true
+  } catch (error) {
+    console.error('Error updating game phase:', error)
+    return false
+  }
+}
+
 export async function updateGamePhase(gameId: string, phase: string): Promise<boolean> {
   const pb = getPocketBase()
   try {

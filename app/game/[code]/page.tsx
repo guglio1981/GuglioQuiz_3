@@ -21,9 +21,10 @@ import {
   subscribeToPlayers,
   subscribeToAnswers,
   unsubscribe,
-  updateCurrentQuestion,
   updateGameStatus,
   updateGamePhase,
+  advanceToNextQuestion,
+  updateGamePhaseAndSync,
   resetGameForNewManche,
   resetPlayersForNewManche,
   syncLeaderboardPhase,
@@ -589,6 +590,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
         // Handle specific logic when entering a phase
         if (newPhase === 'question' && latestQuestions.length > 0) {
+          isRevealingRef.current = false
           setIsTimerActive(true)
           setQuestionStartTime(Date.now())
           setHasAnswered(false)
@@ -609,7 +611,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
             setTimeout(() => {
               setIsTimerActive(false)
               handleReveal()
-            }, 50)
+            }, 150)
           }
           // eventQIdx < currentIdx: stale event, discard
         }
@@ -802,11 +804,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     setMyResponseTime(null)
     
     if (isHost && game) {
-      await Promise.all([
-        updateCurrentQuestion(game.id, nextIndex + 1, true),
-        updateGamePhase(game.id, 'question'),
-        syncLeaderboardPhase(game.id, ''),
-      ])
+      // Single DB write → single SSE event on clients (avoids double timer-start race)
+      await advanceToNextQuestion(game.id, nextIndex + 1)
     }
   }, [game, currentQuestionIndex, isHost])
 
@@ -877,15 +876,14 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
       if (isLastQuestion) {
         if (nowIsHost && nowGame) {
-          syncLeaderboardPhase(nowGame.id, 'finished').catch(console.error)
-          updateGamePhase(nowGame.id, 'finished').catch(console.error)
+          // Single DB write (phase + topic_selection_mode) → single SSE event on clients
+          updateGamePhaseAndSync(nowGame.id, 'finished').catch(console.error)
         }
         setPhase('finished')
         setPodiumDone(false)
       } else if (showLeaderboard) {
         if (nowIsHost && nowGame) {
-          syncLeaderboardPhase(nowGame.id, 'leaderboard').catch(console.error)
-          updateGamePhase(nowGame.id, 'leaderboard').catch(console.error)
+          updateGamePhaseAndSync(nowGame.id, 'leaderboard').catch(console.error)
         }
         setPhase('leaderboard')
       } else {
@@ -1041,6 +1039,45 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
     return () => clearTimeout(fallbackTimer)
   }, [phase, isHost, game?.code, currentQuestionIndex])
+
+  // Client fast-path: if player already answered but SSE reveal is dropped,
+  // poll DB after 5s instead of waiting for the 25s question-phase fallback.
+  useEffect(() => {
+    if (isHost || !game || !hasAnswered || phase !== 'question') return
+
+    const timer = setTimeout(async () => {
+      const updatedGame = await getGameByCode(game.code)
+      if (!updatedGame || updatedGame.phase === 'question') return
+      setGame(updatedGame)
+      const serverPhase = updatedGame.phase as GamePhase
+      if (serverPhase === 'reveal') {
+        setIsTimerActive(false)
+        // Let handleReveal fire via setGame → SSE-like path is not available here,
+        // so manually trigger reveal state
+        if (!isRevealingRef.current) {
+          setPhase('reveal')
+          handleReveal()
+        }
+      } else if (serverPhase === 'leaderboard' || serverPhase === 'finished') {
+        setPhase(serverPhase)
+        isRevealingRef.current = false
+      } else if (serverPhase === 'question' && updatedGame.current_question > currentQuestionIndex + 1) {
+        const newQIdx = updatedGame.current_question - 1
+        setCurrentQuestionIndex(newQIdx)
+        setSelectedAnswer(null)
+        setHasAnswered(false)
+        setAnswers([])
+        setPhase('question')
+        setIsTimerActive(true)
+        setQuestionStartTime(Date.now())
+        setQuestionScore(null)
+        setMyResponseTime(null)
+        isRevealingRef.current = false
+      }
+    }, 5000)
+
+    return () => clearTimeout(timer)
+  }, [isHost, hasAnswered, phase, game?.code, currentQuestionIndex, handleReveal])
 
 const handleNextFromLeaderboard = async () => {
     if (!game) return
@@ -1611,7 +1648,7 @@ const handleNextFromLeaderboard = async () => {
             <Button
               variant="outline"
               onClick={handleManualAbstain}
-              disabled={currentPlayer?.abstentions_used >= game.max_abstentions}
+              disabled={(currentPlayer?.abstentions_used ?? 0) >= game.max_abstentions}
               className="w-full p-4 md:p-5 rounded-xl font-medium border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 gap-2"
             >
               <HandHelping className="h-5 w-5" />
