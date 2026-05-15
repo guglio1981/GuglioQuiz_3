@@ -96,7 +96,7 @@ export const ARCADE_GAME_DESCRIPTIONS: Record<ArcadeGame, string> = {
 
 export type Difficulty = 'intermedia' | 'difficile'
 
-export type QuestionType = 'multiple' | 'true_false'
+export type QuestionType = 'multiple' | 'true_false' | 'audio' | 'image_options' | 'order'
 
 export type GameStatus = 'lobby' | 'playing' | 'finished'
 
@@ -168,6 +168,9 @@ export interface Question {
   options: string[]
   correct_answer: string
   image_url?: string | null
+  audio_url?: string | null
+  option_images?: (string | null)[]
+  correct_order?: string[]
   created: string
 }
 

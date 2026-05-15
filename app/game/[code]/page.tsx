@@ -59,6 +59,9 @@ import {
   type SoloResult,
 } from '@/lib/types'
 import { ArcadeGameWrapper } from '@/components/arcade/arcade-game-wrapper'
+import { AudioQuestion } from '@/components/audio-question'
+import { ImageOptionsQuestion } from '@/components/image-options-question'
+import { OrderQuestion } from '@/components/order-question'
 import { PodiumAnimation } from '@/components/podium-animation'
 import { AnimatedLeaderboard } from '@/components/animated-leaderboard'
 import { CountdownOverlay } from '@/components/countdown-overlay'
@@ -112,7 +115,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isRedirectingToLobby, setIsRedirectingToLobby] = useState(false)
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
   const [hostDisconnected, setHostDisconnected] = useState(false)
-  
+  const [audioDisabled, setAudioDisabled] = useState(false)
+
   // Memoize player calculations to avoid expensive filter/find on every render
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
@@ -230,6 +234,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       return
     }
     setCurrentPlayerId(playerId)
+    setAudioDisabled(localStorage.getItem('guglioquiz_audio_disabled') === 'true')
 
     const loadGame = async () => {
       // Add retry logic for page navigation/reload scenarios
@@ -1828,8 +1833,51 @@ const handleNextFromLeaderboard = async () => {
           )}
         </div>
 
-        {/* Question + Answers — key forces remount on question change, restarting the animation */}
+        {/* Question + Answers — type dispatch */}
         <div key={currentQuestionIndex} className="animate-fade-in-up space-y-3">
+        {currentQuestion.question_type === 'audio' ? (
+          <AudioQuestion
+            key={currentQuestionIndex}
+            questionText={currentQuestion.question_text}
+            audioUrl={(currentQuestion as any).audio_url}
+            options={currentQuestion.options}
+            correctAnswer={correctAnswer}
+            questionIndex={currentQuestionIndex}
+            audioDisabled={audioDisabled}
+            phase={phase}
+            selectedAnswer={selectedAnswer}
+            hasAnswered={hasAnswered}
+            isClickable={isClickable}
+            onSelect={handleAnswerSelect}
+          />
+        ) : currentQuestion.question_type === 'image_options' ? (
+          <ImageOptionsQuestion
+            key={currentQuestionIndex}
+            questionText={currentQuestion.question_text}
+            options={currentQuestion.options}
+            optionImages={(currentQuestion as any).option_images ?? []}
+            correctAnswer={correctAnswer}
+            questionIndex={currentQuestionIndex}
+            phase={phase}
+            selectedAnswer={selectedAnswer}
+            hasAnswered={hasAnswered}
+            isClickable={isClickable}
+            onSelect={handleAnswerSelect}
+          />
+        ) : currentQuestion.question_type === 'order' ? (
+          <OrderQuestion
+            key={currentQuestionIndex}
+            questionText={currentQuestion.question_text}
+            options={currentQuestion.options}
+            correctOrder={(currentQuestion as any).correct_order ?? currentQuestion.options}
+            questionIndex={currentQuestionIndex}
+            phase={phase}
+            hasAnswered={hasAnswered}
+            isClickable={isClickable}
+            onSubmit={handleAnswerSelect}
+          />
+        ) : (
+          <>
         <Card className="bg-card border-border">
           <CardContent className="p-6">
             {currentQuestion.image_url && (
@@ -1900,6 +1948,8 @@ const handleNextFromLeaderboard = async () => {
             )
           })}
         </div>
+          </>
+        )}
 
         {/* Answer status indicator - no card wrapper */}
         {phase === 'reveal' && (
