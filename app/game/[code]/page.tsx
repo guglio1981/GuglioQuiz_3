@@ -302,8 +302,18 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const usedTextsKey = 'guglioquiz_used_question_texts'
           const storedHashes = localStorage.getItem(usedHashesKey)
           const storedTexts = localStorage.getItem(usedTextsKey)
-          const usedQuestionHashes = storedHashes ? JSON.parse(storedHashes) : []
+          let usedQuestionHashes: string[] = storedHashes ? JSON.parse(storedHashes) : []
           const usedQuestionTexts: string[] = storedTexts ? JSON.parse(storedTexts) : []
+
+          // Se l'utente è loggato, arricchisci con gli hash dal DB (deduplicazione tra sessioni)
+          const _sessionUserId = sessionStorage.getItem('guglioquiz_userId')
+          if (_sessionUserId) {
+            try {
+              const _histRes = await fetch(`/api/question-history?userId=${_sessionUserId}`)
+              const _histData = await _histRes.json()
+              usedQuestionHashes = [...new Set([...usedQuestionHashes, ...(_histData.hashes || [])])]
+            } catch { /* usa solo localStorage se il DB non risponde */ }
+          }
 
           const totalRequested = gameData.question_count || 10
           // Generate extra buffer to cover broken images.
@@ -437,6 +447,15 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           const trimmedTexts = [...usedQuestionTexts, ...allTexts].slice(-200)
           localStorage.setItem(usedTextsKey, JSON.stringify(trimmedTexts))
+
+          // Se loggato, salva anche su DB per deduplicazione tra sessioni
+          if (_sessionUserId && allHashes.length > 0) {
+            fetch('/api/question-history', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: _sessionUserId, hashes: allHashes }),
+            }).catch(() => {}) // fire-and-forget
+          }
 
           questionsData = await saveQuestions(gameData.id, validatedQuestions, gameData.manche || 1)
 

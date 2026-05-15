@@ -47,6 +47,14 @@ const AI_ONLY_TOPICS: Topic[] = ['ragionamento_rapido', 'economia_diritto', 'lin
 // Topics with images
 const IMAGE_TOPICS: Topic[] = ['indovina_logo', 'indovina_bandiera', 'indovina_anno']
 
+// Loghi esclusi perché il simbolo Simple Icons è una lettera/testo leggibile del brand
+const LOGO_TEXT_BLACKLIST = new Set([
+  'LinkedIn',     // mostra "in"
+  'Zoom',         // mostra "Z"
+  'Notion',       // mostra "N"
+  'Twitter / X',  // mostra "X"
+])
+
 // Logo data — uses Simple Icons CDN (symbol/icon only, no wordmark text, very reliable)
 // URL format: https://cdn.simpleicons.org/{slug}/ffffff (white icon for dark backgrounds)
 const LOGO_DATA = [
@@ -262,7 +270,7 @@ function generateImageQuestions(
   const questions: GeneratedQuestionWithImage[] = []
   
   if (topic === 'indovina_logo') {
-    const shuffledLogos = [...LOGO_DATA].sort(() => Math.random() - 0.5)
+    const shuffledLogos = [...LOGO_DATA].filter(l => !LOGO_TEXT_BLACKLIST.has(l.name)).sort(() => Math.random() - 0.5)
     let qi = 0
     for (let i = 0; i < Math.min(count, shuffledLogos.length); i++) {
       const correct = shuffledLogos[i]
@@ -417,6 +425,17 @@ function decodeHTML(html: string): string {
     .replace(/&ndash;/g, '-')
 }
 
+// Sanitize a question: scarta domande troppo lunghe, tronca opzioni eccessive
+function sanitizeQuestion(q: GeneratedQuestion): GeneratedQuestion | null {
+  if (q.question_text.length > 120) return null
+  const trimmedOptions = q.options.map(o => o.length > 100 ? o.slice(0, 97) + '...' : o)
+  const trimmedCorrect = q.correct_answer.length > 100
+    ? q.correct_answer.slice(0, 97) + '...'
+    : q.correct_answer
+  if (!trimmedOptions.includes(trimmedCorrect)) return null
+  return { ...q, options: trimmedOptions, correct_answer: trimmedCorrect }
+}
+
 // Generate a hash of a question for deduplication (use full normalized text)
 function hashQuestion(q: string): string {
   return q.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 120)
@@ -480,7 +499,10 @@ RISPONDI SOLO CON L'ARRAY JSON TRADOTTO (inizia con [ e finisci con ]):`
     const jsonMatch = text.match(/\[[\s\S]*\]/)
     if (!jsonMatch) return [] // Return empty array to force AI generation fallback
     const translated: GeneratedQuestion[] = JSON.parse(jsonMatch[0])
-    return translated.filter(q => q.options && q.correct_answer && q.options.includes(q.correct_answer))
+    return translated
+      .filter(q => q.options && q.correct_answer && q.options.includes(q.correct_answer))
+      .map(sanitizeQuestion)
+      .filter((q): q is GeneratedQuestion => q !== null)
   } catch (e) {
     console.error('Translation failed, discarding questions to fallback to AI:', e)
     return [] // Discard english questions so we fallback to generating native italian ones
@@ -559,6 +581,7 @@ REGOLE GENERALI:
 4. Distribuisci equamente tra gli argomenti richiesti
 5. NON ripetere mai la stessa domanda
 6. LUNGHEZZA: la domanda deve essere BREVE e DIRETTA, massimo 80 caratteri. Le opzioni devono essere il più concise possibile: per nomi, date, luoghi usa poche parole; per concetti complessi (economia, diritto, scienza) puoi usare fino a 100 caratteri se necessario. Evita frasi subordinate, contesti inutili o introduzioni verbose.
+7. FATTI STABILI: usa SOLO fatti storici, scientifici o culturali immutabili e verificabili. VIETATO generare domande su: presidenti/premier/re attualmente in carica, classifiche sportive attuali, record recenti (ultimi 5 anni), numeri di follower/abbonati, prezzi, hit chart, qualsiasi fatto che possa cambiare nel tempo. Preferisci fatti accaduti prima del 2020.
 
 RISPONDI SOLO CON UN ARRAY JSON VALIDO (inizia con [ e finisci con ]):
 [
@@ -598,13 +621,11 @@ RISPONDI SOLO CON UN ARRAY JSON VALIDO (inizia con [ e finisci con ]):
     return true
   })
   
-  // Validate each question
-  return uniqueQuestions.filter(q => 
-    q.options && 
-    q.correct_answer && 
-    q.options.length === 4 &&
-    q.options.includes(q.correct_answer)
-  )
+  // Validate and sanitize each question
+  return uniqueQuestions
+    .filter(q => q.options && q.correct_answer && q.options.length === 4 && q.options.includes(q.correct_answer))
+    .map(sanitizeQuestion)
+    .filter((q): q is GeneratedQuestion => q !== null)
 }
 
 export async function POST(request: Request) {
