@@ -1019,7 +1019,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       {showTopicSelectionModal && game?.topic_selection_mode && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
           <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col border-primary/20 shadow-2xl shadow-primary/10 overflow-hidden animate-in zoom-in-95 duration-300">
-            <CardHeader className="pb-4 bg-gradient-to-r from-primary/10 via-background to-primary/10 border-b border-primary/10">
+            <CardHeader className="pb-4 bg-gradient-to-r from-primary/10 via-card to-primary/10 border-b border-primary/10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-primary/20">

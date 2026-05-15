@@ -57,6 +57,7 @@ function SettingsPageContent() {
   const searchParams = useSearchParams()
   const [profile, setProfile] = useState<PlayerProfile | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
   const [existingGameCode, setExistingGameCode] = useState<string | null>(null)
   const [isMancheMode, setIsMancheMode] = useState(false)
   const [game, setGame] = useState<Game | null>(null)
@@ -146,6 +147,7 @@ function SettingsPageContent() {
       }
       setProfile(JSON.parse(storedProfile))
     }
+    setIsInitializing(false)
   }, [router, searchParams])
 
   // Subscribe to game updates for collaborative topic selection
@@ -384,7 +386,7 @@ function SettingsPageContent() {
   }
 
   // Full-screen loading while creating/updating the manche
-  if (isLoading) {
+  if (isInitializing || isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <div className="relative w-48 h-48 flex items-center justify-center">

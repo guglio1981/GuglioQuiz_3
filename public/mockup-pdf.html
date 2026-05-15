@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<title>GuglioQuiz — Anteprima PDF</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Geist', 'Segoe UI', Arial, sans-serif; color: #1a1a2e; background: #e5e7eb; }
+
+  .page {
+    max-width: 800px; margin: 32px auto; background: #fff;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.18); border-radius: 4px; overflow: hidden;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    background: #111827;
+    color: white; padding: 24px 36px;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .header-logo {
+    width: 60px; height: 60px; border-radius: 50%;
+    border: 3px solid oklch(0.75 0.18 85); flex-shrink: 0; object-fit: cover;
+  }
+  .header-title { font-size: 30px; font-weight: 900; letter-spacing: -1px; line-height: 1; }
+  .header-title .guglio { color: oklch(0.75 0.18 85); }
+  .header-title .quiz { color: #ffffff; }
+  .header-meta { font-size: 12px; color: #9ca3af; margin-top: 5px; }
+
+  /* ── Rankings ── */
+  .rankings-section { padding: 24px 36px; border-bottom: 2px solid #e5e0c8; }
+  .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1.5px; color: oklch(0.75 0.18 85); margin-bottom: 14px; }
+  .rank-row { display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-radius: 10px; margin-bottom: 6px; background: #fafaf5; }
+  .rank-row:first-of-type { background: linear-gradient(90deg, #fef9c3, #fef3c7); }
+  .rank-medal { font-size: 20px; width: 28px; text-align: center; flex-shrink: 0; }
+  .rank-name { flex: 1; font-weight: 700; font-size: 15px; }
+  .rank-score { font-weight: 800; color: oklch(0.75 0.18 85); font-size: 15px; }
+
+  /* ── Awards ── */
+  .awards-section { padding: 20px 36px; border-bottom: 2px solid #e5e0c8; background: #fafaf5; }
+  .awards-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .award-card { flex: 1; min-width: 140px; border-radius: 12px; padding: 14px 16px;
+    text-align: center; border: 2px solid; }
+  .award-card.gold { background: #fefce8; border-color: #fbbf24; }
+  .award-card.purple { background: #f5f3ff; border-color: #a78bfa; }
+  .award-card.gray { background: #f9fafb; border-color: #d1d5db; }
+  .award-icon { font-size: 26px; margin-bottom: 6px; }
+  .award-label { font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: #6b7280; margin-bottom: 4px; }
+  .award-name { font-size: 15px; font-weight: 800; color: #1a1a2e; }
+  .award-name.award-tbd { color: #9ca3af; font-weight: 500; font-style: italic; }
+  .award-sub { font-size: 11px; color: #6b7280; margin-top: 3px; }
+
+  /* ── Questions ── */
+  .questions { padding: 24px 36px; }
+  .questions-title { font-size: 12px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1.5px; color: oklch(0.75 0.18 85); margin-bottom: 18px; }
+  .question-block {
+    border: 1.5px solid #e5e7eb; border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .question-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .question-number {
+    background: linear-gradient(135deg, oklch(0.65 0.18 85), oklch(0.75 0.18 85));
+    color: white; width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; flex-shrink: 0;
+  }
+  .topic-badge {
+    font-size: 10px; font-weight: 800; padding: 3px 10px;
+    border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .question-text { font-size: 15px; font-weight: 600; margin-bottom: 14px; line-height: 1.55; }
+  .options { display: flex; flex-direction: column; gap: 7px; }
+  .option { display: flex; align-items: center; gap: 10px;
+    font-size: 13px; padding: 8px 14px; border-radius: 8px;
+    background: #f9fafb; border: 1.5px solid #e5e7eb; }
+  .option.correct { background: #dcfce7; border-color: #16a34a; color: #15803d; font-weight: 700; }
+  .bullet { font-size: 14px; flex-shrink: 0; width: 16px; text-align: center; }
+
+  .footer { text-align: center; padding: 16px; font-size: 11px; color: #9ca3af;
+    border-top: 1px solid #e5e7eb; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-header">
+    <img src="/logo-gq.png" class="header-logo" alt="GQ" />
+    <div>
+      <div class="header-title"><span class="guglio">Guglio</span><span class="quiz">Quiz</span></div>
+      <div class="header-meta">giovedì 15 maggio 2026 · 5 domande</div>
+    </div>
+  </div>
+
+  <div class="rankings-section">
+    <div class="section-title">🏆 Classifica finale</div>
+    <div class="rank-row">
+      <span class="rank-medal">🥇</span>
+      <span class="rank-name">Marco</span>
+      <span class="rank-score">1.240 pt</span>
+    </div>
+    <div class="rank-row">
+      <span class="rank-medal">🥈</span>
+      <span class="rank-name">Giulia</span>
+      <span class="rank-score">980 pt</span>
+    </div>
+    <div class="rank-row">
+      <span class="rank-medal">🥉</span>
+      <span class="rank-name">Luca</span>
+      <span class="rank-score">750 pt</span>
+    </div>
+    <div class="rank-row">
+      <span class="rank-medal">4.</span>
+      <span class="rank-name">Sara</span>
+      <span class="rank-score">410 pt</span>
+    </div>
+  </div>
+
+  <div class="awards-section">
+    <div class="section-title">🏅 Titoli speciali</div>
+    <div class="awards-grid">
+      <div class="award-card gold">
+        <div class="award-icon">🏆</div>
+        <div class="award-label">Campione</div>
+        <div class="award-name">Marco</div>
+        <div class="award-sub">1.240 punti</div>
+      </div>
+      <div class="award-card purple">
+        <div class="award-icon">✋</div>
+        <div class="award-label">L'Astensionista</div>
+        <div class="award-name">Sara</div>
+        <div class="award-sub">3 astensioni</div>
+      </div>
+      <div class="award-card gray">
+        <div class="award-icon">📈</div>
+        <div class="award-label">Re del Recupero</div>
+        <div class="award-name award-tbd">—</div>
+        <div class="award-sub">Richiede storico punteggi</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="questions">
+    <div class="questions-title">📋 Domande e risposte</div>
+
+    <div class="question-block">
+      <div class="question-header">
+        <span class="question-number">1</span>
+        <span class="topic-badge" style="background:#fef3c7;color:#92400e;">Storia</span>
+      </div>
+      <p class="question-text">In quale anno cadde il Muro di Berlino?</p>
+      <div class="options">
+        <div class="option"><span class="bullet">○</span><span>1987</span></div>
+        <div class="option correct"><span class="bullet">✓</span><span>1989</span></div>
+        <div class="option"><span class="bullet">○</span><span>1991</span></div>
+        <div class="option"><span class="bullet">○</span><span>1993</span></div>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">
+        <span class="question-number">2</span>
+        <span class="topic-badge" style="background:#f3e8ff;color:#6b21a8;">Musica</span>
+      </div>
+      <p class="question-text">Chi ha cantato "Bohemian Rhapsody"?</p>
+      <div class="options">
+        <div class="option"><span class="bullet">○</span><span>David Bowie</span></div>
+        <div class="option"><span class="bullet">○</span><span>Elton John</span></div>
+        <div class="option correct"><span class="bullet">✓</span><span>Queen</span></div>
+        <div class="option"><span class="bullet">○</span><span>The Rolling Stones</span></div>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">
+        <span class="question-number">3</span>
+        <span class="topic-badge" style="background:#dbeafe;color:#1e3a8a;">Informatica</span>
+      </div>
+      <p class="question-text">Quale linguaggio di programmazione è noto per il simbolo del serpente?</p>
+      <div class="options">
+        <div class="option"><span class="bullet">○</span><span>Java</span></div>
+        <div class="option correct"><span class="bullet">✓</span><span>Python</span></div>
+        <div class="option"><span class="bullet">○</span><span>Ruby</span></div>
+        <div class="option"><span class="bullet">○</span><span>Kotlin</span></div>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">
+        <span class="question-number">4</span>
+        <span class="topic-badge" style="background:#dcfce7;color:#14532d;">Sport</span>
+      </div>
+      <p class="question-text">In quale sport si usa il termine "ace"?</p>
+      <div class="options">
+        <div class="option"><span class="bullet">○</span><span>Calcio</span></div>
+        <div class="option"><span class="bullet">○</span><span>Basket</span></div>
+        <div class="option correct"><span class="bullet">✓</span><span>Tennis</span></div>
+        <div class="option"><span class="bullet">○</span><span>Pallavolo</span></div>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <div class="question-header">
+        <span class="question-number">5</span>
+        <span class="topic-badge" style="background:#ffedd5;color:#7c2d12;">Cinema</span>
+      </div>
+      <p class="question-text">Chi ha diretto il film "Il Padrino" (1972)?</p>
+      <div class="options">
+        <div class="option"><span class="bullet">○</span><span>Martin Scorsese</span></div>
+        <div class="option correct"><span class="bullet">✓</span><span>Francis Ford Coppola</span></div>
+        <div class="option"><span class="bullet">○</span><span>Steven Spielberg</span></div>
+        <div class="option"><span class="bullet">○</span><span>Brian De Palma</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">Generato da GuglioQuiz · guglioquiz.com</div>
+
+</div>
+</body>
+</html>

@@ -60,7 +60,9 @@ import { AnimatedLeaderboard } from '@/components/animated-leaderboard'
 import { CountdownOverlay } from '@/components/countdown-overlay'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { RotateCcw, Home, Loader2, HandHelping } from 'lucide-react'
+import { initAudioContext, playCorrect, playWrong, playFanfare } from '@/lib/sounds'
+import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
+import { RotateCcw, Home, Loader2, HandHelping, FileDown } from 'lucide-react'
 
 
 type GamePhase = 'loading' | 'question' | 'reveal' | 'leaderboard' | 'arcade' | 'arcade_results' | 'finished'
@@ -128,6 +130,18 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       return () => clearTimeout(timer)
     }
   }, [phase, currentQuestionIndex])
+
+  // Sound effects on phase change
+  useEffect(() => {
+    if (phase === 'reveal') {
+      const correct = questions[currentQuestionIndex]?.correct_answer
+      if (selectedAnswer && selectedAnswer === correct) playCorrect()
+      else playWrong()
+    } else if (phase === 'finished') {
+      setPodiumDone(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   // Guard ref to prevent handleReveal from being called multiple times
   const isRevealingRef = useRef(false)
@@ -546,9 +560,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       
       const { isHost: latestIsHost, currentQuestionIndex: latestQIdx, questions: latestQuestions } = latestRef.current
       
-      // If host broadcast 'resetting', show GQ screen immediately on client
-      if (!latestIsHost && (updatedGame as any).topic_selection_mode === 'resetting') {
-        setIsResettingScores(true)
+      // If host broadcast 'resetting' or 'keeping', show GQ screen immediately on client
+      if (!latestIsHost) {
+        const tsm = (updatedGame as any).topic_selection_mode
+        if (tsm === 'resetting') setIsResettingScores(true)
+        else if (tsm === 'keeping') setIsKeepingScores(true)
       }
 
       // If game status changed to lobby, show GQ screen immediately then redirect
@@ -734,6 +750,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const handleAnswerSelect = useCallback(
     async (answer: string) => {
       if (hasAnswered || !currentQuestion || !currentPlayerId) return
+      initAudioContext()
 
       const responseTime = Date.now() - questionStartTime
 
@@ -773,7 +790,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   }, [hasAnswered, currentQuestion, currentPlayerId, currentPlayer, game])
 
   const handleManualAbstain = async () => {
-    if (phase !== 'question' || hasAnswered || !currentPlayer || !game) return
+    if (phase !== 'question' || hasAnswered || !isClickable || !currentQuestion || !currentPlayer || !game) return
     
     // Check if player can abstain
     if (currentPlayer.abstentions_used >= game.max_abstentions) {
@@ -959,7 +976,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     return () => clearTimeout(fallbackTimer)
   }, [phase, isHost, game, currentQuestionIndex, handleReveal])
 
-  // Client-side fallback: Smart Fallback Timer (Zero Polling)
+  // Client-side fallback: polling every 5s during question phase + single-shot for reveal/leaderboard
   useEffect(() => {
     if (isHost || !game) return
 
@@ -967,13 +984,46 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     const isUntimed = game.game_profile === 'untimed'
 
     if (phase === 'question') {
-      const timeout = isUntimed ? 70000 : SCORING.TIME_LIMIT_MS + 10000
-      fallbackTimer = setTimeout(async () => {
-        const updatedGame = await getGameByCode(game.code)
-        if (updatedGame && updatedGame.phase && updatedGame.phase !== 'question') {
+      // Wait until the question should definitely be over before polling.
+      // Timed: start at 17s (15s + 2s grace), then every 4s.
+      // Untimed: start at 65s (just before host's 60s fallback fires), then every 4s.
+      // This keeps extra server calls to 1-2 per question instead of every 5s from the start.
+      const initialDelay = isUntimed ? 65000 : SCORING.TIME_LIMIT_MS + 2000
+
+      const startPolling = setTimeout(() => {
+        const pollInterval = setInterval(async () => {
+          const updatedGame = await getGameByCode(game.code)
+          if (!updatedGame || updatedGame.phase === 'question') return
+          clearInterval(pollInterval)
           setGame(updatedGame)
-        }
-      }, timeout)
+          const serverPhase = updatedGame.phase as GamePhase
+          const latestQIdx = latestRef.current.currentQuestionIndex
+          if (serverPhase === 'reveal' && !isRevealingRef.current) {
+            setIsTimerActive(false)
+            setPlayersBeforeScoring(latestRef.current.players)
+            setPhase('reveal')
+            handleReveal()
+          } else if (serverPhase === 'leaderboard' || serverPhase === 'finished') {
+            setPhase(serverPhase)
+            isRevealingRef.current = false
+          } else if (serverPhase === 'question' && updatedGame.current_question > latestQIdx + 1) {
+            const newQIdx = updatedGame.current_question - 1
+            setCurrentQuestionIndex(newQIdx)
+            setSelectedAnswer(null)
+            setHasAnswered(false)
+            setAnswers([])
+            setPhase('question')
+            setIsTimerActive(!isUntimed)
+            setQuestionStartTime(Date.now())
+            setQuestionScore(null)
+            setMyResponseTime(null)
+            isRevealingRef.current = false
+          }
+        }, 4000)
+        return () => clearInterval(pollInterval)
+      }, initialDelay)
+
+      return () => clearTimeout(startPolling)
     } else if (phase === 'reveal') {
       fallbackTimer = setTimeout(async () => {
         const updatedGame = await getGameByCode(game.code)
@@ -1051,7 +1101,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
 
     return () => clearTimeout(fallbackTimer)
-  }, [phase, isHost, game?.code, currentQuestionIndex])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, isHost, game?.code, game?.game_profile, currentQuestionIndex, handleReveal])
 
   // Client fast-path: if player already answered but SSE reveal is dropped,
   // poll DB after 5s instead of waiting for the 25s question-phase fallback.
@@ -1126,10 +1177,8 @@ const handleNextFromLeaderboard = async () => {
     // Let React render the loading screen before starting async operations
     await new Promise(resolve => setTimeout(resolve, 80))
 
-    if (resetScores) {
-      // Broadcast 'resetting' so clients show the appropriate loading message
-      await syncLeaderboardPhase(game.id, 'resetting')
-    }
+    // Broadcast to clients so they show the right loading message
+    await syncLeaderboardPhase(game.id, resetScores ? 'resetting' : 'keeping')
 
     // Fire game reset + player reset together in parallel — no animation delay.
     await Promise.all([
@@ -1323,6 +1372,7 @@ const handleNextFromLeaderboard = async () => {
             onContinue={handleContinueFromArcade}
             allResults={arcadeResults}
             hasCompleted={hasCompletedArcade}
+            resultsReady={phase === 'arcade_results'}
           />
           {isHost && (
             <Button
@@ -1348,7 +1398,12 @@ const handleNextFromLeaderboard = async () => {
         <div className="w-full max-w-md flex flex-col gap-3">
           <AnimatedLeaderboard
             players={sortedPlayers}
-            initialPlayers={playersBeforeScoring.length > 0 ? playersBeforeScoring : undefined}
+            initialPlayers={
+              currentQuestionIndex + 1 <= 5
+                // First leaderboard of the manche: animate from 0 so players see all accumulated points
+                ? sortedPlayers.map(p => ({ ...p, score: 0 }))
+                : playersBeforeScoring.length > 0 ? playersBeforeScoring : undefined
+            }
             currentPlayerId={currentPlayerId}
             questionNumber={currentQuestionIndex + 1}
             totalQuestions={questions.length}
@@ -1379,9 +1434,12 @@ const handleNextFromLeaderboard = async () => {
           <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
-        <p className="text-muted-foreground text-lg">
-          {isResettingScores ? 'Nuova manche con punteggi azzerati' : 'Preparazione nuova manche...'}
-        </p>
+        <p className="text-muted-foreground text-lg">Caricamento nuova manche...</p>
+        {(isResettingScores || isKeepingScores) && (
+          <p className="text-red-500 font-black uppercase tracking-widest text-base">
+            {isResettingScores ? 'Punteggi azzerati' : 'Punteggi mantenuti'}
+          </p>
+        )}
       </div>
     )
   }
@@ -1411,7 +1469,7 @@ const handleNextFromLeaderboard = async () => {
                 avatar: p.avatar ?? null,
                 avatarUrl: p.avatar_url ?? null,
               }))}
-              onDone={() => setTimeout(() => setPodiumDone(true), 5000)}
+              onDone={() => { playFanfare(); setTimeout(() => setPodiumDone(true), 5000) }}
             />
           </div>
           <button
@@ -1483,6 +1541,15 @@ const handleNextFromLeaderboard = async () => {
               </Button>
             </>
           )}
+          <Button
+            onClick={() => downloadQuizPDF(questions, sortedPlayers)}
+            size="lg"
+            variant="outline"
+            className="w-full h-14 text-lg font-bold border-violet-500 text-violet-400 hover:bg-violet-500/10"
+          >
+            <FileDown className="mr-2 h-5 w-5" />
+            Scarica PDF domande
+          </Button>
         </Leaderboard>
       </main>
     )
@@ -1569,7 +1636,8 @@ const handleNextFromLeaderboard = async () => {
           )}
         </div>
 
-        {/* Question */}
+        {/* Question + Answers — key forces remount on question change, restarting the animation */}
+        <div key={currentQuestionIndex} className="animate-fade-in-up space-y-3">
         <Card className="bg-card border-border">
           <CardContent className="p-6">
             {currentQuestion.image_url && (
@@ -1670,7 +1738,7 @@ const handleNextFromLeaderboard = async () => {
             </Button>
           </div>
         )}
-
+        </div>{/* end animate-fade-in-up */}
 
         {/* Abort button - host only, inside its own card */}
         {isHost && (

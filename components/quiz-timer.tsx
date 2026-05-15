@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { playTick } from '@/lib/sounds'
 
 interface QuizTimerProps {
   duration: number // in seconds
@@ -33,6 +34,8 @@ export function QuizTimer({ duration, onComplete, isActive, questionKey = 0 }: Q
       const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
       const remaining = Math.max(0, duration - elapsed)
       setTimeLeft(remaining)
+
+      if (remaining <= 5 && remaining > 0) playTick()
 
       if (remaining <= 0 && !hasCompletedRef.current) {
         hasCompletedRef.current = true
