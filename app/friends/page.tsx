@@ -311,7 +311,7 @@ export default function FriendsPage() {
         {/* Profile / Avatar section */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <UserCircle className="h-5 w-5 text-primary" />
               Modifica il tuo avatar o immagine profilo
             </CardTitle>
@@ -472,7 +472,7 @@ export default function FriendsPage() {
         {/* Email for password recovery */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Mail className="h-5 w-5 text-primary" />
               Email per recupero password
             </CardTitle>
@@ -544,7 +544,7 @@ export default function FriendsPage() {
         {/* Game History */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="text-foreground flex items-center gap-2">
               <Trophy className="h-5 w-5 text-primary" />
               Storico Manche
             </CardTitle>
@@ -613,8 +613,8 @@ export default function FriendsPage() {
         {/* Danger Zone */}
         <Card className="border-destructive/50">
           <CardHeader>
-            <CardTitle className="text-lg text-destructive flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5" />
+            <CardTitle className="text-destructive flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-primary" />
               Zona Pericolosa
             </CardTitle>
             <CardDescription>Azioni irreversibili relative al tuo account</CardDescription>
