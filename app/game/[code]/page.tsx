@@ -839,9 +839,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const handleTimeUp = useCallback(async () => {
     if (hasAnswered || !currentQuestion || !currentPlayerId || !currentPlayer || !game) return
 
+    const qTimeLimitMs = currentQuestion.question_type === 'order' ? 25000 : SCORING.TIME_LIMIT_MS
     setHasAnswered(true)
     setIsTimerActive(false)
-    setMyResponseTime(SCORING.TIME_LIMIT_MS)
+    setMyResponseTime(qTimeLimitMs)
 
     // Check if this counts as abstention or wrong answer
     const isAbstention = (currentPlayer?.abstentions_used ?? 0) < game.max_abstentions
@@ -851,7 +852,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       currentPlayerId,
       "", // Usa stringa vuota per evitare errori del database
       isAbstention,
-      SCORING.TIME_LIMIT_MS
+      qTimeLimitMs
     )
   }, [hasAnswered, currentQuestion, currentPlayerId, currentPlayer, game])
 
@@ -951,10 +952,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       if (isCorrect) soloStatsRef.current.correctCount++
     }
     const isUntimed = isUntimedGame(latestGame.game_profile)
+    const qTimeLimitMs = latestQuestion.question_type === 'order' ? 25000 : SCORING.TIME_LIMIT_MS
 
     let score = 0
     if (isCorrect) {
-      score = isUntimed ? SCORING.CORRECT_UNTIMED : calculateCorrectPoints(actualResponseTime)
+      score = isUntimed ? SCORING.CORRECT_UNTIMED : calculateCorrectPoints(actualResponseTime, qTimeLimitMs)
     } else if (didNotAnswer && canStillAbstain) {
       score = 0
     } else {
@@ -963,7 +965,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       } else {
         const sortedByScore = [...latestPlayers].sort((a, b) => b.score - a.score)
         const position = sortedByScore.findIndex(p => p.id === latestPlayerId) + 1
-        score = calculateWrongPoints(position, latestPlayers.length, latestQIdx === 0, actualResponseTime)
+        score = calculateWrongPoints(position, latestPlayers.length, latestQIdx === 0, actualResponseTime, qTimeLimitMs)
       }
     }
 
@@ -975,7 +977,13 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
     setAllinActive(false)
 
-    const processNextPhase = () => {
+    const isOrderQuestion = latestQuestion.question_type === 'order'
+    const processNextPhase = (delayDone = false) => {
+      if (isOrderQuestion && !delayDone) {
+        // Order questions: stay on reveal for 4s before advancing
+        setTimeout(() => processNextPhase(true), 4000)
+        return
+      }
       const { isHost: nowIsHost, game: nowGame } = latestRef.current
       const questionNum = latestQIdx + 1
       const isLastQuestion = questionNum === latestQuestions.length
@@ -1016,7 +1024,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
             latestQuestion.correct_answer,
             latestGame.max_abstentions,
             latestQIdx === 0,
-            latestGame.game_profile || 'timed'
+            latestGame.game_profile || 'timed',
+            qTimeLimitMs
           ).catch(console.error),
           12000
         ),
@@ -1046,8 +1055,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     if (phase !== 'question' || !isHost || !game) return
 
-    // Untimed: 60s grace, timed: 15s + 4s grace
-    const timeout = isUntimedGame(game.game_profile) ? 60000 : SCORING.TIME_LIMIT_MS + 4000
+    // Untimed: 60s grace, order: 25s + 4s grace, timed: 15s + 4s grace
+    const qMs = currentQuestion?.question_type === 'order' ? 25000 : SCORING.TIME_LIMIT_MS
+    const timeout = isUntimedGame(game.game_profile) ? 60000 : qMs + 4000
     const fallbackTimer = setTimeout(() => {
       handleReveal()
     }, timeout)
@@ -1064,10 +1074,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
     if (phase === 'question') {
       // Wait until the question should definitely be over before polling.
-      // Timed: start at 17s (15s + 2s grace), then every 4s.
-      // Untimed: start at 65s (just before host's 60s fallback fires), then every 4s.
+      // Timed: start at 17s (15s + 2s grace), order: 27s (25s + 2s grace), untimed: 65s.
       // This keeps extra server calls to 1-2 per question instead of every 5s from the start.
-      const initialDelay = isUntimed ? 65000 : SCORING.TIME_LIMIT_MS + 2000
+      const clientQMs = currentQuestion?.question_type === 'order' ? 25000 : SCORING.TIME_LIMIT_MS
+      const initialDelay = isUntimed ? 65000 : clientQMs + 2000
 
       const startPolling = setTimeout(() => {
         const pollInterval = setInterval(async () => {
@@ -1912,7 +1922,7 @@ const handleNextFromLeaderboard = async () => {
           {/* Timer - always centered, hidden if untimed */}
           {!isUntimedGame(game.game_profile) ? (
             <QuizTimer
-              duration={15}
+              duration={currentQuestion?.question_type === 'order' ? 25 : 15}
               onComplete={handleTimeUp}
               isActive={isTimerActive}
               questionKey={currentQuestionIndex}

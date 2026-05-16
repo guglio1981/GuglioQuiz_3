@@ -675,7 +675,8 @@ export async function processAnswers(
   correctAnswer: string,
   maxAbstentions: number,
   isFirstQuestion: boolean,
-  gameProfile: GameProfile = 'timed'
+  gameProfile: GameProfile = 'timed',
+  timeLimitMs = SCORING.TIME_LIMIT_MS
 ): Promise<void> {
 
   const pb = getPocketBase()
@@ -709,18 +710,18 @@ export async function processAnswers(
       isCorrect = true
       points = gameProfile?.startsWith('untimed')
         ? SCORING.CORRECT_UNTIMED
-        : calculateCorrectPoints(answer.response_time_ms || 15000)
+        : calculateCorrectPoints(answer.response_time_ms || timeLimitMs, timeLimitMs)
     } else if (answer.is_abstention || !answer.answer) {
       if (player.abstentions_used >= maxAbstentions) {
         points = gameProfile?.startsWith('untimed')
           ? SCORING.WRONG_UNTIMED
-          : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined)
+          : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined, timeLimitMs)
       }
       needsAbstentionIncrement = true
     } else {
       points = gameProfile?.startsWith('untimed')
         ? SCORING.WRONG_UNTIMED
-        : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined)
+        : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined, timeLimitMs)
     }
 
     // Each answer's writes are grouped and will be processed sequentially

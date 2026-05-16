@@ -328,9 +328,9 @@ export const SCORING = {
 } as const
 
 
-export function calculateCorrectPoints(responseTimeMs: number): number {
+export function calculateCorrectPoints(responseTimeMs: number, timeLimitMs = SCORING.TIME_LIMIT_MS): number {
   // Faster response = more points (linear interpolation)
-  const timeFraction = Math.min(responseTimeMs / SCORING.TIME_LIMIT_MS, 1)
+  const timeFraction = Math.min(responseTimeMs / timeLimitMs, 1)
   const pointRange = SCORING.CORRECT_MAX - SCORING.CORRECT_MIN
   return Math.round(SCORING.CORRECT_MAX - timeFraction * pointRange)
 }
@@ -339,11 +339,12 @@ export function calculateWrongPoints(
   position: number,
   totalPlayers: number,
   isFirstQuestion: boolean,
-  responseTimeMs?: number
+  responseTimeMs?: number,
+  timeLimitMs = SCORING.TIME_LIMIT_MS
 ): number {
   if (isFirstQuestion && responseTimeMs !== undefined) {
     // First question: faster wrong answer = more penalty
-    const timeFraction = 1 - Math.min(responseTimeMs / SCORING.TIME_LIMIT_MS, 1)
+    const timeFraction = 1 - Math.min(responseTimeMs / timeLimitMs, 1)
     const penaltyRange = Math.abs(SCORING.WRONG_MAX - SCORING.WRONG_MIN)
     return Math.round(SCORING.WRONG_MIN - timeFraction * penaltyRange)
   }
