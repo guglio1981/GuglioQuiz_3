@@ -163,13 +163,11 @@ const YEAR_EVENTS = [
   { year: 1945, event: 'Fine della Seconda Guerra Mondiale', wrong: ['Inizio della Prima Guerra Mondiale', 'Scoperta della penicillina', 'Prima trasmissione TV'] },
   { year: 2001, event: 'Attentato alle Torri Gemelle', wrong: ['Cade il Muro di Berlino', 'Nascita di Facebook', 'Primo iPhone'] },
   { year: 1492, event: 'Colombo scopre l\'America', wrong: ['Inizio del Rinascimento', 'Caduta dell\'Impero Romano', 'Invenzione della stampa'] },
-  { year: 1789, event: 'Rivoluzione Francese', wrong: ['Dichiarazione d\'Indipendenza USA', 'Congresso di Vienna', 'Napoleone diventa imperatore'] },
   { year: 1914, event: 'Inizio della Prima Guerra Mondiale', wrong: ['Rivoluzione Russa', 'Fine della Seconda Guerra Mondiale', 'Crollo di Wall Street'] },
   { year: 1929, event: 'Crollo di Wall Street', wrong: ['Inizio della Prima Guerra Mondiale', 'Fine della Seconda Guerra Mondiale', 'Nascita dell\'ONU'] },
   { year: 1961, event: 'Primo uomo nello spazio (Gagarin)', wrong: ['L\'uomo sbarca sulla Luna', 'Lancio dello Sputnik', 'Fondazione NASA'] },
   { year: 2007, event: 'Lancio del primo iPhone', wrong: ['Nascita di Facebook', 'Fondazione di Google', 'Lancio di WhatsApp'] },
   { year: 2004, event: 'Nascita di Facebook', wrong: ['Lancio del primo iPhone', 'Nascita di Twitter', 'Fondazione di Amazon'] },
-  { year: 1776, event: 'Dichiarazione d\'Indipendenza USA', wrong: ['Rivoluzione Francese', 'Fine della Guerra Civile Americana', 'Fondazione degli USA'] },
   { year: 1969, event: 'Woodstock Festival', wrong: ['Morte di Elvis', 'Nascita dei Beatles', 'Live Aid'] },
   { year: 1990, event: 'Nascita del World Wide Web', wrong: ['Lancio del primo iPhone', 'Fondazione di Google', 'Nascita di Facebook'] },
   { year: 1953, event: 'Scoperta del DNA', wrong: ['Scoperta della penicillina', 'Primo trapianto di cuore', 'Clonazione della pecora Dolly'] },
@@ -199,7 +197,7 @@ const AUDIO_QUESTIONS_POOL = [
 ]
 
 const ORDER_EVENTS = [
-  { items: ['Invenzione della stampa (1440)', 'Scoperta dell\'America (1492)', 'Rivoluzione Francese (1789)', 'Unità d\'Italia (1861)'] },
+  { items: ['Scoperta dell\'America (1492)', 'Galileo e il cannocchiale (1609)', 'Napoleone imperatore (1804)', 'Unità d\'Italia (1861)'] },
   { items: ['Prima Guerra Mondiale (1914)', 'Rivoluzione Russa (1917)', 'Crollo di Wall Street (1929)', 'Seconda Guerra Mondiale (1939)'] },
   { items: ['Fine della Seconda Guerra Mondiale (1945)', 'Uomo sulla Luna (1969)', 'Caduta del Muro di Berlino (1989)', 'Nascita del Web (1991)'] },
   { items: ['Primo volo dei Wright (1903)', 'Lancio dello Sputnik (1957)', 'Apollo 11 sulla Luna (1969)', 'Primo Space Shuttle (1981)'] },
@@ -229,6 +227,7 @@ function generateAudioQuestionsLocal(count: number, usedHashes: Set<string>): Ge
     if (usedHashes.has(hash)) continue
     usedHashes.add(hash)
     questions.push({
+      _dedup_key: hash,
       topic: 'musica',
       question_text: "Riconosci l'artista di questa canzone",
       question_type: 'audio',
@@ -250,6 +249,7 @@ function generateOrderQuestionsLocal(count: number, usedHashes: Set<string>): Ge
     usedHashes.add(hash)
     const shuffledOptions = [...event.items].sort(() => Math.random() - 0.5)
     questions.push({
+      _dedup_key: hash,
       topic: 'storia',
       question_text: 'Metti in ordine cronologico questi eventi (dal più antico al più recente):',
       question_type: 'order',
@@ -289,6 +289,7 @@ function generateImageQuestions(
         // image_options: text question, 4 logo images as options
         const allOptions = [correct, ...wrongLogos].sort(() => Math.random() - 0.5)
         questions.push({
+          _dedup_key: hash,
           topic: 'indovina_logo',
           question_text: 'Identifica il marchio',
           question_type: 'image_options',
@@ -300,6 +301,7 @@ function generateImageQuestions(
         // multiple: show one logo, pick company name from text options
         const options = [correct.name, ...wrongLogos.map(l => l.name)].sort(() => Math.random() - 0.5)
         questions.push({
+          _dedup_key: hash,
           topic: 'indovina_logo',
           question_text: 'A quale azienda appartiene questo logo?',
           question_type: 'multiple',
@@ -328,6 +330,7 @@ function generateImageQuestions(
       if (useImageOptions) {
         const allOptions = [correct, ...wrongFlags].sort(() => Math.random() - 0.5)
         questions.push({
+          _dedup_key: hash,
           topic: 'indovina_bandiera',
           question_text: 'Identifica la bandiera',
           question_type: 'image_options',
@@ -338,6 +341,7 @@ function generateImageQuestions(
       } else {
         const options = [correct.name, ...wrongFlags.map(f => f.name)].sort(() => Math.random() - 0.5)
         questions.push({
+          _dedup_key: hash,
           topic: 'indovina_bandiera',
           question_text: 'A quale nazione appartiene questa bandiera?',
           question_type: 'multiple',
@@ -351,7 +355,8 @@ function generateImageQuestions(
     const shuffledEvents = [...YEAR_EVENTS].sort(() => Math.random() - 0.5)
     for (let i = 0; i < Math.min(count, shuffledEvents.length); i++) {
       const event = shuffledEvents[i]
-      const hash = hashQuestion(`year_${event.event}`)
+      const questionText = `In che anno e successo: "${event.event}"?`
+      const hash = hashQuestion(questionText)
       if (usedHashes.has(hash)) continue
       usedHashes.add(hash)
       
@@ -368,7 +373,7 @@ function generateImageQuestions(
       
       questions.push({
         topic: 'indovina_anno',
-        question_text: `In che anno e successo: "${event.event}"?`,
+        question_text: questionText,
         question_type: 'multiple',
         options,
         correct_answer: event.year.toString(),
@@ -781,7 +786,7 @@ export async function POST(request: Request) {
     const finalQuestions = shuffled.slice(0, count)
     
     // Return questions along with their hashes for future deduplication
-    const questionHashes = finalQuestions.map(q => hashQuestion(q.question_text))
+    const questionHashes = finalQuestions.map(q => (q as any)._dedup_key ?? hashQuestion(q.question_text))
     
     return NextResponse.json({
       questions: finalQuestions,

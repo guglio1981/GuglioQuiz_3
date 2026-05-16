@@ -1,5 +1,5 @@
 'use client'
-import { memo, useRef, useLayoutEffect, useEffect, useState, useMemo } from 'react'
+import { memo, useRef, useLayoutEffect, useEffect, useState } from 'react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,8 +23,6 @@ interface LeaderboardProps {
 }
 
 const FLIP_DURATION = 450
-// Max name length (chars) before stats drop below — calibrated for max-w-md card
-const NAME_INLINE_THRESHOLD = 11
 
 export const Leaderboard = memo(function Leaderboard({
   players,
@@ -44,12 +42,6 @@ export const Leaderboard = memo(function Leaderboard({
   })
 
   const hasStats = !!playerStats && Object.keys(playerStats).length > 0
-
-  // If any name is longer than threshold → put stats below for all rows
-  const statsLayout: 'inline' | 'below' = useMemo(() => {
-    if (!hasStats) return 'below'
-    return sortedPlayers.some(p => p.name.length > NAME_INLINE_THRESHOLD) ? 'below' : 'inline'
-  }, [hasStats, sortedPlayers])
 
   // Trend computation
   const trends: Record<string, 'up' | 'down' | 'none'> = {}
@@ -163,34 +155,18 @@ export const Leaderboard = memo(function Leaderboard({
                 ) : '?'}
               </div>
 
-              {/* ── INLINE layout: name shrinks, stats centered in remaining space ── */}
-              {hasStats && statsLayout === 'inline' ? (
-                <>
-                  <span className="font-semibold text-foreground truncate shrink min-w-0">
-                    {player.name}
-                  </span>
-                  {stat ? (
-                    <div className="flex-1 flex items-center justify-center">
-                      <StatsRow stat={stat} />
-                    </div>
-                  ) : (
-                    <div className="flex-1" />
-                  )}
-                </>
-              ) : (
-                /* ── BELOW layout: name + stats stacked, take flex-1 ── */
-                <div className="flex-1 min-w-0 flex flex-col gap-1">
-                  <span className="font-semibold text-foreground truncate block">
-                    {player.name}
-                  </span>
-                  {hasStats && stat && <StatsRow stat={stat} />}
-                  {!hasStats && maxAbstentions !== undefined && maxAbstentions > 0 && (
-                    <div className="scale-75 origin-left mt-0.5">
-                      <AbstentionDots total={maxAbstentions} used={player.abstentions_used || 0} />
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Name + stats stacked (below layout always) */}
+              <div className="flex-1 min-w-0 flex flex-col gap-1">
+                <span className="font-semibold text-foreground truncate block">
+                  {player.name}
+                </span>
+                {hasStats && stat && <StatsRow stat={stat} />}
+                {!hasStats && maxAbstentions !== undefined && maxAbstentions > 0 && (
+                  <div className="scale-75 origin-left mt-0.5">
+                    <AbstentionDots total={maxAbstentions} used={player.abstentions_used || 0} />
+                  </div>
+                )}
+              </div>
 
               {/* Trend + Score */}
               <div className="flex items-center gap-1.5 shrink-0">

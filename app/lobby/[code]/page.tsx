@@ -849,6 +849,19 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                 </div>
               )}
 
+              {/* All-in badge — solo se abilitato dall'host */}
+              {game.allin_enabled && (
+                <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                  <Zap className="h-7 w-7 text-yellow-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-yellow-400 mb-1.5">Modalità All-in</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-yellow-500/45 text-white">Raddoppio ogni 5 domande</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Audio consent badge — solo se l'host ha abilitato le domande audio */}
               {audioQuestionsEnabled && <div className="flex items-center gap-3 rounded-xl p-3 bg-muted/40 border border-border">
                 {myAudioConsent === null

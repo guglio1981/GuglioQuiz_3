@@ -71,7 +71,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { initAudioContext, playCorrect, playWrong, playAbstain, startBgMusic, stopBgMusic } from '@/lib/sounds'
 import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
-import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound, Music2, Zap } from 'lucide-react'
+import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound, Music2 } from 'lucide-react'
 
 
 type GamePhase = 'loading' | 'question' | 'reveal' | 'leaderboard' | 'arcade' | 'arcade_results' | 'finished'
@@ -182,13 +182,14 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     isHost: false,
     game: null as Game | null,
     questions: [] as Question[],
+    allinActive: false,
   })
   // Sync on every render (no useEffect needed — this runs synchronously)
   latestRef.current = {
     selectedAnswer, myResponseTime, answers, currentPlayerId,
     currentQuestionIndex, players, phase, isHost:
       players.find(p => p.id === currentPlayerId)?.is_host || false,
-    game, questions,
+    game, questions, allinActive,
   }
 
   // Reset arcade state when manche changes (new manche started)
@@ -909,6 +910,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       isHost: latestIsHost,
       game: latestGame,
       questions: latestQuestions,
+      allinActive: latestAllinActive,
     } = latestRef.current
 
     const latestQuestion = latestQuestions[latestQIdx]
@@ -961,7 +963,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     setQuestionScore(score)
 
     // All-in bonus: if active and player actually answered, double the points
-    if (allinActive && !didNotAnswer && score !== 0 && latestPlayerId) {
+    if (latestAllinActive && !didNotAnswer && score !== 0 && latestPlayerId) {
       updatePlayerScore(latestPlayerId, score).catch(console.error) // adds score again → ×2
     }
     setAllinActive(false)
@@ -1287,6 +1289,18 @@ const handleNextFromLeaderboard = async () => {
         game_profile: (game.game_profile || 'timed') as any,
         avg_response_time_ms: avgTime,
       })
+      fetch('/api/game-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          game_code: game?.code ?? '',
+          score: me.score,
+          total: questions.length,
+          questions_json: questions,
+          players_json: [{ name: me.name, score: me.score }],
+        }),
+      }).catch(() => {})
       getSoloResults(userId, 10).then(setSoloHistory).catch(console.error)
     }
   }, [phase, game?.solo_mode, currentPlayerId, soloResultSaved, players, questions.length, game])
@@ -1986,34 +2000,6 @@ const handleNextFromLeaderboard = async () => {
           </CardContent>
         </Card>
 
-        {/* All-in button */}
-        {game.allin_enabled && !game.solo_mode && phase === 'question' && !hasAnswered && (() => {
-          const currentWindow = Math.floor(currentQuestionIndex / 5)
-          const available = allinUsedWindow !== currentWindow
-          return (
-            <button
-              onClick={() => {
-                if (!available || allinActive) return
-                setAllinActive(true)
-                setAllinUsedWindow(currentWindow)
-                initAudioContext()
-              }}
-              disabled={!available || allinActive}
-              className={cn(
-                'w-full py-2.5 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2',
-                allinActive
-                  ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 cursor-default'
-                  : available
-                  ? 'bg-primary/10 border-primary text-primary hover:bg-primary/20 animate-pulse'
-                  : 'bg-muted border-muted-foreground/20 text-muted-foreground cursor-not-allowed opacity-40'
-              )}
-            >
-              <Zap className="h-4 w-4" />
-              {allinActive ? '⚡ All-in attivo — i punti saranno raddoppiati!' : available ? '⚡ Raddoppia (All-in)' : 'All-in già usato in questo blocco'}
-            </button>
-          )
-        })()}
-
         {/* Answers */}
         <div className="grid gap-3">
           {currentQuestion.options.map((option, index) => {
@@ -2021,36 +2007,48 @@ const handleNextFromLeaderboard = async () => {
             const isCorrect = option === correctAnswer
             const showCorrect = phase === 'reveal' && isCorrect
             const showWrong = phase === 'reveal' && isSelected && !isCorrect
+            const allinAvailable = game.allin_enabled && !game.solo_mode && !hasAnswered && allinUsedWindow !== Math.floor(currentQuestionIndex / 5)
 
             return (
-              <button
+              <div
                 key={`${currentQuestionIndex}-${index}`}
-                onClick={() => handleAnswerSelect(option)}
-                disabled={hasAnswered || !isClickable}
+                className="flex gap-2 animate-slide-in-left"
                 style={{ animationDelay: `${index * 250}ms` }}
-                className={cn(
-                  'w-full p-4 md:p-5 rounded-xl text-left font-medium transition-all border-2 focus:outline-none',
-                  'animate-slide-in-left',
-                  'text-foreground',
-                  // Default state
-                  !hasAnswered &&
-                    !isSelected &&
-                    'bg-muted border-border hover:border-primary/50 hover:bg-muted/80',
-                  // Selected (before reveal)
-                  isSelected &&
-                    phase !== 'reveal' &&
-                    'bg-quiz-selected border-quiz-selected text-primary-foreground',
-                  // Correct answer (reveal)
-                  showCorrect &&
-                    'bg-quiz-correct border-quiz-correct text-white animate-pulse-correct',
-                  // Wrong answer selected (reveal)
-                  showWrong && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
-                  // Non-selected answers stay the same (no visual change)
-                  hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border'
-                )}
               >
-                <span className="flex-1">{option}</span>
-              </button>
+                <button
+                  onClick={() => handleAnswerSelect(option)}
+                  disabled={hasAnswered || !isClickable}
+                  className={cn(
+                    'flex-1 p-4 md:p-5 rounded-xl text-left font-medium transition-all border-2 focus:outline-none',
+                    'text-foreground',
+                    !hasAnswered &&
+                      !isSelected &&
+                      'bg-muted border-border hover:border-primary/50 hover:bg-muted/80',
+                    isSelected &&
+                      phase !== 'reveal' &&
+                      'bg-quiz-selected border-quiz-selected text-primary-foreground',
+                    showCorrect &&
+                      'bg-quiz-correct border-quiz-correct text-white animate-pulse-correct',
+                    showWrong && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
+                    hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border'
+                  )}
+                >
+                  {option}
+                </button>
+                {allinAvailable && (
+                  <button
+                    onClick={() => {
+                      setAllinActive(true)
+                      setAllinUsedWindow(Math.floor(currentQuestionIndex / 5))
+                      initAudioContext()
+                      handleAnswerSelect(option)
+                    }}
+                    className="w-12 shrink-0 rounded-xl border-2 border-yellow-500 bg-transparent text-yellow-400 text-[13px] font-black flex items-center justify-center hover:bg-yellow-500/10 transition-colors focus:outline-none"
+                  >
+                    x2
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>

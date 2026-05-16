@@ -570,15 +570,10 @@ export default function FriendsPage() {
 
                   return (
                     <div key={g.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted border border-border">
-                      {/* Progressive number */}
                       <span className="flex-shrink-0 text-sm font-bold text-primary w-6 text-center">{displayNumber}</span>
-
-                      {/* Date/time */}
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground">{dateStr} · {timeStr}</p>
                       </div>
-
-                      {/* 3 action buttons on one row */}
                       {hasQuestions && (
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <Link href={`/history/${g.id}`}>
@@ -614,7 +609,7 @@ export default function FriendsPage() {
         <Card className="border-destructive/50">
           <CardHeader>
             <CardTitle className="text-destructive flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-primary" />
+              <ShieldAlert className="h-5 w-5 text-destructive" />
               Zona Pericolosa
             </CardTitle>
             <CardDescription>Azioni irreversibili relative al tuo account</CardDescription>
