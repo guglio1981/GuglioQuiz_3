@@ -4,14 +4,14 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getPocketBase } from '@/lib/pocketbase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, Check, Users, Edit2, Loader2, Upload, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, Users, Edit2, Loader2, Upload, Trash2, Trophy, Calendar, Eye, FileDown, BookOpen } from 'lucide-react'
+import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +34,17 @@ interface AppUser {
   session_token?: string
 }
 
+interface GameHistoryRecord {
+  id: string
+  game_number: number
+  game_code: string
+  played_at: string
+  score: number
+  total: number
+  questions_json?: any[]
+  players_json?: { name: string; score: number }[]
+}
+
 export default function FriendsPage() {
   const [user, setUser] = useState<AppUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -49,6 +60,8 @@ export default function FriendsPage() {
   const [isSavingEmail, setIsSavingEmail] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeletingProfile, setIsDeletingProfile] = useState(false)
+  const [gameHistory, setGameHistory] = useState<GameHistoryRecord[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -65,6 +78,13 @@ export default function FriendsPage() {
       setUser(userData)
       setUserEmail(userData.email || '')
       setIsLoading(false)
+      // Load game history
+      setIsLoadingHistory(true)
+      fetch(`/api/game-history?userId=${userData.id}`)
+        .then(r => r.json())
+        .then(data => setGameHistory(data.games || []))
+        .catch(() => {})
+        .finally(() => setIsLoadingHistory(false))
     } catch {
       router.push('/')
     }
@@ -510,6 +530,75 @@ export default function FriendsPage() {
                     Salva
                   </Button>
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Game History */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              Storico Manche
+            </CardTitle>
+            <CardDescription>Le ultime partite a cui hai partecipato</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : gameHistory.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-6">
+                Nessuna manche registrata. Gioca e accedi con questo account per salvare le partite!
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {gameHistory.map((g, idx) => {
+                  const date = new Date(g.played_at)
+                  const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })
+                  const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+                  const hasQuestions = Array.isArray(g.questions_json) && g.questions_json.length > 0
+                  const displayNumber = gameHistory.length - idx
+
+                  return (
+                    <div key={g.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted border border-border">
+                      {/* Progressive number */}
+                      <span className="flex-shrink-0 text-sm font-bold text-primary w-6 text-center">{displayNumber}</span>
+
+                      {/* Date/time */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">{dateStr} · {timeStr}</p>
+                      </div>
+
+                      {/* 3 action buttons on one row */}
+                      {hasQuestions && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Link href={`/history/${g.id}`}>
+                            <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-colors border border-border">
+                              <Eye className="h-3.5 w-3.5" />
+                              Rivedi
+                            </button>
+                          </Link>
+                          <button
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-colors border border-border"
+                            onClick={() => downloadQuizPDF(g.questions_json as any, g.players_json as any ?? [])}
+                          >
+                            <FileDown className="h-3.5 w-3.5" />
+                            PDF
+                          </button>
+                          <Link href={`/review/${g.id}`}>
+                            <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 transition-colors border border-border">
+                              <BookOpen className="h-3.5 w-3.5" />
+                              Ripasso
+                            </button>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </CardContent>

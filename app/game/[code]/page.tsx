@@ -28,6 +28,7 @@ import {
   resetGameForNewManche,
   resetPlayersForNewManche,
   rematchGame,
+  rematchGameDirect,
   saveSoloResult,
   getSoloResults,
   syncLeaderboardPhase,
@@ -109,6 +110,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [showRematchPopup, setShowRematchPopup] = useState(false)
   const [soloHistory, setSoloHistory] = useState<SoloResult[]>([])
   const [soloResultSaved, setSoloResultSaved] = useState(false)
+  const [gameHistorySaved, setGameHistorySaved] = useState(false)
   const soloStatsRef = useRef({ correctCount: 0, totalTimeMs: 0, answeredCount: 0 })
   const [podiumDone, setPodiumDone] = useState(false)
   const [showCountdown, setShowCountdown] = useState(false)
@@ -342,8 +344,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
                   topics: gameData.topics,
                   count: countForThisChunk,
                   difficulty: gameData.difficulty,
-                  usedQuestionHashes,
+                  usedQuestionHashes: usedQuestionHashes.slice(-1000),
                   usedQuestionTexts: usedQuestionTexts.slice(-30),
+                  enableAudioQuestions: sessionStorage.getItem('guglioquiz_hostAudioEnabled') === 'true'
+                    && sessionStorage.getItem('guglioquiz_audioOk') !== 'false',
                 }),
               }).then(async (res) => {
                 const text = await res.text()
@@ -444,7 +448,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
           // Save new hashes and texts to localStorage
           const allTexts = allQuestions.map((q: any) => q.question_text as string)
-          const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-500)
+          const trimmedHashes = [...usedQuestionHashes, ...allHashes].slice(-1000)
           localStorage.setItem(usedHashesKey, JSON.stringify(trimmedHashes))
           const trimmedTexts = [...usedQuestionTexts, ...allTexts].slice(-200)
           localStorage.setItem(usedTextsKey, JSON.stringify(trimmedTexts))
@@ -604,6 +608,13 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       // Host ha avviato rivincita: mostra popup ai client
       if (!latestIsHost && updatedGame.phase === 'rematch_pending') {
         setShowRematchPopup(true)
+      }
+
+      // Rivincita diretta: client ricarica /game senza passare dalla lobby
+      if (!latestIsHost && updatedGame.phase === 'rematch_direct') {
+        sessionStorage.setItem('guglioquiz_redirecting', 'true')
+        setTimeout(() => { window.location.href = `/game/${updatedGame.code}` }, 50)
+        return
       }
 
       // If game status changed to lobby, show GQ screen immediately then redirect
@@ -1267,18 +1278,41 @@ const handleNextFromLeaderboard = async () => {
     }
   }, [phase, game?.solo_mode, currentPlayerId, soloResultSaved, players, questions.length, game])
 
+  // Save multiplayer game history when game finishes (for logged-in players)
+  useEffect(() => {
+    if (phase !== 'finished' || game?.solo_mode || !currentPlayerId || gameHistorySaved) return
+    const me = players.find(p => p.id === currentPlayerId)
+    if (!me) return
+    const userId = sessionStorage.getItem('guglioquiz_userId') || ''
+    if (!userId) return
+    setGameHistorySaved(true)
+    const playersData = sortedPlayers.map(p => ({ name: p.name, score: p.score }))
+    fetch('/api/game-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        game_code: game?.code ?? '',
+        score: me.score,
+        total: 0,
+        questions_json: questions,
+        players_json: playersData,
+      }),
+    }).catch(() => {}) // fire-and-forget
+  }, [phase, game?.solo_mode, game?.code, currentPlayerId, gameHistorySaved, players, sortedPlayers, questions])
+
   const handleQuickRematch = async () => {
     if (!game || isStartingRematch) return
     setIsStartingRematch(true)
     await updateGamePhase(game.id, 'rematch_pending')
     await new Promise(resolve => setTimeout(resolve, 3000))
     await Promise.all([
-      rematchGame(game.id),
+      rematchGameDirect(game.id),
       resetPlayersForNewManche(game.id, true),
     ])
     clearAnswersForGame(game.id).catch(console.error)
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
-    window.location.href = `/lobby/${game.code}`
+    window.location.href = `/game/${game.code}`
   }
 
   const handleGoHome = () => {

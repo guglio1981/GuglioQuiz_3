@@ -195,6 +195,7 @@ export interface GameSettings {
   arcadeGames?: ArcadeGame[]
   arcadeFrequency?: number
   soloMode?: boolean
+  audioQuestionsEnabled?: boolean
 }
 
 export interface PlayerProfile {

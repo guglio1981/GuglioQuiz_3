@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { getGameByCode, getPlayers, updatePlayerReady, subscribeToGame, subscribeToPlayers, unsubscribe, updateGameStatus, deletePlayer, clearGameSettingsForNewManche, updateGameTopics, setPlayerTopicsConfirmed, toggleGameTopic, updatePlayerTopics } from '@/lib/game-store'
+import { getGameByCode, getPlayers, updatePlayerReady, subscribeToGame, subscribeToPlayers, unsubscribe, updateGameStatus, deletePlayer, clearGameSettingsForNewManche, updateGameTopics, setPlayerTopicsConfirmed, toggleGameTopic, updatePlayerTopics, updateGameAudioConsent } from '@/lib/game-store'
 import { getPocketBase } from '@/lib/pocketbase'
 import { TOPIC_LABELS, parseAvatar, ARCADE_GAME_LABELS, TOPICS, type Game, type Player, type AvatarId, type ArcadeGame, type Topic } from '@/lib/types'
 import { toast } from 'sonner'
@@ -15,7 +15,7 @@ import {
   History, Globe, Cpu, Laptop, Zap, Languages, Scale, Tv, Church, Flag, Calculator,
   FileText, BookOpen, Clapperboard, Library, Music, MonitorPlay, Dices, Smile,
   FlaskConical, Trophy, Landmark, Palette, Star, Cat, Car, Image as ImageIcon,
-  FlagTriangleRight, Calendar, Clock, HelpCircle, MinusCircle, TimerOff
+  FlagTriangleRight, Calendar, Clock, HelpCircle, MinusCircle, TimerOff, Volume2, VolumeX
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -69,6 +69,8 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [mySelectedTopics, setMySelectedTopics] = useState<Topic[]>([])
   const [localGameTopics, setLocalGameTopics] = useState<Topic[]>([])
   const [hasSubmittedTopics, setHasSubmittedTopics] = useState(false)
+  const [myAudioConsent, setMyAudioConsent] = useState<boolean | null>(null)
+  const [showAudioConsentModal, setShowAudioConsentModal] = useState(false)
   const isHostRef = useRef(false)
   const hasSubmittedTopicsRef = useRef(false)
 
@@ -153,6 +155,25 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
         if (currentPlayer.selected_topics) {
           setMySelectedTopics(currentPlayer.selected_topics as Topic[])
         }
+      }
+      // Restore audio consent: sessionStorage first (persiste tra le manche), poi DB
+      const storedConsent = sessionStorage.getItem('guglioquiz_audioConsent')
+      if (storedConsent !== null) {
+        const consent = storedConsent === 'true'
+        setMyAudioConsent(consent)
+        // Sync silenzioso al DB per questa manche
+        updateGameAudioConsent(gameData.id, playerId, consent).catch(() => {})
+      } else {
+        try {
+          if (gameData.phase && (gameData.phase as string).startsWith('{')) {
+            const consents: Record<string, boolean> = JSON.parse(gameData.phase as string)
+            const mine = consents[playerId]
+            if (mine !== undefined) {
+              setMyAudioConsent(mine)
+              sessionStorage.setItem('guglioquiz_audioConsent', mine ? 'true' : 'false')
+            }
+          }
+        } catch {}
       }
     }
 
@@ -294,6 +315,17 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [game?.id, currentPlayerId, code])
+
+  // Apri il modal audio consent solo se l'host ha abilitato le domande audio
+  useEffect(() => {
+    try {
+      const phaseData = game?.phase && (game.phase as string).startsWith('{')
+        ? JSON.parse(game.phase as string) : {}
+      if (game?.manche_ready && game.topics.length > 0 && phaseData.__audioEnabled === true && myAudioConsent === null) {
+        setShowAudioConsentModal(true)
+      }
+    } catch {}
+  }, [game?.manche_ready, game?.topics.length, game?.phase, myAudioConsent])
 
   // Keep localGameTopics in sync with DB (only when no pending local change is in-flight)
   useEffect(() => {
@@ -483,6 +515,14 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     updatePlayerReady(currentPlayerId, true).catch(console.error) // background
   }
 
+  const handleAudioConsent = (consent: boolean) => {
+    if (!game || !currentPlayerId) return
+    setMyAudioConsent(consent)
+    setShowAudioConsentModal(false)
+    sessionStorage.setItem('guglioquiz_audioConsent', consent ? 'true' : 'false')
+    updateGameAudioConsent(game.id, currentPlayerId, consent).catch(console.error)
+  }
+
   const handleRemovePlayer = async (playerId: string) => {
     if (!game) return
     const success = await deletePlayer(playerId, game.id)
@@ -547,6 +587,8 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     }
 
     setIsStarting(true)
+    // Persist audio consent result so the game page can pass it to generate-questions
+    sessionStorage.setItem('guglioquiz_audioOk', audioOk ? 'true' : 'false')
     await updateGameStatus(game.id, 'playing')
     // Use window.location for hard navigation to ensure page loads
     window.location.href = `/game/${game.code}`
@@ -560,6 +602,25 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   // Non usiamo l'update ottimistico locale per evitare falsi positivi
   const allOthersReady = players.filter(p => !p.is_host && p.id !== currentPlayerId).every(p => p.ready)
   const allTopicsConfirmed = !game?.topic_selection_mode || players.filter(p => !p.is_host).every(p => p.topics_confirmed)
+
+  // Audio settings derived from game.phase JSON
+  const audioPhaseData: Record<string, any> = (() => {
+    try {
+      if (game?.phase && (game.phase as string).startsWith('{')) {
+        return JSON.parse(game.phase as string)
+      }
+    } catch {}
+    return {}
+  })()
+  const audioQuestionsEnabled = audioPhaseData.__audioEnabled === true
+  const audioConsents: Record<string, boolean> = Object.fromEntries(
+    Object.entries(audioPhaseData).filter(([k]) => k !== '__audioEnabled')
+  )
+  const totalPlayers = players.length
+  const answeredCount = players.filter(p => audioConsents[p.id] !== undefined).length
+  const allAnswered = answeredCount === totalPlayers && totalPlayers > 0
+  const audioOk = allAnswered && Object.values(audioConsents).every(v => v === true)
+
   const canStart = allPlayersReady && allTopicsConfirmed
 
   if (isStarting) {
@@ -788,6 +849,34 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                 </div>
               )}
 
+              {/* Audio consent badge — solo se l'host ha abilitato le domande audio */}
+              {audioQuestionsEnabled && <div className="flex items-center gap-3 rounded-xl p-3 bg-muted/40 border border-border">
+                {myAudioConsent === null
+                  ? <Volume2 className="h-5 w-5 text-blue-400 shrink-0" />
+                  : myAudioConsent
+                    ? <Volume2 className="h-5 w-5 text-green-400 shrink-0" />
+                    : <VolumeX className="h-5 w-5 text-red-400 shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Domande Audio</p>
+                  <p className="text-xs text-foreground mt-0.5">
+                    {myAudioConsent === null
+                      ? 'In attesa della tua risposta...'
+                      : myAudioConsent ? 'Accettate ✓' : 'Non accettate ✓'
+                    }
+                    {isHost && ` · ${answeredCount}/${totalPlayers} risposto${allAnswered ? (audioOk ? ' · ✅' : ' · ❌') : ''}`}
+                  </p>
+                </div>
+                {myAudioConsent !== null && (
+                  <button
+                    onClick={() => setShowAudioConsentModal(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground underline shrink-0"
+                  >
+                    Cambia
+                  </button>
+                )}
+              </div>}
+
               {/* Accept button for non-host players */}
               {!isHost && !hasAcceptedRules && (
                 <Button
@@ -926,6 +1015,47 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
         </Card>
       </div>
       
+      {/* Audio Consent Modal */}
+      {showAudioConsentModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-sm">
+            <CardHeader className="text-center pb-2">
+              <div className="flex justify-center mb-3">
+                <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <Music className="h-8 w-8 text-blue-400" />
+                </div>
+              </div>
+              <CardTitle className="text-xl">Domande con Audio</CardTitle>
+              <CardDescription className="text-sm mt-1">
+                Alcune domande richiedono di ascoltare un brano musicale e riconoscere l&apos;artista. Hai l&apos;audio disponibile?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-2">
+              <button
+                onClick={() => handleAudioConsent(true)}
+                className="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-green-500/15 border-2 border-green-500/50 hover:bg-green-500/25 active:scale-95 transition-all"
+              >
+                <Volume2 className="h-6 w-6 text-green-400" />
+                <div className="text-left">
+                  <p className="font-bold text-foreground">Sì, ho l&apos;audio</p>
+                  <p className="text-xs text-muted-foreground">Includi domande musicali</p>
+                </div>
+              </button>
+              <button
+                onClick={() => handleAudioConsent(false)}
+                className="w-full flex items-center justify-center gap-3 p-4 rounded-xl bg-red-500/15 border-2 border-red-500/50 hover:bg-red-500/25 active:scale-95 transition-all"
+              >
+                <VolumeX className="h-6 w-6 text-red-400" />
+                <div className="text-left">
+                  <p className="font-bold text-foreground">No, senza audio</p>
+                  <p className="text-xs text-muted-foreground">Salta le domande musicali</p>
+                </div>
+              </button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Notification User Selection Modal */}
       {showNotificationModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

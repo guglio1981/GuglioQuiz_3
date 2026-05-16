@@ -54,6 +54,7 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       current_question: 0,
       questions_ready: false,
       solo_mode: settings.soloMode || false,
+      phase: JSON.stringify({ __audioEnabled: settings.audioQuestionsEnabled ?? false }),
     }))
     return record as unknown as Game
 }
@@ -84,6 +85,8 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       'manche+': 1,
       questions_json: [],
       questions_ready: false,
+      // Resetta i consensi audio della manche precedente, mantiene solo __audioEnabled
+      phase: JSON.stringify({ __audioEnabled: settings.audioQuestionsEnabled ?? false }),
       // topic_selection_mode intentionally NOT reset here:
       // it stays active so the lobby gate blocks start until all clients confirm
     }))
@@ -379,6 +382,25 @@ export async function getPlayers(gameId: string): Promise<Player[]> {
   }
 }
 
+// Store audio consents per-player in game.phase JSON during lobby
+// (phase is null during lobby; the game page overwrites it when gameplay starts)
+export async function updateGameAudioConsent(gameId: string, playerId: string, consent: boolean): Promise<void> {
+  const pb = getPocketBase()
+  try {
+    const game = await withRetry(() => pb.collection('games').getOne(gameId, { fields: 'id,phase' }))
+    let consents: Record<string, boolean> = {}
+    try {
+      if (game.phase && (game.phase as string).startsWith('{')) {
+        consents = JSON.parse(game.phase as string)
+      }
+    } catch {}
+    consents[playerId] = consent
+    await withRetry(() => pb.collection('games').update(gameId, { phase: JSON.stringify(consents) }))
+  } catch (e) {
+    console.error('updateGameAudioConsent error:', e)
+  }
+}
+
 export async function updatePlayerReady(playerId: string, ready: boolean): Promise<boolean> {
   const pb = getPocketBase()
   try {
@@ -435,6 +457,32 @@ export async function deletePlayer(playerId: string, gameId?: string): Promise<b
     return true
   } catch (error) {
     console.error('Error deleting player:', error)
+    return false
+  }
+}
+
+// Rivincita diretta: salta la lobby, torna subito al gioco con le stesse impostazioni
+export async function rematchGameDirect(gameId: string): Promise<boolean> {
+  const pb = getPocketBase()
+  try {
+    await withRetry(() => pb.collection('games').update(gameId, {
+      phase: 'rematch_direct',
+      status: 'playing',
+      topic_selection_mode: '',
+      questions_json: [],
+      questions_ready: false,
+      manche_ready: true,
+      current_question: 0,
+      current_arcade_game: '',
+      current_arcade_round: 0,
+      'manche+': 1,
+    }))
+    pb.collection('arcade_results').getFullList({ filter: `game_id="${gameId}"` })
+      .then(results => runInBatches(results, 5, r => pb.collection('arcade_results').delete(r.id)))
+      .catch(console.error)
+    return true
+  } catch (error) {
+    console.error('Error starting direct rematch:', error)
     return false
   }
 }

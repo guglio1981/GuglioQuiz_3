@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { VolumeX, Music } from 'lucide-react'
+import { VolumeX, Music, Play } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 
 const CLIP_DURATION = 15 // seconds
@@ -37,10 +37,12 @@ export function AudioQuestion({
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [progress, setProgress] = useState(0) // 0-100
   const [isPlaying, setIsPlaying] = useState(false)
+  const [showPlayButton, setShowPlayButton] = useState(false)
 
   useEffect(() => {
     setProgress(0)
     setIsPlaying(false)
+    setShowPlayButton(false)
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current)
 
     if (audioDisabled || !audioUrl || !audioRef.current) return
@@ -48,19 +50,26 @@ export function AudioQuestion({
     const audio = audioRef.current
     audio.currentTime = 0
 
+    const startPlayback = () => {
+      stopTimerRef.current = setTimeout(() => {
+        audio.pause()
+        setIsPlaying(false)
+        setProgress(100)
+      }, CLIP_DURATION * 1000)
+    }
+
     const playPromise = audio.play()
     if (playPromise) {
       playPromise
         .then(() => {
           setIsPlaying(true)
-          // Stop after CLIP_DURATION seconds
-          stopTimerRef.current = setTimeout(() => {
-            audio.pause()
-            setIsPlaying(false)
-            setProgress(100)
-          }, CLIP_DURATION * 1000)
+          setShowPlayButton(false)
+          startPlayback()
         })
-        .catch(() => {})
+        .catch(() => {
+          // Autoplay blocked (e.g. iOS) — show manual play button
+          setShowPlayButton(true)
+        })
     }
 
     return () => {
@@ -82,6 +91,21 @@ export function AudioQuestion({
     return () => clearInterval(interval)
   }, [isPlaying])
 
+  const handleManualPlay = () => {
+    if (!audioRef.current) return
+    const audio = audioRef.current
+    audio.play().then(() => {
+      setIsPlaying(true)
+      setShowPlayButton(false)
+      if (stopTimerRef.current) clearTimeout(stopTimerRef.current)
+      stopTimerRef.current = setTimeout(() => {
+        audio.pause()
+        setIsPlaying(false)
+        setProgress(100)
+      }, CLIP_DURATION * 1000)
+    }).catch(() => {})
+  }
+
   return (
     <div className="space-y-3">
       <Card className="bg-card border-border animate-slide-down">
@@ -95,12 +119,21 @@ export function AudioQuestion({
             <>
               <audio ref={audioRef} src={audioUrl} preload="auto" />
               <div className="flex flex-col items-center gap-3">
-                <div className={cn(
-                  'w-16 h-16 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center',
-                  isPlaying && 'animate-pulse'
-                )}>
-                  <Music className="h-8 w-8 text-primary" />
-                </div>
+                {showPlayButton ? (
+                  <button
+                    onClick={handleManualPlay}
+                    className="w-16 h-16 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-all"
+                  >
+                    <Play className="h-8 w-8 text-primary-foreground ml-1" />
+                  </button>
+                ) : (
+                  <div className={cn(
+                    'w-16 h-16 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center',
+                    isPlaying && 'animate-pulse'
+                  )}>
+                    <Music className="h-8 w-8 text-primary" />
+                  </div>
+                )}
                 {/* Progress bar */}
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
@@ -109,7 +142,7 @@ export function AudioQuestion({
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {isPlaying ? 'In ascolto...' : progress >= 100 ? 'Clip terminata' : 'In caricamento...'}
+                  {showPlayButton ? 'Tocca per avviare l\'audio' : isPlaying ? 'In ascolto...' : progress >= 100 ? 'Clip terminata' : 'In caricamento...'}
                 </p>
               </div>
             </>

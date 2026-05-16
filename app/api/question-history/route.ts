@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
       if (records.length > 0) existing = records[0]
     } catch { /* none */ }
 
-    const merged = Array.from(new Set([...(existing?.hashes ?? []), ...hashes]))
+    // Mantieni solo gli ultimi 1000 hash (rolling window — scarta i più vecchi)
+    const merged = Array.from(new Set([...(existing?.hashes ?? []), ...hashes])).slice(-1000)
 
     if (existing) {
       await pb.collection('user_question_history').update(existing.id, { hashes: merged })

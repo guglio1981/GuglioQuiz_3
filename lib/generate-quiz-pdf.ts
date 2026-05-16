@@ -151,16 +151,16 @@ export async function downloadQuizPDF(questions: Question[], players: PlayerResu
   /* ── Header ── */
   .page-header {
     background: #111827;
-    color: white; padding: 24px 36px;
-    display: flex; align-items: center; gap: 20px;
+    color: white; padding: 32px 48px;
+    display: flex; align-items: center; gap: 26px;
   }
-  .header-logo { width: 60px; height: 60px; border-radius: 50%; border: 3px solid oklch(0.75 0.18 85); flex-shrink: 0; object-fit: cover; }
-  .header-logo-text { width: 60px; height: 60px; border-radius: 50%; border: 3px solid oklch(0.75 0.18 85);
-    display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; color: oklch(0.75 0.18 85); background: #1f2937; }
-  .header-title { font-size: 30px; font-weight: 900; letter-spacing: -1px; line-height: 1; }
+  .header-logo { width: 78px; height: 78px; border-radius: 50%; border: 3px solid oklch(0.75 0.18 85); flex-shrink: 0; object-fit: cover; }
+  .header-logo-text { width: 78px; height: 78px; border-radius: 50%; border: 3px solid oklch(0.75 0.18 85);
+    display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 900; color: oklch(0.75 0.18 85); background: #1f2937; }
+  .header-title { font-size: 39px; font-weight: 900; letter-spacing: -1px; line-height: 1; }
   .header-title .guglio { color: oklch(0.75 0.18 85); }
   .header-title .quiz { color: #ffffff; }
-  .header-meta { font-size: 12px; color: #9ca3af; margin-top: 5px; }
+  .header-meta { font-size: 15px; color: #9ca3af; margin-top: 5px; }
 
   /* ── Rankings ── */
   .rankings-section { padding: 24px 36px; border-bottom: 2px solid #e5e0c8; }
@@ -236,13 +236,6 @@ export async function downloadQuizPDF(questions: Question[], players: PlayerResu
       <div class="header-meta">${date} · ${questions.length} domande</div>
     </div>
   </div>
-
-  <div class="rankings-section">
-    <div class="section-title">🏆 Classifica finale</div>
-    ${rankingsHTML}
-  </div>
-
-  ${awardsHTML}
 
   <div class="questions">
     <div class="questions-title">📋 Domande e risposte</div>

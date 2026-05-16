@@ -62,6 +62,16 @@ export function playAbstain() {
   playNote(370, t, 0.18, 'triangle', 0.25) // Fa#4 smorzato
 }
 
+// Tempo scaduto: klaxon basso discendente
+export function playTimeUp() {
+  const c = getCtx()
+  if (!c) return
+  const t = c.currentTime
+  playNote(320, t,        0.28, 'sawtooth', 0.5)  // nota bassa
+  playNote(220, t + 0.22, 0.38, 'sawtooth', 0.45) // più bassa (alarm)
+  playNote(160, t + 0.52, 0.25, 'sawtooth', 0.35) // finale grave
+}
+
 export function playFanfare() {
   const c = getCtx()
   if (!c) return
