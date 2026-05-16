@@ -63,7 +63,6 @@ import { ArcadeGameWrapper } from '@/components/arcade/arcade-game-wrapper'
 import { AudioQuestion } from '@/components/audio-question'
 import { ImageOptionsQuestion } from '@/components/image-options-question'
 import { OrderQuestion } from '@/components/order-question'
-import { PodiumAnimation } from '@/components/podium-animation'
 import { Leaderboard } from '@/components/leaderboard'
 import { CountdownOverlay } from '@/components/countdown-overlay'
 import { toast } from 'sonner'
@@ -112,7 +111,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [soloResultSaved, setSoloResultSaved] = useState(false)
   const [gameHistorySaved, setGameHistorySaved] = useState(false)
   const soloStatsRef = useRef({ correctCount: 0, totalTimeMs: 0, answeredCount: 0 })
-  const [podiumDone, setPodiumDone] = useState(false)
   const [showCountdown, setShowCountdown] = useState(false)
   const [isRedirectingToLobby, setIsRedirectingToLobby] = useState(false)
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
@@ -156,8 +154,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       if (!selectedAnswer) playAbstain()
       else if (selectedAnswer === correct) playCorrect()
       else playWrong()
-    } else if (phase === 'finished') {
-      setPodiumDone(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
@@ -967,7 +963,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           updateGamePhaseAndSync(nowGame.id, 'finished').catch(console.error)
         }
         setPhase('finished')
-        setPodiumDone(false)
       } else if (showLeaderboard) {
         if (nowIsHost && nowGame) {
           updateGamePhaseAndSync(nowGame.id, 'leaderboard').catch(console.error)
@@ -1699,39 +1694,6 @@ const handleNextFromLeaderboard = async () => {
   if (phase === 'finished' && currentPlayerId) {
     const winner = sortedPlayers[0]
     const isWinner = winner?.id === currentPlayerId
-
-    // Podium animation screen
-    if (!podiumDone) {
-      return (
-        <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-          <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
-          <div className="text-center space-y-1">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Classifica finale</p>
-            <h1 className="text-3xl font-black text-foreground">
-              {isWinner ? '🎉 Hai vinto!' : 'Fine Partita!'}
-            </h1>
-          </div>
-          <div className="w-full max-w-md" style={{ height: '340px' }}>
-            <PodiumAnimation
-              players={sortedPlayers.map(p => ({
-                id: p.id,
-                name: p.name,
-                score: p.score,
-                avatar: p.avatar ?? null,
-                avatarUrl: p.avatar_url ?? null,
-              }))}
-              onDone={() => { playFanfare(); setTimeout(() => setPodiumDone(true), 5000) }}
-            />
-          </div>
-          <button
-            onClick={() => setPodiumDone(true)}
-            className="text-sm text-muted-foreground underline underline-offset-4"
-          >
-            Salta →
-          </button>
-        </main>
-      )
-    }
 
     // Leaderboard + buttons
     return (
