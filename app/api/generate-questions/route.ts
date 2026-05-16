@@ -223,7 +223,7 @@ function generateAudioQuestionsLocal(count: number, usedHashes: Set<string>): Ge
   const questions: GeneratedQuestion[] = []
   for (const item of shuffled) {
     if (questions.length >= count) break
-    const askTitle = item.song_title && item.title_options && Math.random() < 0.4
+    const askTitle = item.song_title && item.title_options && Math.random() < 0.5
     const mode = askTitle ? 'title' : 'artist'
     const hash = hashQuestion(`audio_${mode}_${item.search_query}`)
     if (usedHashes.has(hash)) continue
