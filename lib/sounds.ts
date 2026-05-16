@@ -72,18 +72,6 @@ export function playTimeUp() {
   playNote(160, t + 0.52, 0.25, 'sawtooth', 0.35) // finale grave
 }
 
-export function playFanfare() {
-  const c = getCtx()
-  if (!c) return
-  const t = c.currentTime
-  const notes = [523, 659, 784, 659, 1047] // Do Mi Sol Mi Do(alta)
-  const dur   = [0.18, 0.18, 0.18, 0.18, 0.45]
-  let offset = 0
-  notes.forEach((freq, i) => {
-    playNote(freq, t + offset, dur[i] + 0.1, 'sine', 0.4)
-    offset += dur[i]
-  })
-}
 
 // ── Background music ──────────────────────────────────────────────────────────
 // Looping chord pad: I–V–vi–IV in C major, sine waves, very soft

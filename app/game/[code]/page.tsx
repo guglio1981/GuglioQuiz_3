@@ -69,7 +69,7 @@ import { Leaderboard } from '@/components/leaderboard'
 import { CountdownOverlay } from '@/components/countdown-overlay'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { initAudioContext, playCorrect, playWrong, playAbstain, playFanfare, startBgMusic, stopBgMusic } from '@/lib/sounds'
+import { initAudioContext, playCorrect, playWrong, playAbstain, startBgMusic, stopBgMusic } from '@/lib/sounds'
 import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
 import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound, Music2 } from 'lucide-react'
 
