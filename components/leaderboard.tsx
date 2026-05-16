@@ -165,15 +165,17 @@ export const Leaderboard = memo(function Leaderboard({
 
               {/* Trend + Score */}
               <div className="flex items-center gap-1.5 shrink-0">
-                {/* Triangle — occupies space always so score doesn't jump */}
+                {/* Trend indicator */}
                 <span
                   className={cn(
-                    'text-[11px] font-black leading-none transition-opacity duration-300',
+                    'leading-none transition-opacity duration-300',
                     trendsVisible && trend !== 'none' ? 'opacity-100' : 'opacity-0',
-                    trend === 'up' ? 'text-green-400' : 'text-red-400'
+                    trend === 'up' ? 'text-green-400 text-[11px] font-black' :
+                    trend === 'down' ? 'text-red-400 text-[11px] font-black' :
+                    'text-yellow-400 text-[8px]'
                   )}
                 >
-                  {trend === 'down' ? '▼' : '▲'}
+                  {trend === 'up' ? '▲' : trend === 'down' ? '▼' : '●'}
                 </span>
                 <span className={cn(
                   'text-xl font-bold tabular-nums',
