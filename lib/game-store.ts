@@ -54,6 +54,7 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       current_question: 0,
       questions_ready: false,
       solo_mode: settings.soloMode || false,
+      allin_enabled: settings.allinEnabled || false,
       phase: JSON.stringify({ __audioEnabled: settings.audioQuestionsEnabled ?? false }),
     }))
     return record as unknown as Game

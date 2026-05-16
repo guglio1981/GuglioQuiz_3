@@ -74,6 +74,7 @@ function SettingsPageContent() {
   const [arcadeFrequency, setArcadeFrequency] = useState<number>(5)
   const [gameProfile, setGameProfile] = useState<GameProfile>('timed')
   const [soloMode, setSoloMode] = useState(false)
+  const [allinEnabled, setAllinEnabled] = useState(false)
   const [audioQuestionsEnabled, setAudioQuestionsEnabled] = useState(false)
 
   
@@ -310,6 +311,7 @@ function SettingsPageContent() {
       arcadeGames: arcadeEnabled && selectedArcadeGames.length > 0 ? selectedArcadeGames : undefined,
       arcadeFrequency: arcadeEnabled && selectedArcadeGames.length > 0 ? arcadeFrequency : undefined,
       soloMode: !isMancheMode && soloMode,
+      allinEnabled: !isMancheMode && !soloMode && allinEnabled,
       audioQuestionsEnabled,
     }
     // Salva in sessionStorage per la game page (usato da enableAudioQuestions)
@@ -450,6 +452,30 @@ function SettingsPageContent() {
                   className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${soloMode ? 'bg-primary' : 'bg-muted'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${soloMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* All-in toggle — multiplayer only, not solo */}
+        {!isMancheMode && !soloMode && (
+          <Card className="bg-card border-border">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <Zap className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-semibold text-foreground">Modalità All-in</p>
+                    <p className="text-xs text-muted-foreground">Ogni 5 domande puoi raddoppiare i punti (o le penalità)</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllinEnabled(v => !v)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${allinEnabled ? 'bg-primary' : 'bg-muted'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${allinEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
             </CardContent>

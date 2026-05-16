@@ -41,6 +41,7 @@ import {
   setCurrentArcadeGameInDb,
   clearCurrentArcadeGame,
   getPlayerStatsForGame,
+  updatePlayerScore,
   type ArcadeResult,
   type PlayerStat,
 } from '@/lib/game-store'
@@ -70,7 +71,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { initAudioContext, playCorrect, playWrong, playAbstain, startBgMusic, stopBgMusic } from '@/lib/sounds'
 import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
-import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound, Music2 } from 'lucide-react'
+import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound, Music2, Zap } from 'lucide-react'
 
 
 type GamePhase = 'loading' | 'question' | 'reveal' | 'leaderboard' | 'arcade' | 'arcade_results' | 'finished'
@@ -119,6 +120,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [hostDisconnected, setHostDisconnected] = useState(false)
   const [audioDisabled, setAudioDisabled] = useState(false)
   const [musicEnabled, setMusicEnabled] = useState(false)
+  // All-in: which 5-question window was the joker last used (-1 = never)
+  const [allinUsedWindow, setAllinUsedWindow] = useState(-1)
+  const [allinActive, setAllinActive] = useState(false)
   const [previousLeaderboardRanks, setPreviousLeaderboardRanks] = useState<Record<string, number>>({})
   const savedLeaderboardRanksRef = useRef<Record<string, number>>({})
   const leaderboardSnappedRef = useRef(false)
@@ -646,6 +650,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           setQuestionStartTime(Date.now())
           setQuestionScore(null)
           setMyResponseTime(null)
+          setAllinActive(false)
           isRevealingRef.current = false
         }
       }
@@ -954,6 +959,12 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
 
     setQuestionScore(score)
+
+    // All-in bonus: if active and player actually answered, double the points
+    if (allinActive && !didNotAnswer && score !== 0 && latestPlayerId) {
+      updatePlayerScore(latestPlayerId, score).catch(console.error) // adds score again → ×2
+    }
+    setAllinActive(false)
 
     const processNextPhase = () => {
       const { isHost: nowIsHost, game: nowGame } = latestRef.current
@@ -1974,6 +1985,34 @@ const handleNextFromLeaderboard = async () => {
             </p>
           </CardContent>
         </Card>
+
+        {/* All-in button */}
+        {game.allin_enabled && !game.solo_mode && phase === 'question' && !hasAnswered && (() => {
+          const currentWindow = Math.floor(currentQuestionIndex / 5)
+          const available = allinUsedWindow !== currentWindow
+          return (
+            <button
+              onClick={() => {
+                if (!available || allinActive) return
+                setAllinActive(true)
+                setAllinUsedWindow(currentWindow)
+                initAudioContext()
+              }}
+              disabled={!available || allinActive}
+              className={cn(
+                'w-full py-2.5 px-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2',
+                allinActive
+                  ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 cursor-default'
+                  : available
+                  ? 'bg-primary/10 border-primary text-primary hover:bg-primary/20 animate-pulse'
+                  : 'bg-muted border-muted-foreground/20 text-muted-foreground cursor-not-allowed opacity-40'
+              )}
+            >
+              <Zap className="h-4 w-4" />
+              {allinActive ? '⚡ All-in attivo — i punti saranno raddoppiati!' : available ? '⚡ Raddoppia (All-in)' : 'All-in già usato in questo blocco'}
+            </button>
+          )
+        })()}
 
         {/* Answers */}
         <div className="grid gap-3">

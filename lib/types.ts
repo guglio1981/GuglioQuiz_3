@@ -126,6 +126,7 @@ export interface Game {
   questions_json?: Question[] | null
   phase?: string | null
   solo_mode?: boolean
+  allin_enabled?: boolean
   created: string
   updated: string
 }
@@ -195,6 +196,7 @@ export interface GameSettings {
   arcadeGames?: ArcadeGame[]
   arcadeFrequency?: number
   soloMode?: boolean
+  allinEnabled?: boolean
   audioQuestionsEnabled?: boolean
 }
 
