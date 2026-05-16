@@ -84,3 +84,79 @@ export function playFanfare() {
     offset += dur[i]
   })
 }
+
+// ── Background music ──────────────────────────────────────────────────────────
+// Looping chord pad: I–V–vi–IV in C major, sine waves, very soft
+let bgGain: GainNode | null = null
+let bgScheduleTimeout: ReturnType<typeof setTimeout> | null = null
+let bgRunning = false
+let bgNextTime = 0
+let bgChordIdx = 0
+
+const BG_VOL    = 0.07
+const CHORD_DUR = 2.8   // seconds per chord
+const LOOK_AHEAD = 7    // schedule this many seconds ahead
+
+// C4 E4 G4 / G3 B3 D4 / A3 C4 E4 / F3 A3 C4
+const CHORDS: number[][] = [
+  [261.63, 329.63, 392.00],
+  [196.00, 246.94, 293.66],
+  [220.00, 261.63, 329.63],
+  [174.61, 220.00, 261.63],
+]
+
+function scheduleChord(c: AudioContext, out: GainNode, freqs: number[], t: number) {
+  freqs.forEach(freq => {
+    const osc = c.createOscillator()
+    const g   = c.createGain()
+    osc.connect(g)
+    g.connect(out)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(freq, t)
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(1 / freqs.length, t + 0.55)
+    g.gain.setValueAtTime(1 / freqs.length, t + CHORD_DUR - 0.65)
+    g.gain.linearRampToValueAtTime(0, t + CHORD_DUR)
+    osc.start(t)
+    osc.stop(t + CHORD_DUR + 0.05)
+  })
+}
+
+function bgLoop() {
+  const c = getCtx()
+  if (!c || !bgRunning || !bgGain) return
+  while (bgNextTime < c.currentTime + LOOK_AHEAD) {
+    scheduleChord(c, bgGain, CHORDS[bgChordIdx % CHORDS.length], bgNextTime)
+    bgChordIdx++
+    bgNextTime += CHORD_DUR
+  }
+  bgScheduleTimeout = setTimeout(bgLoop, 1500)
+}
+
+export function startBgMusic() {
+  if (typeof window === 'undefined' || bgRunning) return
+  const c = getCtx()
+  if (!c) return
+  if (c.state === 'suspended') c.resume()
+  bgGain = c.createGain()
+  bgGain.gain.setValueAtTime(0, c.currentTime)
+  bgGain.gain.linearRampToValueAtTime(BG_VOL, c.currentTime + 1.5)
+  bgGain.connect(c.destination)
+  bgRunning  = true
+  bgNextTime = c.currentTime + 0.1
+  bgChordIdx = 0
+  bgLoop()
+}
+
+export function stopBgMusic() {
+  bgRunning = false
+  if (bgScheduleTimeout) { clearTimeout(bgScheduleTimeout); bgScheduleTimeout = null }
+  if (bgGain && ctx) {
+    const now = ctx.currentTime
+    bgGain.gain.cancelScheduledValues(now)
+    bgGain.gain.setValueAtTime(bgGain.gain.value, now)
+    bgGain.gain.linearRampToValueAtTime(0, now + 1.0)
+    const ref = bgGain
+    setTimeout(() => { ref.disconnect(); if (bgGain === ref) bgGain = null }, 1100)
+  }
+}

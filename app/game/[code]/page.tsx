@@ -69,9 +69,9 @@ import { Leaderboard } from '@/components/leaderboard'
 import { CountdownOverlay } from '@/components/countdown-overlay'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { initAudioContext, playCorrect, playWrong, playAbstain, playFanfare } from '@/lib/sounds'
+import { initAudioContext, playCorrect, playWrong, playAbstain, playFanfare, startBgMusic, stopBgMusic } from '@/lib/sounds'
 import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
-import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound } from 'lucide-react'
+import { RotateCcw, Home, Loader2, HandHelping, FileDown, RefreshCw, Clock, HelpCircle, Globe, Gamepad2, TimerOff, Target, Timer, Trophy, UserRound, Music2 } from 'lucide-react'
 
 
 type GamePhase = 'loading' | 'question' | 'reveal' | 'leaderboard' | 'arcade' | 'arcade_results' | 'finished'
@@ -119,6 +119,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
   const [hostDisconnected, setHostDisconnected] = useState(false)
   const [audioDisabled, setAudioDisabled] = useState(false)
+  const [musicEnabled, setMusicEnabled] = useState(false)
   const [previousLeaderboardRanks, setPreviousLeaderboardRanks] = useState<Record<string, number>>({})
   const savedLeaderboardRanksRef = useRef<Record<string, number>>({})
   const leaderboardSnappedRef = useRef(false)
@@ -240,6 +241,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
     setCurrentPlayerId(playerId)
     setAudioDisabled(localStorage.getItem('guglioquiz_audio_disabled') === 'true')
+    setMusicEnabled(localStorage.getItem('guglioquiz_music_enabled') === 'true')
 
     const loadGame = async () => {
       // Add retry logic for page navigation/reload scenarios
@@ -1308,6 +1310,16 @@ const handleNextFromLeaderboard = async () => {
     getPlayerStatsForGame(game.id).then(setPlayerStats).catch(console.error)
   }, [phase, game?.solo_mode, game?.id])
 
+  // Background music: start/stop based on musicEnabled + phase
+  useEffect(() => {
+    if (musicEnabled && phase !== 'finished') {
+      startBgMusic()
+    } else {
+      stopBgMusic()
+    }
+    return () => stopBgMusic()
+  }, [musicEnabled, phase])
+
   // Snapshot rank positions each time the leaderboard appears — used for trend triangles
   useEffect(() => {
     if (phase === 'leaderboard' && !leaderboardSnappedRef.current) {
@@ -1829,10 +1841,30 @@ const handleNextFromLeaderboard = async () => {
             </Badge>
           </div>
 
-          <AbstentionDots
-            total={game.max_abstentions}
-            used={currentPlayer?.abstentions_used ?? 0}
-          />
+          <div className="flex items-center gap-2">
+            {/* Music toggle */}
+            <button
+              onClick={() => {
+                const next = !musicEnabled
+                setMusicEnabled(next)
+                localStorage.setItem('guglioquiz_music_enabled', String(next))
+                initAudioContext()
+              }}
+              className={cn(
+                'p-1.5 rounded-lg transition-colors',
+                musicEnabled
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              title={musicEnabled ? 'Musica attiva' : 'Musica disattivata'}
+            >
+              <Music2 className="h-4 w-4" />
+            </button>
+            <AbstentionDots
+              total={game.max_abstentions}
+              used={currentPlayer?.abstentions_used ?? 0}
+            />
+          </div>
         </div>
 
         {/* Timer always centered with score positioned to its right */}
