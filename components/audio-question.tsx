@@ -79,6 +79,14 @@ export function AudioQuestion({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionIndex])
 
+  // Stop audio when user has answered
+  useEffect(() => {
+    if (!hasAnswered || !audioRef.current) return
+    if (stopTimerRef.current) clearTimeout(stopTimerRef.current)
+    audioRef.current.pause()
+    setIsPlaying(false)
+  }, [hasAnswered])
+
   // Animate progress bar while playing
   useEffect(() => {
     if (!isPlaying) return

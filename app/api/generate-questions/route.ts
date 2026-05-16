@@ -176,24 +176,24 @@ const YEAR_EVENTS = [
 type GeneratedQuestionWithImage = GeneratedQuestion
 
 const AUDIO_QUESTIONS_POOL = [
-  { options: ['Ed Sheeran', 'Justin Bieber', 'Bruno Mars', 'Shawn Mendes'], correct_answer: 'Ed Sheeran', search_query: 'Ed Sheeran Shape of You' },
-  { options: ['The Weeknd', 'Drake', 'Travis Scott', 'Post Malone'], correct_answer: 'The Weeknd', search_query: 'The Weeknd Blinding Lights' },
-  { options: ['Billie Eilish', 'Lorde', 'Olivia Rodrigo', 'Dua Lipa'], correct_answer: 'Billie Eilish', search_query: 'Billie Eilish Bad Guy' },
-  { options: ['Queen', 'The Beatles', 'Led Zeppelin', 'Pink Floyd'], correct_answer: 'Queen', search_query: 'Queen Bohemian Rhapsody' },
-  { options: ['Michael Jackson', 'Prince', 'Madonna', 'David Bowie'], correct_answer: 'Michael Jackson', search_query: 'Michael Jackson Thriller' },
-  { options: ['Adele', 'Amy Winehouse', 'Sam Smith', 'Paloma Faith'], correct_answer: 'Adele', search_query: 'Adele Hello' },
-  { options: ['Coldplay', 'U2', 'Radiohead', 'Muse'], correct_answer: 'Coldplay', search_query: 'Coldplay The Scientist' },
-  { options: ['Eminem', 'Jay-Z', 'Kanye West', 'Kendrick Lamar'], correct_answer: 'Eminem', search_query: 'Eminem Lose Yourself' },
-  { options: ['Rihanna', 'Beyoncé', 'Nicki Minaj', 'Cardi B'], correct_answer: 'Rihanna', search_query: 'Rihanna Umbrella' },
-  { options: ['Taylor Swift', 'Katy Perry', 'Lady Gaga', 'Selena Gomez'], correct_answer: 'Taylor Swift', search_query: 'Taylor Swift Shake It Off' },
-  { options: ['Bruno Mars', 'Jason Derulo', 'Pharrell Williams', 'Charlie Puth'], correct_answer: 'Bruno Mars', search_query: 'Bruno Mars Uptown Funk' },
-  { options: ['Dua Lipa', 'Ava Max', 'Zara Larsson', 'Anne-Marie'], correct_answer: 'Dua Lipa', search_query: 'Dua Lipa Levitating' },
-  { options: ['Harry Styles', 'Niall Horan', 'Zayn', 'Liam Payne'], correct_answer: 'Harry Styles', search_query: 'Harry Styles Watermelon Sugar' },
-  { options: ['Ariana Grande', 'Halsey', 'Bebe Rexha', 'Meghan Trainor'], correct_answer: 'Ariana Grande', search_query: 'Ariana Grande Thank U Next' },
-  { options: ['Bad Bunny', 'J Balvin', 'Daddy Yankee', 'Maluma'], correct_answer: 'Bad Bunny', search_query: 'Bad Bunny Dakiti' },
-  { options: ['Vasco Rossi', 'Zucchero', 'Eros Ramazzotti', 'Lucio Battisti'], correct_answer: 'Vasco Rossi', search_query: 'Vasco Rossi Albachiara' },
-  { options: ['Laura Pausini', 'Giorgia', 'Elisa', 'Fiorella Mannoia'], correct_answer: 'Laura Pausini', search_query: 'Laura Pausini La Solitudine' },
-  { options: ['Tiziano Ferro', 'Marco Mengoni', 'Piero Pelù', 'Jovanotti'], correct_answer: 'Tiziano Ferro', search_query: 'Tiziano Ferro Perdono' },
+  { options: ['Ed Sheeran', 'Justin Bieber', 'Bruno Mars', 'Shawn Mendes'], correct_answer: 'Ed Sheeran', search_query: 'Ed Sheeran Shape of You', song_title: 'Shape of You', title_options: ['Shape of You', 'Perfect', 'Castle on the Hill', 'Photograph'] },
+  { options: ['The Weeknd', 'Drake', 'Travis Scott', 'Post Malone'], correct_answer: 'The Weeknd', search_query: 'The Weeknd Blinding Lights', song_title: 'Blinding Lights', title_options: ['Blinding Lights', 'Save Your Tears', 'Starboy', 'Can\'t Feel My Face'] },
+  { options: ['Billie Eilish', 'Lorde', 'Olivia Rodrigo', 'Dua Lipa'], correct_answer: 'Billie Eilish', search_query: 'Billie Eilish Bad Guy', song_title: 'Bad Guy', title_options: ['Bad Guy', 'Happier Than Ever', 'Ocean Eyes', 'Therefore I Am'] },
+  { options: ['Queen', 'The Beatles', 'Led Zeppelin', 'Pink Floyd'], correct_answer: 'Queen', search_query: 'Queen Bohemian Rhapsody', song_title: 'Bohemian Rhapsody', title_options: ['Bohemian Rhapsody', 'We Will Rock You', 'Don\'t Stop Me Now', 'Somebody to Love'] },
+  { options: ['Michael Jackson', 'Prince', 'Madonna', 'David Bowie'], correct_answer: 'Michael Jackson', search_query: 'Michael Jackson Thriller', song_title: 'Thriller', title_options: ['Thriller', 'Billie Jean', 'Beat It', 'Smooth Criminal'] },
+  { options: ['Adele', 'Amy Winehouse', 'Sam Smith', 'Paloma Faith'], correct_answer: 'Adele', search_query: 'Adele Hello', song_title: 'Hello', title_options: ['Hello', 'Rolling in the Deep', 'Someone Like You', 'Easy On Me'] },
+  { options: ['Coldplay', 'U2', 'Radiohead', 'Muse'], correct_answer: 'Coldplay', search_query: 'Coldplay The Scientist', song_title: 'The Scientist', title_options: ['The Scientist', 'Yellow', 'Fix You', 'Clocks'] },
+  { options: ['Eminem', 'Jay-Z', 'Kanye West', 'Kendrick Lamar'], correct_answer: 'Eminem', search_query: 'Eminem Lose Yourself', song_title: 'Lose Yourself', title_options: ['Lose Yourself', 'Slim Shady', 'Without Me', 'Stan'] },
+  { options: ['Rihanna', 'Beyoncé', 'Nicki Minaj', 'Cardi B'], correct_answer: 'Rihanna', search_query: 'Rihanna Umbrella', song_title: 'Umbrella', title_options: ['Umbrella', 'Diamonds', 'We Found Love', 'Stay'] },
+  { options: ['Taylor Swift', 'Katy Perry', 'Lady Gaga', 'Selena Gomez'], correct_answer: 'Taylor Swift', search_query: 'Taylor Swift Shake It Off', song_title: 'Shake It Off', title_options: ['Shake It Off', 'Love Story', 'Blank Space', 'Anti-Hero'] },
+  { options: ['Bruno Mars', 'Jason Derulo', 'Pharrell Williams', 'Charlie Puth'], correct_answer: 'Bruno Mars', search_query: 'Bruno Mars Uptown Funk', song_title: 'Uptown Funk', title_options: ['Uptown Funk', 'Just the Way You Are', 'Grenade', 'Locked Out of Heaven'] },
+  { options: ['Dua Lipa', 'Ava Max', 'Zara Larsson', 'Anne-Marie'], correct_answer: 'Dua Lipa', search_query: 'Dua Lipa Levitating', song_title: 'Levitating', title_options: ['Levitating', 'Don\'t Start Now', 'New Rules', 'Physical'] },
+  { options: ['Harry Styles', 'Niall Horan', 'Zayn', 'Liam Payne'], correct_answer: 'Harry Styles', search_query: 'Harry Styles Watermelon Sugar', song_title: 'Watermelon Sugar', title_options: ['Watermelon Sugar', 'As It Was', 'Golden', 'Sign of the Times'] },
+  { options: ['Ariana Grande', 'Halsey', 'Bebe Rexha', 'Meghan Trainor'], correct_answer: 'Ariana Grande', search_query: 'Ariana Grande Thank U Next', song_title: 'Thank U, Next', title_options: ['Thank U, Next', '7 Rings', 'God is a Woman', 'Break Free'] },
+  { options: ['Bad Bunny', 'J Balvin', 'Daddy Yankee', 'Maluma'], correct_answer: 'Bad Bunny', search_query: 'Bad Bunny Dakiti', song_title: 'Dakiti', title_options: ['Dakiti', 'Tití Me Preguntó', 'Moscow Mule', 'Me Porto Bonito'] },
+  { options: ['Vasco Rossi', 'Zucchero', 'Eros Ramazzotti', 'Lucio Battisti'], correct_answer: 'Vasco Rossi', search_query: 'Vasco Rossi Albachiara', song_title: 'Albachiara', title_options: ['Albachiara', 'Vita Spericolata', 'Sally', 'Rewind'] },
+  { options: ['Laura Pausini', 'Giorgia', 'Elisa', 'Fiorella Mannoia'], correct_answer: 'Laura Pausini', search_query: 'Laura Pausini La Solitudine', song_title: 'La Solitudine', title_options: ['La Solitudine', 'Non c\'è', 'Strani Amori', 'In Assenza di Te'] },
+  { options: ['Tiziano Ferro', 'Marco Mengoni', 'Piero Pelù', 'Jovanotti'], correct_answer: 'Tiziano Ferro', search_query: 'Tiziano Ferro Perdono', song_title: 'Perdono', title_options: ['Perdono', 'Il Mondo è Nostro', 'Alla Mia Età', 'Xdono'] },
 ]
 
 const ORDER_EVENTS = [
@@ -223,18 +223,32 @@ function generateAudioQuestionsLocal(count: number, usedHashes: Set<string>): Ge
   const questions: GeneratedQuestion[] = []
   for (const item of shuffled) {
     if (questions.length >= count) break
-    const hash = hashQuestion(`audio_${item.search_query}`)
+    const askTitle = item.song_title && item.title_options && Math.random() < 0.4
+    const mode = askTitle ? 'title' : 'artist'
+    const hash = hashQuestion(`audio_${mode}_${item.search_query}`)
     if (usedHashes.has(hash)) continue
     usedHashes.add(hash)
-    questions.push({
-      _dedup_key: hash,
-      topic: 'musica',
-      question_text: "Riconosci l'artista di questa canzone",
-      question_type: 'audio',
-      options: [...item.options].sort(() => Math.random() - 0.5),
-      correct_answer: item.correct_answer,
-      audio_search_query: item.search_query,
-    })
+    if (askTitle && item.song_title && item.title_options) {
+      questions.push({
+        _dedup_key: hash,
+        topic: 'musica',
+        question_text: "Indovina il titolo di questa canzone",
+        question_type: 'audio',
+        options: [...item.title_options].sort(() => Math.random() - 0.5),
+        correct_answer: item.song_title,
+        audio_search_query: item.search_query,
+      })
+    } else {
+      questions.push({
+        _dedup_key: hash,
+        topic: 'musica',
+        question_text: "Riconosci l'artista di questa canzone",
+        question_type: 'audio',
+        options: [...item.options].sort(() => Math.random() - 0.5),
+        correct_answer: item.correct_answer,
+        audio_search_query: item.search_query,
+      })
+    }
   }
   return questions
 }
