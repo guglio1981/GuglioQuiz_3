@@ -1629,7 +1629,9 @@ const handleNextFromLeaderboard = async () => {
           <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
-        <p className="text-primary font-black uppercase tracking-widest text-base">Rivincita in corso...</p>
+        <p className="text-muted-foreground text-lg">Rivincita in corso...</p>
+        <p className="text-red-500 font-black uppercase tracking-widest text-base">Punteggi azzerati</p>
+        <p className="text-primary font-black uppercase tracking-widest text-base">Stesse impostazioni</p>
       </div>
     )
   }
@@ -1641,7 +1643,7 @@ const handleNextFromLeaderboard = async () => {
           <div className="absolute inset-0 rounded-full border-[8px] border-primary border-t-transparent animate-spin" />
           <img src="/logo-gq.png" alt="GQ" className="w-44 h-44 rounded-full" />
         </div>
-        <p className="text-muted-foreground text-lg">Rivincita in arrivo!</p>
+        <p className="text-muted-foreground text-lg">Rivincita in corso...</p>
         <p className="text-red-500 font-black uppercase tracking-widest text-base">Punteggi azzerati</p>
         <p className="text-primary font-black uppercase tracking-widest text-base">Stesse impostazioni</p>
       </div>
