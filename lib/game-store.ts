@@ -45,7 +45,7 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       question_count: settings.questionCount,
       difficulty: settings.difficulty,
       max_abstentions: settings.maxAbstentions,
-      game_profile: settings.gameProfile || 'timed',
+      game_profile: ((settings.gameProfile || 'timed') + (settings.allinEnabled ? '_allin' : '')) as import('@/lib/types').GameProfile,
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
       status: settings.soloMode ? 'playing' : 'lobby',
@@ -54,7 +54,6 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       current_question: 0,
       questions_ready: false,
       solo_mode: settings.soloMode || false,
-      allin_enabled: settings.allinEnabled || false,
       phase: JSON.stringify({ __audioEnabled: settings.audioQuestionsEnabled ?? false }),
     }))
     return record as unknown as Game
@@ -79,10 +78,9 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       question_count: settings.questionCount,
       difficulty: settings.difficulty,
       max_abstentions: settings.maxAbstentions,
-      game_profile: settings.gameProfile || 'timed',
+      game_profile: ((settings.gameProfile || 'timed') + (settings.allinEnabled ? '_allin' : '')) as import('@/lib/types').GameProfile,
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
-      allin_enabled: settings.allinEnabled || false,
       current_question: 0,
       'manche+': 1,
       questions_json: [],

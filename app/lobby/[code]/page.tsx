@@ -850,7 +850,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
               )}
 
               {/* All-in badge — solo se abilitato dall'host */}
-              {game.allin_enabled && (
+              {isAllinGame(game.game_profile) && (
                 <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
                   <Zap className="h-7 w-7 text-yellow-400 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
