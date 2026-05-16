@@ -926,8 +926,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     const didNotAnswer = !actualSelectedAnswer
     const canStillAbstain = latestPlayer.abstentions_used < latestGame.max_abstentions
 
-    // Track solo stats
-    if (latestGame.solo_mode && !didNotAnswer) {
+    // Track personal stats (solo + multiplayer)
+    if (!didNotAnswer) {
       soloStatsRef.current.answeredCount++
       soloStatsRef.current.totalTimeMs += actualResponseTime
       if (isCorrect) soloStatsRef.current.correctCount++
@@ -1695,10 +1695,34 @@ const handleNextFromLeaderboard = async () => {
     const winner = sortedPlayers[0]
     const isWinner = winner?.id === currentPlayerId
 
+    // Personal stats for multiplayer end screen
+    const { correctCount: mpCorrect, totalTimeMs: mpTimeMs, answeredCount: mpAnswered } = soloStatsRef.current
+    const mpAvgSec = mpAnswered > 0 ? (mpTimeMs / mpAnswered / 1000).toFixed(1) : '—'
+    const mpPct = questions.length > 0 ? Math.round((mpCorrect / questions.length) * 100) : 0
+
     // Leaderboard + buttons
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
         <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
+
+        {/* Personal stats strip */}
+        <div className="w-full max-w-md flex gap-3">
+          <div className="flex-1 flex items-center gap-3 rounded-xl bg-muted/60 border border-border px-4 py-3">
+            <Target className="h-5 w-5 text-green-400 shrink-0" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-green-400">Corrette</p>
+              <p className="text-sm font-bold text-foreground">{mpCorrect} / {questions.length} — {mpPct}%</p>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center gap-3 rounded-xl bg-muted/60 border border-border px-4 py-3">
+            <Timer className="h-5 w-5 text-blue-400 shrink-0" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Tempo medio</p>
+              <p className="text-sm font-bold text-foreground">{mpAvgSec}s a risposta</p>
+            </div>
+          </div>
+        </div>
+
         <Leaderboard
           players={sortedPlayers}
           currentPlayerId={currentPlayerId}
