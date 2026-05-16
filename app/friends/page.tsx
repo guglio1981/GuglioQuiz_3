@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, Check, Users, Edit2, Loader2, Upload, Trash2, Trophy, Calendar, Eye, FileDown, BookOpen } from 'lucide-react'
+import { ArrowLeft, Check, Users, Edit2, Loader2, Upload, Trash2, Trophy, Calendar, Eye, FileDown, BookOpen, UserCircle, Mail, ShieldAlert } from 'lucide-react'
 import { downloadQuizPDF } from '@/lib/generate-quiz-pdf'
 import {
   AlertDialog,
@@ -311,7 +311,10 @@ export default function FriendsPage() {
         {/* Profile / Avatar section */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Modifica il tuo avatar o immagine profilo</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <UserCircle className="h-5 w-5 text-primary" />
+              Modifica il tuo avatar o immagine profilo
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {!isEditingAvatar ? (
@@ -469,7 +472,10 @@ export default function FriendsPage() {
         {/* Email for password recovery */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Email per recupero password</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              Email per recupero password
+            </CardTitle>
             <CardDescription>Aggiungi un&apos;email per poter recuperare la password in caso di smarrimento</CardDescription>
           </CardHeader>
           <CardContent>
@@ -607,7 +613,10 @@ export default function FriendsPage() {
         {/* Danger Zone */}
         <Card className="border-destructive/50">
           <CardHeader>
-            <CardTitle className="text-lg text-destructive">Zona Pericolosa</CardTitle>
+            <CardTitle className="text-lg text-destructive flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5" />
+              Zona Pericolosa
+            </CardTitle>
             <CardDescription>Azioni irreversibili relative al tuo account</CardDescription>
           </CardHeader>
           <CardContent>
