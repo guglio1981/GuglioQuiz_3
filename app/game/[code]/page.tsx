@@ -1253,6 +1253,8 @@ const handleNextFromLeaderboard = async () => {
     if (resetScores) setIsResettingScores(true)
     else setIsKeepingScores(true)
 
+    const showStart = Date.now()
+
     // Let React render the loading screen before starting async operations
     await new Promise(resolve => setTimeout(resolve, 80))
 
@@ -1265,6 +1267,10 @@ const handleNextFromLeaderboard = async () => {
       resetPlayersForNewManche(game.id, resetScores),
     ])
     clearAnswersForGame(game.id) // fire-and-forget
+
+    // Ensure the message is visible for at least 2 seconds
+    const elapsed = Date.now() - showStart
+    if (elapsed < 2000) await new Promise(resolve => setTimeout(resolve, 2000 - elapsed))
 
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
     if (isHost) {
@@ -1365,13 +1371,16 @@ const handleNextFromLeaderboard = async () => {
   const handleQuickRematch = async () => {
     if (!game || isStartingRematch) return
     setIsStartingRematch(true)
+    const rematchStart = Date.now()
     await updateGamePhase(game.id, 'rematch_pending')
-    await new Promise(resolve => setTimeout(resolve, 3000))
     await Promise.all([
       rematchGameDirect(game.id),
       resetPlayersForNewManche(game.id, true),
     ])
     clearAnswersForGame(game.id).catch(console.error)
+    // Ensure the screen is visible for at least 2 seconds
+    const rematchElapsed = Date.now() - rematchStart
+    if (rematchElapsed < 2000) await new Promise(resolve => setTimeout(resolve, 2000 - rematchElapsed))
     sessionStorage.setItem('guglioquiz_redirecting', 'true')
     window.location.href = `/game/${game.code}`
   }
