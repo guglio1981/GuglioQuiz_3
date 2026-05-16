@@ -64,7 +64,7 @@ import { AudioQuestion } from '@/components/audio-question'
 import { ImageOptionsQuestion } from '@/components/image-options-question'
 import { OrderQuestion } from '@/components/order-question'
 import { PodiumAnimation } from '@/components/podium-animation'
-import { AnimatedLeaderboard } from '@/components/animated-leaderboard'
+import { Leaderboard } from '@/components/leaderboard'
 import { CountdownOverlay } from '@/components/countdown-overlay'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -118,6 +118,9 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [isAnimatingReset, setIsAnimatingReset] = useState(false)
   const [hostDisconnected, setHostDisconnected] = useState(false)
   const [audioDisabled, setAudioDisabled] = useState(false)
+  const [previousLeaderboardRanks, setPreviousLeaderboardRanks] = useState<Record<string, number>>({})
+  const savedLeaderboardRanksRef = useRef<Record<string, number>>({})
+  const leaderboardSnappedRef = useRef(false)
 
   // Memoize player calculations to avoid expensive filter/find on every render
   const sortedPlayers = useMemo(() => {
@@ -1301,6 +1304,17 @@ const handleNextFromLeaderboard = async () => {
     }).catch(() => {}) // fire-and-forget
   }, [phase, game?.solo_mode, game?.code, currentPlayerId, gameHistorySaved, players, sortedPlayers, questions])
 
+  // Snapshot rank positions each time the leaderboard appears — used for trend triangles
+  useEffect(() => {
+    if (phase === 'leaderboard' && !leaderboardSnappedRef.current) {
+      leaderboardSnappedRef.current = true
+      setPreviousLeaderboardRanks(savedLeaderboardRanksRef.current)
+      savedLeaderboardRanksRef.current = Object.fromEntries(sortedPlayers.map((p, i) => [p.id, i]))
+    } else if (phase !== 'leaderboard') {
+      leaderboardSnappedRef.current = false
+    }
+  }, [phase, sortedPlayers])
+
   const handleQuickRematch = async () => {
     if (!game || isStartingRematch) return
     setIsStartingRematch(true)
@@ -1516,19 +1530,14 @@ const handleNextFromLeaderboard = async () => {
         {/* Preload logo so it appears instantly when switching to the GQ loading screen */}
         <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
         <div className="w-full max-w-md flex flex-col gap-3">
-          <AnimatedLeaderboard
+          <Leaderboard
             players={sortedPlayers}
-            initialPlayers={
-              currentQuestionIndex + 1 <= 5
-                // First leaderboard of the manche: animate from 0 so players see all accumulated points
-                ? sortedPlayers.map(p => ({ ...p, score: 0 }))
-                : playersBeforeScoring.length > 0 ? playersBeforeScoring : undefined
-            }
             currentPlayerId={currentPlayerId}
             questionNumber={currentQuestionIndex + 1}
             totalQuestions={questions.length}
             isHost={isHost}
             maxAbstentions={game?.max_abstentions}
+            previousRanks={previousLeaderboardRanks}
             onContinue={handleNextFromLeaderboard}
           />
           {isHost && (

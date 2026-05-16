@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useLayoutEffect } from 'react'
 import { parseAvatar, type Player } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Trophy, Medal, Award, ArrowRight } from 'lucide-react'
@@ -19,11 +19,7 @@ interface AnimatedLeaderboardProps {
   children?: React.ReactNode
 }
 
-const ROW_H = 72
-const GAP   = 10
-
-function easeInOutCubic(t: number) { return t < 0.5 ? 4*t*t*t : (1 - Math.pow(-2*t+2, 3))/2 }
-function easeOutExpo(t: number)    { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t) }
+function easeOutExpo(t: number) { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t) }
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
 
 function sortPlayers(list: Player[]) {
@@ -58,57 +54,65 @@ export function AnimatedLeaderboard({
   onContinue,
   children,
 }: AnimatedLeaderboardProps) {
-  // Use initialPlayers (pre-scoring snapshot) when available so the animation
-  // starts from old scores and counts up to new ones. Falls back to players
-  // if no snapshot was provided (e.g. page refresh mid-game).
-  const prevRef = useRef<Player[] | null>(null)
-  if (prevRef.current === null) {
-    prevRef.current = sortPlayers(initialPlayers ?? players)
-  }
+  // "Old" state = scores before this question was processed
+  const oldSortedRef = useRef<Player[]>(sortPlayers(initialPlayers ?? players))
+  const oldSorted = oldSortedRef.current
 
-  const oldSorted = prevRef.current
-
-  // Display state
   const [displayScores, setDisplayScores] = useState<Record<string, number>>(
     () => Object.fromEntries(oldSorted.map(p => [p.id, p.score]))
   )
-  const [tops, setTops] = useState<Record<string, number>>(
-    () => Object.fromEntries(oldSorted.map((p, i) => [p.id, i * (ROW_H + GAP)]))
-  )
+  // Rows are rendered in this order; starts with old order, switches to new after count-up
   const [orderedPlayers, setOrderedPlayers] = useState<Player[]>(oldSorted)
 
-  const rafRef  = useRef<number | null>(null)
-  const prevPlayersRef = useRef(players)
-  // Track whether the initial animation (initialPlayers → players) already ran
-  const didInitialAnimRef = useRef(false)
+  // FLIP refs
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  // Set to a snapshot of old positions right before the reorder setState fires
+  const flipSnapshot = useRef<Map<string, number> | null>(null)
 
+  const rafRef = useRef<number | null>(null)
+  const didAnimRef = useRef(false)
+
+  // ── FLIP: runs synchronously after every DOM commit ──────────────────────
+  // If flipSnapshot is set it means a reorder just happened → animate rows
+  useLayoutEffect(() => {
+    const snap = flipSnapshot.current
+    if (!snap) return
+    flipSnapshot.current = null
+
+    rowRefs.current.forEach((el, id) => {
+      const prevTop = snap.get(id)
+      if (prevTop === undefined) return
+      const currTop = el.getBoundingClientRect().top
+      const delta = prevTop - currTop
+      if (Math.abs(delta) < 2) return
+
+      // Invert: jump to old position instantly
+      el.style.transition = 'none'
+      el.style.transform = `translateY(${delta}px)`
+      // Play: animate to new position (two rAFs to guarantee the browser paints the jump first)
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.transition = 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)'
+        el.style.transform = ''
+      }))
+    })
+  }) // intentionally no dep array — needs to run after every commit
+
+  // ── Main animation: count-up scores, then FLIP reorder ───────────────────
   useEffect(() => {
-    // Case 1: initialPlayers provided — animate from snapshot to current on mount
-    if (initialPlayers && !didInitialAnimRef.current) {
-      didInitialAnimRef.current = true
-      prevPlayersRef.current = players
-    } else {
-      // Case 2: players prop changed after mount (live update)
-      if (players === prevPlayersRef.current) return
-      prevPlayersRef.current = players
-    }
+    if (didAnimRef.current) return
 
     const newSorted = sortPlayers(players)
-    const newTops   = Object.fromEntries(newSorted.map((p, i) => [p.id, i * (ROW_H + GAP)]))
     const oldScores = Object.fromEntries(oldSorted.map(p => [p.id, p.score]))
     const newScores = Object.fromEntries(newSorted.map(p => [p.id, p.score]))
 
-    // Current tops snapshot for reorder animation
-    let currentTops = Object.fromEntries(oldSorted.map((p, i) => [p.id, i * (ROW_H + GAP)]))
+    // Wait until players prop actually has updated scores to animate
+    const hasChange = newSorted.some(p => (oldScores[p.id] ?? 0) !== (newScores[p.id] ?? 0))
+    if (!hasChange) return
 
-    function cancelAnim() {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
+    didAnimRef.current = true
 
-    // FASE 1: static 800ms, then FASE 2: count up, then FASE 3: reorder
-
+    // Short pause so the screen settles before numbers start moving
     const t1 = setTimeout(() => {
-      // FASE 2 — count up scores
       let start = 0
       const COUNT_DUR = 900
 
@@ -126,50 +130,29 @@ export function AnimatedLeaderboard({
         if (t < 1) {
           rafRef.current = requestAnimationFrame(countTick)
         } else {
+          // Numbers done → FLIP rows to new positions
           setDisplayScores(newScores)
 
-          // FASE 3 — reorder rows after short pause
           setTimeout(() => {
-            let start2 = 0
-            const REORDER_DUR = 700
+            // FIRST: snapshot current DOM positions before reorder
+            const snap = new Map<string, number>()
+            rowRefs.current.forEach((el, id) => snap.set(id, el.getBoundingClientRect().top))
+            flipSnapshot.current = snap
 
-            function reorderTick(ts: number) {
-              if (!start2) start2 = ts
-              const t = Math.min((ts - start2) / REORDER_DUR, 1)
-              const e = easeInOutCubic(t)
-
-              const newTopsState: Record<string, number> = {}
-              newSorted.forEach(p => {
-                newTopsState[p.id] = lerp(currentTops[p.id] ?? 0, newTops[p.id], e)
-              })
-              setTops(newTopsState)
-
-              if (t < 1) {
-                rafRef.current = requestAnimationFrame(reorderTick)
-              } else {
-                setTops(newTops)
-                setOrderedPlayers(newSorted)
-              }
-            }
-            rafRef.current = requestAnimationFrame(reorderTick)
-          }, 300)
+            // LAST: reorder DOM → useLayoutEffect will compute deltas and animate
+            setOrderedPlayers(newSorted)
+          }, 180)
         }
       }
+
       rafRef.current = requestAnimationFrame(countTick)
-    }, 800)
+    }, 700)
 
     return () => {
       clearTimeout(t1)
-      cancelAnim()
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, initialPlayers])
-
-  useEffect(() => {
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [])
-
-  const containerH = orderedPlayers.length * (ROW_H + GAP) - GAP
+  }, [players]) // re-checks when players update (guard: didAnimRef ensures single run)
 
   return (
     <div className="bg-card border border-border rounded-2xl w-full max-w-md mx-auto overflow-hidden">
@@ -181,52 +164,43 @@ export function AnimatedLeaderboard({
       </div>
 
       <div className="px-4 pb-4">
-        {/* Animated rows */}
-        <div className="relative" style={{ height: containerH }}>
-          {orderedPlayers.map((player, fallbackIdx) => {
+        <div className="space-y-2.5">
+          {orderedPlayers.map((player, index) => {
             const safeId = (currentPlayerId ?? '').trim()
-            const isMe   = safeId.length > 0 && player.id.trim() === safeId
-            const score  = displayScores[player.id] ?? player.score
-            const rankIdx = orderedPlayers.indexOf(player)
+            const isMe = safeId.length > 0 && player.id.trim() === safeId
+            const score = displayScores[player.id] ?? player.score
 
             return (
               <div
                 key={player.id}
+                ref={el => {
+                  if (el) rowRefs.current.set(player.id, el)
+                  else rowRefs.current.delete(player.id)
+                }}
+                style={{ height: 72 }}
                 className={cn(
-                  'absolute left-0 right-0 flex items-center gap-3 px-4 rounded-xl',
+                  'flex items-center gap-3 px-4 rounded-xl will-change-transform',
                   isMe
                     ? 'bg-primary/20 border-2 border-primary'
                     : 'bg-muted border-2 border-transparent'
                 )}
-                style={{
-                  top: tops[player.id] ?? fallbackIdx * (ROW_H + GAP),
-                  height: ROW_H,
-                }}
               >
                 {/* Rank */}
                 <div className="shrink-0 w-6 flex items-center justify-center">
-                  {getRankIcon(rankIdx)}
+                  {getRankIcon(index)}
                 </div>
 
                 {/* Avatar */}
-                <div
-                  className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
-                    player.avatar_url
-                      ? 'bg-transparent'
-                      : player.avatar
-                        ? parseAvatar(player.avatar)?.bg || 'bg-muted'
-                        : 'bg-muted',
-                    player.avatar && parseAvatar(player.avatar)?.text
-                  )}
-                >
+                <div className={cn(
+                  'w-10 h-10 rounded-full flex items-center justify-center shrink-0',
+                  player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted'),
+                  player.avatar && parseAvatar(player.avatar)?.text
+                )}>
                   {player.avatar_url ? (
                     <img src={player.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
                   ) : player.avatar ? (
                     <span className={cn(
-                      player.avatar.startsWith('initial:')
-                        ? 'text-[30px] font-black leading-none'
-                        : 'text-[22px]'
+                      player.avatar.startsWith('initial:') ? 'text-[30px] font-black leading-none' : 'text-[22px]'
                     )}>
                       {parseAvatar(player.avatar)?.icon}
                     </span>
