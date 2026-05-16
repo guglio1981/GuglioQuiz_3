@@ -45,7 +45,9 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       question_count: settings.questionCount,
       difficulty: settings.difficulty,
       max_abstentions: settings.maxAbstentions,
-      game_profile: settings.gameProfile || 'timed',
+      game_profile: settings.allinEnabled
+        ? `${settings.gameProfile || 'timed'}_allin`
+        : (settings.gameProfile || 'timed'),
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
       status: settings.soloMode ? 'playing' : 'lobby',
@@ -54,7 +56,6 @@ export async function createGame(hostId: string, settings: GameSettings): Promis
       current_question: 0,
       questions_ready: false,
       solo_mode: settings.soloMode || false,
-      allin_enabled: settings.allinEnabled || false,
       phase: JSON.stringify({ __audioEnabled: settings.audioQuestionsEnabled ?? false }),
     }))
     return record as unknown as Game
@@ -79,7 +80,9 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       question_count: settings.questionCount,
       difficulty: settings.difficulty,
       max_abstentions: settings.maxAbstentions,
-      game_profile: settings.gameProfile || 'timed',
+      game_profile: settings.allinEnabled
+        ? `${settings.gameProfile || 'timed'}_allin`
+        : (settings.gameProfile || 'timed'),
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
       current_question: 0,
@@ -706,18 +709,18 @@ export async function processAnswers(
 
     if (playerAnswer === normalizedCorrect) {
       isCorrect = true
-      points = gameProfile === 'untimed'
+      points = gameProfile?.startsWith('untimed')
         ? SCORING.CORRECT_UNTIMED
         : calculateCorrectPoints(answer.response_time_ms || 15000)
     } else if (answer.is_abstention || !answer.answer) {
       if (player.abstentions_used >= maxAbstentions) {
-        points = gameProfile === 'untimed'
+        points = gameProfile?.startsWith('untimed')
           ? SCORING.WRONG_UNTIMED
           : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined)
       }
       needsAbstentionIncrement = true
     } else {
-      points = gameProfile === 'untimed'
+      points = gameProfile?.startsWith('untimed')
         ? SCORING.WRONG_UNTIMED
         : calculateWrongPoints(position, players.length, isFirstQuestion, answer.response_time_ms ?? undefined)
     }

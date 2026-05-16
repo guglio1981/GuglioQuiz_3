@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { getGameByCode, getPlayers, updatePlayerReady, subscribeToGame, subscribeToPlayers, unsubscribe, updateGameStatus, deletePlayer, clearGameSettingsForNewManche, updateGameTopics, setPlayerTopicsConfirmed, toggleGameTopic, updatePlayerTopics, updateGameAudioConsent } from '@/lib/game-store'
 import { getPocketBase } from '@/lib/pocketbase'
-import { TOPIC_LABELS, parseAvatar, ARCADE_GAME_LABELS, TOPICS, type Game, type Player, type AvatarId, type ArcadeGame, type Topic } from '@/lib/types'
+import { TOPIC_LABELS, parseAvatar, ARCADE_GAME_LABELS, TOPICS, type Game, type Player, type AvatarId, type ArcadeGame, type Topic, isUntimedGame, isAllinGame } from '@/lib/types'
 import { toast } from 'sonner'
 import {
   Copy, Check, Users, Play, Crown, MessageCircle, X, Bell, Loader2, Settings2, Gamepad2,
@@ -765,8 +765,8 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                   <p className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-1.5">Modalità</p>
                   <div className="flex flex-wrap gap-1.5">
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-purple-500/45 text-white flex items-center gap-1">
-                      {game.game_profile === 'untimed' ? <TimerOff className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
-                      {game.game_profile === 'untimed' ? 'Senza Tempo' : 'A Tempo'}
+                      {isUntimedGame(game.game_profile) ? <TimerOff className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
+                      {isUntimedGame(game.game_profile) ? 'Senza Tempo' : 'A Tempo'}
                     </span>
                   </div>
                 </div>
@@ -850,7 +850,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
               )}
 
               {/* All-in badge — solo se abilitato dall'host */}
-              {game.allin_enabled && (
+              {isAllinGame(game.game_profile) && (
                 <div className="flex items-start gap-3 rounded-xl p-3 bg-muted/40 border border-border">
                   <Zap className="h-7 w-7 text-yellow-400 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">

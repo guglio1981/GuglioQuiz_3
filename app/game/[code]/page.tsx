@@ -61,6 +61,8 @@ import {
   type AvatarId,
   type ArcadeGame,
   type SoloResult,
+  isUntimedGame,
+  isAllinGame,
 } from '@/lib/types'
 import { ArcadeGameWrapper } from '@/components/arcade/arcade-game-wrapper'
 import { AudioQuestion } from '@/components/audio-question'
@@ -293,8 +295,13 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         return
       }
 
-      // Check if questions already exist
-      let questionsData = await getQuestions(gameData.id)
+      // Check if questions already exist — use questions_json from gameData directly
+      // to avoid an extra API round-trip and race conditions
+      let questionsData: typeof questions = (
+        gameData.questions_json &&
+        Array.isArray(gameData.questions_json) &&
+        (gameData.questions_json as any[]).length > 0
+      ) ? (gameData.questions_json as any) : await getQuestions(gameData.id)
       
       if (questionsData.length === 0 && currentPlayerData?.is_host) {
         setIsGenerating(true)
@@ -943,7 +950,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       soloStatsRef.current.totalTimeMs += actualResponseTime
       if (isCorrect) soloStatsRef.current.correctCount++
     }
-    const isUntimed = latestGame.game_profile === 'untimed'
+    const isUntimed = isUntimedGame(latestGame.game_profile)
 
     let score = 0
     if (isCorrect) {
@@ -1040,7 +1047,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     if (phase !== 'question' || !isHost || !game) return
 
     // Untimed: 60s grace, timed: 15s + 4s grace
-    const timeout = game.game_profile === 'untimed' ? 60000 : SCORING.TIME_LIMIT_MS + 4000
+    const timeout = isUntimedGame(game.game_profile) ? 60000 : SCORING.TIME_LIMIT_MS + 4000
     const fallbackTimer = setTimeout(() => {
       handleReveal()
     }, timeout)
@@ -1053,7 +1060,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     if (isHost || !game) return
 
     let fallbackTimer: NodeJS.Timeout
-    const isUntimed = game.game_profile === 'untimed'
+    const isUntimed = isUntimedGame(game.game_profile)
 
     if (phase === 'question') {
       // Wait until the question should definitely be over before polling.
@@ -1894,7 +1901,7 @@ const handleNextFromLeaderboard = async () => {
         {/* Timer always centered with score positioned to its right */}
         <div className="relative flex justify-center items-center">
           {/* Timer - always centered, hidden if untimed */}
-          {game.game_profile !== 'untimed' ? (
+          {!isUntimedGame(game.game_profile) ? (
             <QuizTimer
               duration={15}
               onComplete={handleTimeUp}
@@ -2007,7 +2014,7 @@ const handleNextFromLeaderboard = async () => {
             const isCorrect = option === correctAnswer
             const showCorrect = phase === 'reveal' && isCorrect
             const showWrong = phase === 'reveal' && isSelected && !isCorrect
-            const allinAvailable = game.allin_enabled && !game.solo_mode && !hasAnswered && allinUsedWindow !== Math.floor(currentQuestionIndex / 5)
+            const allinAvailable = isAllinGame(game.game_profile) && !game.solo_mode && !hasAnswered && allinUsedWindow !== Math.floor(currentQuestionIndex / 5)
 
             return (
               <div
@@ -2062,7 +2069,7 @@ const handleNextFromLeaderboard = async () => {
               <p className="text-accent font-bold text-lg">Risposta corretta!</p>
             ) : selectedAnswer ? (
               <p className="text-destructive font-bold text-lg">Risposta sbagliata!</p>
-            ) : game.game_profile === 'untimed' ? (
+            ) : isUntimedGame(game.game_profile) ? (
               <p className="text-muted-foreground font-bold text-lg">Astenuto!</p>
             ) : (
               <p className="text-muted-foreground font-bold text-lg">Tempo scaduto!</p>
@@ -2071,7 +2078,7 @@ const handleNextFromLeaderboard = async () => {
         )}
 
         {/* Abstain Button (Only in untimed mode and before answering) */}
-        {game.game_profile === 'untimed' && phase === 'question' && !hasAnswered && (
+        {isUntimedGame(game.game_profile) && phase === 'question' && !hasAnswered && (
           <div className="mt-4">
             <Button
               variant="outline"

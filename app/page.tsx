@@ -11,7 +11,7 @@ import { RulesDialog } from '@/components/rules-dialog'
 import { IOSInstallPrompt } from '@/components/ios-install-prompt'
 import { createGame, addPlayer, getGameByCode, getPlayers } from '@/lib/game-store'
 import type { PlayerProfile, AvatarId } from '@/lib/types'
-import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS } from '@/lib/types'
+import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS, baseGameProfile } from '@/lib/types'
 import { compressImage } from '@/lib/image-utils'
 import { toast } from 'sonner'
 import { Zap, Users, Trophy, Brain, Loader2, LogIn, Bell, BellOff, LogOut, Upload } from 'lucide-react'
@@ -493,7 +493,7 @@ function HomePageContent() {
     }
 
     setPendingGameCode(game.code)
-    setPendingGameProfile((game.game_profile as 'timed' | 'untimed') || 'timed')
+    setPendingGameProfile(baseGameProfile(game.game_profile))
     setIsHost(false)
     
     if (user) {

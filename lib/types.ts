@@ -100,7 +100,12 @@ export type QuestionType = 'multiple' | 'true_false' | 'audio' | 'image_options'
 
 export type GameStatus = 'lobby' | 'playing' | 'finished'
 
-export type GameProfile = 'timed' | 'untimed'
+export type GameProfile = 'timed' | 'untimed' | 'timed_allin' | 'untimed_allin'
+
+export const isUntimedGame = (gp?: string | null) => !!gp?.startsWith('untimed')
+export const isAllinGame = (gp?: string | null) => !!gp?.includes('allin')
+export const baseGameProfile = (gp?: string | null): 'timed' | 'untimed' =>
+  (gp?.replace('_allin', '') || 'timed') as 'timed' | 'untimed'
 
 
 export interface Game {

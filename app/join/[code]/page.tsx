@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getGameByCode, addPlayer } from '@/lib/game-store'
 import { ProfileDialog } from '@/components/profile-dialog'
 import { RulesDialog } from '@/components/rules-dialog'
-import { type PlayerProfile, type Game } from '@/lib/types'
+import { type PlayerProfile, type Game, baseGameProfile } from '@/lib/types'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
@@ -169,7 +169,7 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
         lockedAvatar={!!user && !!(user.avatar || user.avatar_url)}
       />
       
-      <RulesDialog open={showRules} onAccept={handleAcceptRules} gameProfile={(game?.game_profile as 'timed' | 'untimed') || 'timed'} />
+      <RulesDialog open={showRules} onAccept={handleAcceptRules} gameProfile={baseGameProfile(game?.game_profile)} />
     </div>
   )
 }
