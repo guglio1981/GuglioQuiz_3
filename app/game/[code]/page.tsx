@@ -324,7 +324,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           const usedQuestionTexts: string[] = storedTexts ? JSON.parse(storedTexts) : []
 
           // Se l'utente è loggato, arricchisci con gli hash dal DB (deduplicazione tra sessioni)
-          const _sessionUserId = sessionStorage.getItem('guglioquiz_userId')
+          const _sessionUserId = (() => { try { return JSON.parse(localStorage.getItem('guglioquiz_user') || '{}').id || '' } catch { return '' } })()
           if (_sessionUserId) {
             try {
               const _histRes = await fetch(`/api/question-history?userId=${_sessionUserId}`)
@@ -1287,7 +1287,7 @@ const handleNextFromLeaderboard = async () => {
     if (!me) return
     setSoloResultSaved(true)
 
-    const userId = sessionStorage.getItem('guglioquiz_userId') || ''
+    const userId = (() => { try { return JSON.parse(localStorage.getItem('guglioquiz_user') || '{}').id || '' } catch { return '' } })()
     const { correctCount, totalTimeMs, answeredCount } = soloStatsRef.current
     const avgTime = answeredCount > 0 ? Math.round(totalTimeMs / answeredCount) : 0
 
@@ -1323,7 +1323,7 @@ const handleNextFromLeaderboard = async () => {
     if (phase !== 'finished' || game?.solo_mode || !currentPlayerId || gameHistorySaved) return
     const me = players.find(p => p.id === currentPlayerId)
     if (!me) return
-    const userId = sessionStorage.getItem('guglioquiz_userId') || ''
+    const userId = (() => { try { return JSON.parse(localStorage.getItem('guglioquiz_user') || '{}').id || '' } catch { return '' } })()
     if (!userId) return
     setGameHistorySaved(true)
     const playersData = sortedPlayers.map(p => ({ name: p.name, score: p.score }))
