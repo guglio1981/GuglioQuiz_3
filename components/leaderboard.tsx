@@ -1,5 +1,5 @@
 'use client'
-import { memo, useRef, useLayoutEffect, useEffect, useState } from 'react'
+import { memo, useRef, useLayoutEffect, useEffect, useState, useMemo } from 'react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,9 @@ interface LeaderboardProps {
   children?: React.ReactNode
 }
 
-const FLIP_DURATION = 450 // ms — must match transition below
+const FLIP_DURATION = 450
+// Max name length (chars) before stats drop below — calibrated for max-w-md card
+const NAME_INLINE_THRESHOLD = 11
 
 export const Leaderboard = memo(function Leaderboard({
   players,
@@ -41,9 +43,15 @@ export const Leaderboard = memo(function Leaderboard({
     return (a.created || '').localeCompare(b.created || '')
   })
 
-  const hasStats = playerStats && Object.keys(playerStats).length > 0
+  const hasStats = !!playerStats && Object.keys(playerStats).length > 0
 
-  // Compute trend per player vs previousRanks
+  // If any name is longer than threshold → put stats below for all rows
+  const statsLayout: 'inline' | 'below' = useMemo(() => {
+    if (!hasStats) return 'below'
+    return sortedPlayers.some(p => p.name.length > NAME_INLINE_THRESHOLD) ? 'below' : 'inline'
+  }, [hasStats, sortedPlayers])
+
+  // Trend computation
   const trends: Record<string, 'up' | 'down' | 'none'> = {}
   const hasPrevious = Object.keys(previousRanks).length > 0
   if (hasPrevious) {
@@ -54,7 +62,6 @@ export const Leaderboard = memo(function Leaderboard({
     })
   }
 
-  // Fade-in trends after FLIP animation completes
   const [trendsVisible, setTrendsVisible] = useState(false)
   useEffect(() => {
     setTrendsVisible(false)
@@ -63,23 +70,19 @@ export const Leaderboard = memo(function Leaderboard({
     return () => clearTimeout(t)
   }, [hasPrevious])
 
-  // FLIP animation — runs after every DOM commit
+  // FLIP animation
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const prevTops = useRef<Map<string, number>>(new Map())
 
   useLayoutEffect(() => {
     const newTops = new Map<string, number>()
-    rowRefs.current.forEach((el, id) => {
-      newTops.set(id, el.getBoundingClientRect().top)
-    })
-
+    rowRefs.current.forEach((el, id) => newTops.set(id, el.getBoundingClientRect().top))
     rowRefs.current.forEach((el, id) => {
       const prevTop = prevTops.current.get(id)
-      const newTop = newTops.get(id)
+      const newTop  = newTops.get(id)
       if (prevTop === undefined || newTop === undefined) return
       const delta = prevTop - newTop
       if (Math.abs(delta) < 2) return
-
       el.style.transition = 'none'
       el.style.transform = `translateY(${delta}px)`
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -87,36 +90,14 @@ export const Leaderboard = memo(function Leaderboard({
         el.style.transform = ''
       }))
     })
-
     prevTops.current = newTops
   })
-
-  // Stats layout: 'inline' = stats beside name, 'below' = stats on second line
-  // We render inline first, then measure; if any row wrapped → switch all to 'below'
-  const [statsLayout, setStatsLayout] = useState<'inline' | 'below'>('inline')
-  const listRef = useRef<HTMLDivElement>(null)
-
-  useLayoutEffect(() => {
-    if (!hasStats || !listRef.current) return
-    // Temporarily force inline to measure
-    const rows = listRef.current.querySelectorAll<HTMLElement>('[data-info]')
-    let anyWrapped = false
-    rows.forEach(infoEl => {
-      const nameEl  = infoEl.querySelector<HTMLElement>('[data-name]')
-      const statsEl = infoEl.querySelector<HTMLElement>('[data-stats]')
-      if (!nameEl || !statsEl) return
-      const nameMid  = nameEl.getBoundingClientRect().top + nameEl.getBoundingClientRect().height / 2
-      const statsTop = statsEl.getBoundingClientRect().top
-      if (statsTop > nameMid + 4) anyWrapped = true
-    })
-    setStatsLayout(anyWrapped ? 'below' : 'inline')
-  }, [hasStats, sortedPlayers])
 
   const getRankIcon = (index: number) => {
     switch (index) {
       case 0: return <Trophy className="w-6 h-6 text-yellow-500" />
-      case 1: return <Medal className="w-6 h-6 text-gray-400" />
-      case 2: return <Award className="w-6 h-6 text-amber-600" />
+      case 1: return <Medal  className="w-6 h-6 text-gray-400" />
+      case 2: return <Award  className="w-6 h-6 text-amber-600" />
       default:
         return (
           <span className="w-6 h-6 flex items-center justify-center text-sm font-bold text-muted-foreground">
@@ -126,126 +107,115 @@ export const Leaderboard = memo(function Leaderboard({
     }
   }
 
+  const StatsRow = ({ stat }: { stat: PlayerStat }) => (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] font-bold text-green-400">✓ {stat.correct}</span>
+      <span className="text-[11px] font-bold text-red-400">✗ {stat.wrong}</span>
+      <span className="text-[11px] font-bold text-violet-400">✋ {stat.abstentions}</span>
+      {stat.avgTimeSec !== null && (
+        <span className="text-[11px] font-bold text-blue-400">⏱ {stat.avgTimeSec.toFixed(1)}s</span>
+      )}
+    </div>
+  )
+
   return (
     <Card className="bg-card border-border w-full max-w-md mx-auto">
       <CardHeader className="text-center pb-2">
-        <CardTitle className="text-2xl font-bold text-foreground">
-          Classifica
-        </CardTitle>
-        <p className="text-muted-foreground">
-          Dopo {questionNumber} di {totalQuestions} domande
-        </p>
+        <CardTitle className="text-2xl font-bold text-foreground">Classifica</CardTitle>
+        <p className="text-muted-foreground">Dopo {questionNumber} di {totalQuestions} domande</p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div ref={listRef}>
-          {sortedPlayers.map((player, index) => {
-            const safeCurrentId = (currentPlayerId ?? '').trim()
-            const isCurrentPlayer = safeCurrentId.length > 0 && player.id.trim() === safeCurrentId
-            const trend = trends[player.id] ?? 'none'
-            const stat = playerStats?.[player.id]
+        {sortedPlayers.map((player, index) => {
+          const safeCurrentId = (currentPlayerId ?? '').trim()
+          const isCurrentPlayer = safeCurrentId.length > 0 && player.id.trim() === safeCurrentId
+          const trend = trends[player.id] ?? 'none'
+          const stat  = playerStats?.[player.id]
 
-            return (
-              <div
-                key={player.id}
-                ref={el => {
-                  if (el) rowRefs.current.set(player.id, el)
-                  else rowRefs.current.delete(player.id)
-                }}
-                className={cn(
-                  'flex items-center gap-4 p-4 rounded-xl will-change-transform mb-3 last:mb-0',
-                  isCurrentPlayer
-                    ? 'bg-primary/20 border-2 border-primary'
-                    : 'bg-muted border-2 border-transparent'
-                )}
-              >
-                {/* Rank */}
-                <div className="shrink-0">{getRankIcon(index)}</div>
+          return (
+            <div
+              key={player.id}
+              ref={el => {
+                if (el) rowRefs.current.set(player.id, el)
+                else rowRefs.current.delete(player.id)
+              }}
+              className={cn(
+                'flex items-center gap-3 p-4 rounded-xl will-change-transform',
+                isCurrentPlayer
+                  ? 'bg-primary/20 border-2 border-primary'
+                  : 'bg-muted border-2 border-transparent'
+              )}
+            >
+              {/* Rank */}
+              <div className="shrink-0">{getRankIcon(index)}</div>
 
-                {/* Avatar */}
-                <div className={cn(
-                  'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
-                  player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted'),
-                  player.avatar && parseAvatar(player.avatar)?.text
-                )}>
-                  {player.avatar_url ? (
-                    <img src={player.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
-                  ) : player.avatar ? (
-                    <span className={cn(player.avatar.startsWith('initial:') ? 'text-[38px] font-black leading-none' : 'text-[30px]')}>
-                      {parseAvatar(player.avatar)?.icon}
-                    </span>
-                  ) : '?'}
-                </div>
+              {/* Avatar */}
+              <div className={cn(
+                'w-12 h-12 rounded-full flex items-center justify-center shrink-0',
+                player.avatar_url ? 'bg-transparent' : (player.avatar ? parseAvatar(player.avatar)?.bg || 'bg-muted' : 'bg-muted'),
+                player.avatar && parseAvatar(player.avatar)?.text
+              )}>
+                {player.avatar_url ? (
+                  <img src={player.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                ) : player.avatar ? (
+                  <span className={cn(player.avatar.startsWith('initial:') ? 'text-[38px] font-black leading-none' : 'text-[30px]')}>
+                    {parseAvatar(player.avatar)?.icon}
+                  </span>
+                ) : '?'}
+              </div>
 
-                {/* Name + Stats */}
-                <div
-                  data-info
-                  className={cn(
-                    'flex-1 min-w-0',
-                    hasStats && statsLayout === 'inline'
-                      ? 'flex items-center gap-2 flex-wrap'
-                      : 'flex flex-col gap-1'
-                  )}
-                >
-                  {/* Name */}
-                  <span data-name className="font-semibold text-foreground truncate block shrink-1 min-w-0">
+              {/* ── INLINE layout: name shrinks, stats centered in remaining space ── */}
+              {hasStats && statsLayout === 'inline' ? (
+                <>
+                  <span className="font-semibold text-foreground truncate shrink min-w-0">
                     {player.name}
                   </span>
-
-                  {/* Stats row */}
-                  {hasStats && stat && (
-                    <div data-stats className="flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] font-bold text-green-400">✓ {stat.correct}</span>
-                      <span className="text-[11px] font-bold text-red-400">✗ {stat.wrong}</span>
-                      <span className="text-[11px] font-bold text-violet-400">✋ {stat.abstentions}</span>
-                      {stat.avgTimeSec !== null && (
-                        <span className="text-[11px] font-bold text-blue-400">⏱ {stat.avgTimeSec.toFixed(1)}s</span>
-                      )}
+                  {stat ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <StatsRow stat={stat} />
                     </div>
+                  ) : (
+                    <div className="flex-1" />
                   )}
-
-                  {/* Abstention dots (when no playerStats) */}
+                </>
+              ) : (
+                /* ── BELOW layout: name + stats stacked, take flex-1 ── */
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <span className="font-semibold text-foreground truncate block">
+                    {player.name}
+                  </span>
+                  {hasStats && stat && <StatsRow stat={stat} />}
                   {!hasStats && maxAbstentions !== undefined && maxAbstentions > 0 && (
                     <div className="scale-75 origin-left mt-0.5">
-                      <AbstentionDots
-                        total={maxAbstentions}
-                        used={player.abstentions_used || 0}
-                      />
+                      <AbstentionDots total={maxAbstentions} used={player.abstentions_used || 0} />
                     </div>
                   )}
                 </div>
+              )}
 
-                {/* Trend + Score */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {/* Trend indicator */}
-                  <span
-                    className={cn(
-                      'leading-none transition-opacity duration-300',
-                      trendsVisible && trend !== 'none' ? 'opacity-100' : 'opacity-0',
-                      trend === 'up' ? 'text-green-400 text-[11px] font-black' :
-                      trend === 'down' ? 'text-red-400 text-[11px] font-black' :
-                      'text-yellow-400 text-[11px] font-black'
-                    )}
-                  >
-                    {trend === 'up' ? '▲' : trend === 'down' ? '▼' : '●'}
-                  </span>
-                  <span className={cn(
-                    'text-xl font-bold tabular-nums',
-                    player.score >= 0 ? 'text-accent' : 'text-destructive'
-                  )}>
-                    {player.score > 0 && '+'}{player.score}
-                  </span>
-                </div>
+              {/* Trend + Score */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={cn(
+                  'leading-none transition-opacity duration-300',
+                  trendsVisible && trend !== 'none' ? 'opacity-100' : 'opacity-0',
+                  trend === 'up'   ? 'text-green-400 text-[11px] font-black' :
+                  trend === 'down' ? 'text-red-400   text-[11px] font-black' :
+                                     'text-yellow-400 text-[11px] font-black'
+                )}>
+                  {trend === 'up' ? '▲' : trend === 'down' ? '▼' : '●'}
+                </span>
+                <span className={cn(
+                  'text-xl font-bold tabular-nums',
+                  player.score >= 0 ? 'text-accent' : 'text-destructive'
+                )}>
+                  {player.score > 0 && '+'}{player.score}
+                </span>
               </div>
-            )
-          })}
-        </div>
+            </div>
+          )
+        })}
 
         {isHost && onContinue && (
-          <Button
-            onClick={onContinue}
-            size="lg"
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 mt-2"
-          >
+          <Button onClick={onContinue} size="lg" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 mt-2">
             <ArrowRight className="mr-2 h-5 w-5" />
             Avanti
           </Button>
@@ -255,11 +225,7 @@ export const Leaderboard = memo(function Leaderboard({
             In attesa che l&apos;host continui...
           </p>
         )}
-        {children && (
-          <div className="space-y-3 pt-2">
-            {children}
-          </div>
-        )}
+        {children && <div className="space-y-3 pt-2">{children}</div>}
       </CardContent>
     </Card>
   )

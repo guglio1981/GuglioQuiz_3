@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Classifica Finale con Stats</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #09090b; color: #fafafa;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px; min-height: 100vh; gap: 14px;
+  }
+
+  .card {
+    background: #18181b; border: 1px solid #27272a;
+    border-radius: 18px; width: 100%; max-width: 420px;
+    padding: 20px 16px 16px;
+  }
+  .card-title { text-align: center; font-size: 1.4rem; font-weight: 700; margin-bottom: 2px; }
+  .card-sub   { text-align: center; font-size: .8rem; color: #a1a1aa; margin-bottom: 14px; }
+
+  /* ── Row ── */
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: #27272a;
+    margin-bottom: 8px;
+  }
+  .row:last-of-type { margin-bottom: 0; }
+  .row.me { background: rgba(139,92,246,.18); border-color: #8b5cf6; }
+
+  .rank   { width: 22px; text-align: center; font-size: 1rem; flex-shrink: 0; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+  .score  { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #4ade80; flex-shrink: 0; min-width: 52px; text-align: right; }
+  .score.neg { color: #f87171; }
+
+  /* Info area — layout controlled by .inline / .below class on #list */
+  .info { flex: 1; min-width: 0; }
+
+  /* ── INLINE mode: name shrinks left, stats-wrap centers, score stays right ── */
+  #list.inline .name       { font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+  #list.inline .stats-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+  #list.inline .stats-row  { display: flex; gap: 7px; }
+
+  /* ── BELOW mode: name + stats stacked in flex-1 info block ── */
+  #list.below .info    { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  #list.below .name    { font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #list.below .stats-row { display: flex; gap: 7px; }
+
+  /* Stats items */
+  .stat { font-size: .68rem; font-weight: 700; white-space: nowrap; }
+  .stat.c { color: #4ade80; }
+  .stat.w { color: #f87171; }
+  .stat.a { color: #a78bfa; }
+  .stat.t { color: #60a5fa; }
+
+  /* Buttons */
+  .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .btn { width: 100%; padding: 13px; border: none; border-radius: 12px; font-size: .95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn.green   { background: #16a34a; color: #fff; }
+  .btn.primary { background: #8b5cf6; color: #fff; }
+  .btn.outline { background: transparent; color: #fafafa; border: 1px solid #3f3f46; }
+  .btn.ghost   { background: transparent; color: #a1a1aa; border: 1px solid #27272a; }
+
+  /* Controls */
+  .controls { width: 100%; max-width: 420px; display: flex; gap: 10px; }
+  .controls button {
+    flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #3f3f46;
+    background: #27272a; color: #e4e4e7; font-size: .82rem; font-weight: 600; cursor: pointer;
+  }
+  .controls button:hover { background: #3f3f46; }
+  .controls button.active { border-color: #8b5cf6; color: #c4b5fd; background: rgba(139,92,246,.12); }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 6px;
+    font-size: .7rem; font-weight: 700; margin-left: 6px;
+    vertical-align: middle;
+  }
+  .badge.inline { background: #166534; color: #4ade80; }
+  .badge.below  { background: #7c3aed; color: #e9d5ff; }
+
+  .legend { width: 100%; max-width: 420px; background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .legend-item { font-size: .72rem; font-weight: 700; }
+  .legend-item.c { color: #4ade80; }
+  .legend-item.w { color: #f87171; }
+  .legend-item.a { color: #a78bfa; }
+  .legend-item.t { color: #60a5fa; }
+
+  .note { font-size: .72rem; color: #71717a; text-align: center; max-width: 400px; line-height: 1.6; }
+  .note span.hl { color: #c4b5fd; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <button onclick="setNames('short')" id="btn-short" class="active">✅ Nomi brevi</button>
+  <button onclick="setNames('long')"  id="btn-long">⚠️ Nome lungo</button>
+</div>
+
+<div class="card">
+  <div class="card-title">Classifica</div>
+  <div class="card-sub">Dopo 10 di 10 domande</div>
+  <div id="list">
+
+    <!-- Row template: in inline mode → name + stats-wrap are direct row children
+         In below mode  → info div wraps name+stats -->
+    <div class="row me" data-row>
+      <div class="rank">🏆</div>
+      <div class="avatar" style="background:#ef4444">🦊</div>
+      <!-- name + stats injected by JS based on layout -->
+      <div class="name" id="name1">Marco</div>
+      <div class="stats-wrap"><div class="stats-row">
+        <div class="stat c">✓ 9</div><div class="stat w">✗ 1</div><div class="stat a">✋ 0</div><div class="stat t">⏱ 3.1s</div>
+      </div></div>
+      <div class="score">+2340</div>
+    </div>
+
+    <div class="row" data-row>
+      <div class="rank">🥈</div>
+      <div class="avatar" style="background:#3b82f6">🐸</div>
+      <div class="name" id="name2">Giovanfrancesco</div>
+      <div class="stats-wrap"><div class="stats-row">
+        <div class="stat c">✓ 7</div><div class="stat w">✗ 2</div><div class="stat a">✋ 1</div><div class="stat t">⏱ 4.2s</div>
+      </div></div>
+      <div class="score">+1980</div>
+    </div>
+
+    <div class="row" data-row>
+      <div class="rank">🥉</div>
+      <div class="avatar" style="background:#a855f7">🦄</div>
+      <div class="name" id="name3">Sofia</div>
+      <div class="stats-wrap"><div class="stats-row">
+        <div class="stat c">✓ 6</div><div class="stat w">✗ 3</div><div class="stat a">✋ 1</div><div class="stat t">⏱ 5.8s</div>
+      </div></div>
+      <div class="score">+1740</div>
+    </div>
+
+    <div class="row" data-row>
+      <div class="rank" style="font-size:.8rem;color:#71717a;font-weight:700">4</div>
+      <div class="avatar" style="background:#f59e0b">🐼</div>
+      <div class="name" id="name4">Luca</div>
+      <div class="stats-wrap"><div class="stats-row">
+        <div class="stat c">✓ 3</div><div class="stat w">✗ 7</div><div class="stat a">✋ 0</div><div class="stat t">⏱ 7.1s</div>
+      </div></div>
+      <div class="score neg">−120</div>
+    </div>
+
+  </div><!-- /list -->
+
+  <div class="btn-group">
+    <button class="btn green">🔄 Rivincita</button>
+    <button class="btn primary">↩ Nuova Manche</button>
+    <button class="btn outline">⚙ Nuova partita</button>
+    <button class="btn ghost">🏠 Home</button>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item c">✓ corrette</div>
+  <div class="legend-item w">✗ errate</div>
+  <div class="legend-item a">✋ astensioni</div>
+  <div class="legend-item t">⏱ tempo medio</div>
+</div>
+
+<p class="note" id="note"></p>
+
+<script>
+const THRESHOLD = 11  // stesso valore del componente React
+
+const shortNames = ['Marco', 'Giovanfrancesco', 'Sofia', 'Luca']
+const longNames  = ['Marco', 'Giovanfrancesco Bianchi', 'Sofia', 'Luca']
+
+function applyLayout(names) {
+  const anyLong = names.some(n => n.length > THRESHOLD)
+  const list = document.getElementById('list')
+
+  if (anyLong) {
+    // BELOW: wrap name + stats-wrap inside an info div
+    list.querySelectorAll('[data-row]').forEach(row => {
+      const name  = row.querySelector('.name')
+      const wrap  = row.querySelector('.stats-wrap')
+      const score = row.querySelector('.score')
+      if (!name || !wrap || !score) return
+      // Already wrapped?
+      if (name.parentElement.classList.contains('info')) return
+      const info = document.createElement('div')
+      info.className = 'info'
+      row.insertBefore(info, name)
+      info.appendChild(name)
+      info.appendChild(wrap)
+    })
+    list.className = 'below'
+  } else {
+    // INLINE: unwrap info divs so name + stats-wrap are direct row children
+    list.querySelectorAll('[data-row]').forEach(row => {
+      const info = row.querySelector('.info')
+      if (!info) return
+      const name = info.querySelector('.name')
+      const wrap = info.querySelector('.stats-wrap')
+      if (!name || !wrap) return
+      row.insertBefore(name, info)
+      row.insertBefore(wrap, info)
+      info.remove()
+    })
+    list.className = 'inline'
+  }
+
+  const badge = anyLong
+    ? '<span class="badge below">↓ sotto</span>'
+    : '<span class="badge inline">↔ fianco</span>'
+  document.getElementById('note').innerHTML = anyLong
+    ? `<span class="hl">Nome lungo (> ${THRESHOLD} car.) → stats sotto per tutti</span> ${badge}`
+    : `Nomi brevi → stats <span class="hl">centrate tra nome e punteggio</span> ${badge}`
+}
+
+function setNames(v) {
+  const names = v === 'long' ? longNames : shortNames
+
+  // First unwrap everything to a clean state
+  const list = document.getElementById('list')
+  list.querySelectorAll('[data-row]').forEach(row => {
+    const info = row.querySelector('.info')
+    if (info) {
+      const name = info.querySelector('.name')
+      const wrap = info.querySelector('.stats-wrap')
+      if (name && wrap) { row.insertBefore(name, info); row.insertBefore(wrap, info) }
+      info.remove()
+    }
+  })
+
+  ;['name1','name2','name3','name4'].forEach((id, i) => {
+    document.getElementById(id).textContent = names[i]
+  })
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'))
+  document.getElementById('btn-' + v).classList.add('active')
+  applyLayout(names)
+}
+
+setNames('short')
+</script>
+</body>
+</html>
