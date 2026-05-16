@@ -40,7 +40,9 @@ import {
   subscribeToArcadeResults,
   setCurrentArcadeGameInDb,
   clearCurrentArcadeGame,
+  getPlayerStatsForGame,
   type ArcadeResult,
+  type PlayerStat,
 } from '@/lib/game-store'
 import {
   TOPIC_LABELS,
@@ -110,6 +112,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [soloHistory, setSoloHistory] = useState<SoloResult[]>([])
   const [soloResultSaved, setSoloResultSaved] = useState(false)
   const [gameHistorySaved, setGameHistorySaved] = useState(false)
+  const [playerStats, setPlayerStats] = useState<Record<string, PlayerStat>>({})
   const soloStatsRef = useRef({ correctCount: 0, totalTimeMs: 0, answeredCount: 0 })
   const [showCountdown, setShowCountdown] = useState(false)
   const [isRedirectingToLobby, setIsRedirectingToLobby] = useState(false)
@@ -1299,6 +1302,12 @@ const handleNextFromLeaderboard = async () => {
     }).catch(() => {}) // fire-and-forget
   }, [phase, game?.solo_mode, game?.code, currentPlayerId, gameHistorySaved, players, sortedPlayers, questions])
 
+  // Load per-player stats from answers when multiplayer game finishes
+  useEffect(() => {
+    if (phase !== 'finished' || game?.solo_mode || !game?.id) return
+    getPlayerStatsForGame(game.id).then(setPlayerStats).catch(console.error)
+  }, [phase, game?.solo_mode, game?.id])
+
   // Snapshot rank positions each time the leaderboard appears — used for trend triangles
   useEffect(() => {
     if (phase === 'leaderboard' && !leaderboardSnappedRef.current) {
@@ -1695,37 +1704,14 @@ const handleNextFromLeaderboard = async () => {
     const winner = sortedPlayers[0]
     const isWinner = winner?.id === currentPlayerId
 
-    // Personal stats for multiplayer end screen
-    const { correctCount: mpCorrect, totalTimeMs: mpTimeMs, answeredCount: mpAnswered } = soloStatsRef.current
-    const mpAvgSec = mpAnswered > 0 ? (mpTimeMs / mpAnswered / 1000).toFixed(1) : '—'
-    const mpPct = questions.length > 0 ? Math.round((mpCorrect / questions.length) * 100) : 0
-
     // Leaderboard + buttons
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
+      <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
         <img src="/logo-gq.png" alt="" className="hidden" aria-hidden />
-
-        {/* Personal stats strip */}
-        <div className="w-full max-w-md flex gap-3">
-          <div className="flex-1 flex items-center gap-3 rounded-xl bg-muted/60 border border-border px-4 py-3">
-            <Target className="h-5 w-5 text-green-400 shrink-0" />
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-green-400">Corrette</p>
-              <p className="text-sm font-bold text-foreground">{mpCorrect} / {questions.length} — {mpPct}%</p>
-            </div>
-          </div>
-          <div className="flex-1 flex items-center gap-3 rounded-xl bg-muted/60 border border-border px-4 py-3">
-            <Timer className="h-5 w-5 text-blue-400 shrink-0" />
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Tempo medio</p>
-              <p className="text-sm font-bold text-foreground">{mpAvgSec}s a risposta</p>
-            </div>
-          </div>
-        </div>
-
         <Leaderboard
           players={sortedPlayers}
           currentPlayerId={currentPlayerId}
+          playerStats={playerStats}
           questionNumber={questions.length}
           totalQuestions={questions.length}
           maxAbstentions={game?.max_abstentions}

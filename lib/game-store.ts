@@ -609,6 +609,51 @@ export async function clearAnswersForGame(gameId: string): Promise<void> {
   }
 }
 
+export interface PlayerStat {
+  correct: number
+  wrong: number
+  abstentions: number
+  avgTimeSec: number | null
+}
+
+export async function getPlayerStatsForGame(gameId: string): Promise<Record<string, PlayerStat>> {
+  const pb = getPocketBase()
+  try {
+    const answers = await withRetry(() => pb.collection('answers').getFullList({
+      filter: `question_id ~ "${gameId}_"`
+    }))
+    const map: Record<string, { correct: number; wrong: number; abstentions: number; totalMs: number; count: number }> = {}
+    for (const a of answers as unknown as Answer[]) {
+      if (!map[a.player_id]) map[a.player_id] = { correct: 0, wrong: 0, abstentions: 0, totalMs: 0, count: 0 }
+      const entry = map[a.player_id]
+      if (a.is_abstention) {
+        entry.abstentions++
+      } else if (a.is_correct) {
+        entry.correct++
+      } else {
+        entry.wrong++
+      }
+      if (!a.is_abstention && a.response_time_ms != null) {
+        entry.totalMs += a.response_time_ms
+        entry.count++
+      }
+    }
+    const result: Record<string, PlayerStat> = {}
+    for (const [id, e] of Object.entries(map)) {
+      result[id] = {
+        correct: e.correct,
+        wrong: e.wrong,
+        abstentions: e.abstentions,
+        avgTimeSec: e.count > 0 ? Math.round(e.totalMs / e.count) / 1000 : null,
+      }
+    }
+    return result
+  } catch (error) {
+    console.error('Error fetching player stats:', error)
+    return {}
+  }
+}
+
 export async function getAnswersForQuestion(questionId: string): Promise<Answer[]> {
   const pb = getPocketBase()
   try {
