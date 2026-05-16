@@ -18,6 +18,8 @@ interface AudioQuestionProps {
   isClickable: boolean
   audioDisabled: boolean
   questionIndex: number
+  allinAvailable?: boolean
+  onAllinSelect?: (opt: string) => void
 }
 
 export function AudioQuestion({
@@ -32,6 +34,8 @@ export function AudioQuestion({
   isClickable,
   audioDisabled,
   questionIndex,
+  allinAvailable = false,
+  onAllinSelect,
 }: AudioQuestionProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -167,21 +171,30 @@ export function AudioQuestion({
           const showCorrect = phase === 'reveal' && isCorrect
           const showWrong = phase === 'reveal' && isSelected && !isCorrect
           return (
-            <button
-              key={index}
-              onClick={() => onSelect(option)}
-              disabled={hasAnswered || !isClickable}
-              className={cn(
-                'w-full p-4 rounded-xl text-left font-medium transition-all border-2 focus:outline-none text-foreground',
-                !hasAnswered && !isSelected && 'bg-muted border-border hover:border-primary/50 hover:bg-muted/80',
-                isSelected && phase !== 'reveal' && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
-                showCorrect && 'bg-quiz-correct border-quiz-correct text-white animate-pulse-correct',
-                showWrong && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
-                hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border'
+            <div key={index} className="flex gap-2">
+              <button
+                onClick={() => onSelect(option)}
+                disabled={hasAnswered || !isClickable}
+                className={cn(
+                  'flex-1 p-4 rounded-xl text-left font-medium transition-all border-2 focus:outline-none text-foreground',
+                  !hasAnswered && !isSelected && 'bg-muted border-border hover:border-primary/50 hover:bg-muted/80',
+                  isSelected && phase !== 'reveal' && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
+                  showCorrect && 'bg-quiz-correct border-quiz-correct text-white animate-pulse-correct',
+                  showWrong && 'bg-quiz-selected border-quiz-selected text-primary-foreground',
+                  hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border'
+                )}
+              >
+                {option}
+              </button>
+              {allinAvailable && onAllinSelect && (
+                <button
+                  onClick={() => onAllinSelect(option)}
+                  className="w-12 shrink-0 rounded-xl border-2 border-yellow-500 bg-transparent text-yellow-400 text-[13px] font-black flex items-center justify-center hover:bg-yellow-500/10 transition-colors focus:outline-none"
+                >
+                  x2
+                </button>
               )}
-            >
-              {option}
-            </button>
+            </div>
           )
         })}
       </div>

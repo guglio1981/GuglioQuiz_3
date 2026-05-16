@@ -11,7 +11,7 @@ import { RulesDialog } from '@/components/rules-dialog'
 import { IOSInstallPrompt } from '@/components/ios-install-prompt'
 import { createGame, addPlayer, getGameByCode, getPlayers } from '@/lib/game-store'
 import type { PlayerProfile, AvatarId } from '@/lib/types'
-import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS, baseGameProfile } from '@/lib/types'
+import { parseAvatar, ALL_AVATAR_ICONS, ALL_AVATAR_COLORS, AVATARS, baseGameProfile, isAllinGame } from '@/lib/types'
 import { compressImage } from '@/lib/image-utils'
 import { toast } from 'sonner'
 import { Zap, Users, Trophy, Brain, Loader2, LogIn, Bell, BellOff, LogOut, Upload } from 'lucide-react'
@@ -27,6 +27,8 @@ function HomePageContent() {
   const [isHost, setIsHost] = useState(false)
   const [pendingGameCode, setPendingGameCode] = useState<string | null>(null)
   const [pendingGameProfile, setPendingGameProfile] = useState<'timed' | 'untimed'>('timed')
+  const [pendingAllinEnabled, setPendingAllinEnabled] = useState(false)
+  const [pendingAudioEnabled, setPendingAudioEnabled] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [savedProfile, setSavedProfile] = useState<PlayerProfile | null>(null)
   const [showRules, setShowRules] = useState(false)
@@ -494,6 +496,9 @@ function HomePageContent() {
 
     setPendingGameCode(game.code)
     setPendingGameProfile(baseGameProfile(game.game_profile))
+    setPendingAllinEnabled(isAllinGame(game.game_profile))
+    const phaseObj = (() => { try { return JSON.parse(game.phase || '{}') } catch { return {} } })()
+    setPendingAudioEnabled(!!(phaseObj.__audioEnabled))
     setIsHost(false)
     
     if (user) {
@@ -944,7 +949,7 @@ function HomePageContent() {
       />
 
       {/* Rules dialog for clients */}
-      <RulesDialog open={showRules} onAccept={handleAcceptRules} gameProfile={pendingGameProfile} />
+      <RulesDialog open={showRules} onAccept={handleAcceptRules} gameProfile={pendingGameProfile} audioEnabled={pendingAudioEnabled} allinEnabled={pendingAllinEnabled} />
       
       {/* iOS PWA install prompt for push notifications */}
       <IOSInstallPrompt />

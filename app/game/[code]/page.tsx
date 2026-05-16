@@ -125,6 +125,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   // All-in: which 5-question window was the joker last used (-1 = never)
   const [allinUsedWindow, setAllinUsedWindow] = useState(-1)
   const [allinActive, setAllinActive] = useState(false)
+  // Ref sincrono per evitare race condition con React batching
+  const allinActiveRef = useRef(false)
   const [previousLeaderboardRanks, setPreviousLeaderboardRanks] = useState<Record<string, number>>({})
   const savedLeaderboardRanksRef = useRef<Record<string, number>>({})
   const leaderboardSnappedRef = useRef(false)
@@ -972,9 +974,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     setQuestionScore(score)
 
     // All-in bonus: if active and player actually answered, double the points
-    if (latestAllinActive && !didNotAnswer && score !== 0 && latestPlayerId) {
+    // Usa allinActiveRef (sincrono) invece di latestRef per evitare race con React batching
+    if (allinActiveRef.current && !didNotAnswer && latestPlayerId) {
       updatePlayerScore(latestPlayerId, score).catch(console.error) // adds score again → ×2
     }
+    allinActiveRef.current = false
     setAllinActive(false)
 
     const isOrderQuestion = latestQuestion.question_type === 'order'
@@ -1969,6 +1973,13 @@ const handleNextFromLeaderboard = async () => {
             hasAnswered={hasAnswered}
             isClickable={isClickable}
             onSelect={handleAnswerSelect}
+            allinAvailable={isAllinGame(game.game_profile) && !game.solo_mode && !hasAnswered && allinUsedWindow !== Math.floor(currentQuestionIndex / 5)}
+            onAllinSelect={(opt) => {
+              allinActiveRef.current = true
+              setAllinActive(true)
+              setAllinUsedWindow(Math.floor(currentQuestionIndex / 5))
+              handleAnswerSelect(opt)
+            }}
           />
         ) : currentQuestion.question_type === 'image_options' ? (
           <ImageOptionsQuestion
@@ -1983,6 +1994,13 @@ const handleNextFromLeaderboard = async () => {
             hasAnswered={hasAnswered}
             isClickable={isClickable}
             onSelect={handleAnswerSelect}
+            allinAvailable={isAllinGame(game.game_profile) && !game.solo_mode && !hasAnswered && allinUsedWindow !== Math.floor(currentQuestionIndex / 5)}
+            onAllinSelect={(opt) => {
+              allinActiveRef.current = true
+              setAllinActive(true)
+              setAllinUsedWindow(Math.floor(currentQuestionIndex / 5))
+              handleAnswerSelect(opt)
+            }}
           />
         ) : currentQuestion.question_type === 'order' ? (
           <OrderQuestion
@@ -2066,6 +2084,7 @@ const handleNextFromLeaderboard = async () => {
                 {allinAvailable && (
                   <button
                     onClick={() => {
+                      allinActiveRef.current = true
                       setAllinActive(true)
                       setAllinUsedWindow(Math.floor(currentQuestionIndex / 5))
                       initAudioContext()

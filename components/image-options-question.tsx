@@ -13,6 +13,8 @@ interface ImageOptionsQuestionProps {
   onSelect: (opt: string) => void
   isClickable: boolean
   questionIndex: number
+  allinAvailable?: boolean
+  onAllinSelect?: (opt: string) => void
 }
 
 export function ImageOptionsQuestion({
@@ -25,6 +27,8 @@ export function ImageOptionsQuestion({
   correctAnswer,
   onSelect,
   isClickable,
+  allinAvailable = false,
+  onAllinSelect,
 }: ImageOptionsQuestionProps) {
   return (
     <div className="space-y-3">
@@ -43,30 +47,39 @@ export function ImageOptionsQuestion({
           const showCorrect = phase === 'reveal' && isCorrect
           const showWrong = phase === 'reveal' && isSelected && !isCorrect
           return (
-            <button
-              key={index}
-              onClick={() => onSelect(option)}
-              disabled={hasAnswered || !isClickable}
-              className={cn(
-                'flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all min-h-[100px]',
-                !hasAnswered && !isSelected && 'bg-muted border-border hover:border-primary/50',
-                isSelected && phase !== 'reveal' && 'bg-quiz-selected border-quiz-selected',
-                showCorrect && 'bg-quiz-correct border-quiz-correct',
-                showWrong && 'bg-quiz-selected border-quiz-selected',
-                hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border opacity-60'
+            <div key={option} className="relative">
+              <button
+                onClick={() => onSelect(option)}
+                disabled={hasAnswered || !isClickable}
+                className={cn(
+                  'w-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all min-h-[100px]',
+                  !hasAnswered && !isSelected && 'bg-muted border-border hover:border-primary/50',
+                  isSelected && phase !== 'reveal' && 'bg-quiz-selected border-quiz-selected',
+                  showCorrect && 'bg-quiz-correct border-quiz-correct',
+                  showWrong && 'bg-quiz-selected border-quiz-selected',
+                  hasAnswered && !isSelected && !showCorrect && 'bg-muted border-border opacity-60'
+                )}
+              >
+                {imgUrl ? (
+                  <img
+                    src={imgUrl}
+                    alt=""
+                    className="h-14 w-14 object-contain"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                ) : (
+                  <span className="text-3xl">🏷️</span>
+                )}
+              </button>
+              {allinAvailable && onAllinSelect && (
+                <button
+                  onClick={() => onAllinSelect(option)}
+                  className="absolute top-1 right-1 w-8 h-8 rounded-lg border-2 border-yellow-500 bg-card text-yellow-400 text-[11px] font-black flex items-center justify-center hover:bg-yellow-500/10 transition-colors focus:outline-none"
+                >
+                  x2
+                </button>
               )}
-            >
-              {imgUrl ? (
-                <img
-                  src={imgUrl}
-                  alt=""
-                  className="h-14 w-14 object-contain"
-                  onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
-              ) : (
-                <span className="text-3xl">🏷️</span>
-              )}
-            </button>
+            </div>
           )
         })}
       </div>
