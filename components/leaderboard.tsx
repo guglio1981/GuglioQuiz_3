@@ -172,7 +172,7 @@ export const Leaderboard = memo(function Leaderboard({
                     trendsVisible && trend !== 'none' ? 'opacity-100' : 'opacity-0',
                     trend === 'up' ? 'text-green-400 text-[11px] font-black' :
                     trend === 'down' ? 'text-red-400 text-[11px] font-black' :
-                    'text-yellow-400 text-[8px]'
+                    'text-yellow-400 text-[11px] font-black'
                   )}
                 >
                   {trend === 'up' ? '▲' : trend === 'down' ? '▼' : '●'}
