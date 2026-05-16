@@ -16,6 +16,8 @@ interface OrderQuestionProps {
   questionIndex: number
 }
 
+const stripYear = (s: string) => s.replace(/\s*\(\d{4}\)$/, '')
+
 export function OrderQuestion({
   questionText,
   options,
@@ -97,7 +99,7 @@ export function OrderQuestion({
               )}>
                 {i + 1}
               </span>
-              <span className="flex-1">{revealed ? item : items[i]}</span>
+              <span className="flex-1">{revealed ? item : stripYear(items[i])}</span>
               {revealed && isRight && <Check className="h-4 w-4 shrink-0" />}
               {revealed && isWrong && <X className="h-4 w-4 text-destructive shrink-0" />}
             </button>
