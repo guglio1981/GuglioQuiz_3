@@ -81,6 +81,7 @@ export async function updateGameSettings(gameId: string, settings: GameSettings)
       game_profile: ((settings.gameProfile || 'timed') + (settings.allinEnabled ? '_allin' : '')) as import('@/lib/types').GameProfile,
       arcade_games: settings.arcadeGames || null,
       arcade_frequency: settings.arcadeFrequency || null,
+      solo_mode: settings.soloMode || false,
       current_question: 0,
       'manche+': 1,
       questions_json: [],

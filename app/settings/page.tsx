@@ -310,8 +310,8 @@ function SettingsPageContent() {
       gameProfile,
       arcadeGames: arcadeEnabled && selectedArcadeGames.length > 0 ? selectedArcadeGames : undefined,
       arcadeFrequency: arcadeEnabled && selectedArcadeGames.length > 0 ? arcadeFrequency : undefined,
-      soloMode: !isMancheMode && soloMode,
-      allinEnabled: !isMancheMode && !soloMode && allinEnabled,
+      soloMode,
+      allinEnabled: !soloMode && allinEnabled,
       audioQuestionsEnabled,
     }
     // Salva in sessionStorage per la game page (usato da enableAudioQuestions)
@@ -341,11 +341,15 @@ function SettingsPageContent() {
         }
 
         await updateGameSettings(existingGame.id, settings)
-        await updateGameStatus(existingGame.id, 'lobby')
+        await updateGameStatus(existingGame.id, soloMode ? 'playing' : 'lobby')
         await setMancheReady(existingGame.id, true)
-        
+
         sessionStorage.setItem('guglioquiz_gameCode', existingGameCode)
-        router.push(`/lobby/${existingGameCode}`)
+        if (soloMode) {
+          router.push(`/game/${existingGameCode}`)
+        } else {
+          router.push(`/lobby/${existingGameCode}`)
+        }
       } else {
         // Create new game - generate a unique host ID
         const hostId = generateUUID()
@@ -434,32 +438,30 @@ function SettingsPageContent() {
           </div>
         </div>
 
-        {/* Solo mode toggle — hidden in manche mode */}
-        {!isMancheMode && (
-          <Card className="bg-card border-border">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <UserRound className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-semibold text-foreground">Modalità solitaria</p>
-                    <p className="text-xs text-muted-foreground">Gioca da solo, nessuna lobby</p>
-                  </div>
+        {/* Solo mode toggle */}
+        <Card className="bg-card border-border">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <UserRound className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-semibold text-foreground">Modalità solitaria</p>
+                  <p className="text-xs text-muted-foreground">Gioca da solo, nessuna lobby</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSoloMode(v => !v)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${soloMode ? 'bg-primary' : 'bg-muted'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${soloMode ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <button
+                type="button"
+                onClick={() => setSoloMode(v => !v)}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${soloMode ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${soloMode ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* All-in toggle — multiplayer only, not solo */}
-        {!isMancheMode && !soloMode && (
+        {!soloMode && (
           <Card className="bg-card border-border">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between gap-4">
