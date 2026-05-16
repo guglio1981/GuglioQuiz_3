@@ -2023,7 +2023,7 @@ const handleNextFromLeaderboard = async () => {
             const isCorrect = option === correctAnswer
             const showCorrect = phase === 'reveal' && isCorrect
             const showWrong = phase === 'reveal' && isSelected && !isCorrect
-            const allinAvailable = isAllinGame(game.game_profile) && !game.solo_mode && !hasAnswered && allinUsedWindow !== Math.floor(currentQuestionIndex / 5)
+            const allinAvailable = game.allin_enabled && !game.solo_mode && !hasAnswered && allinUsedWindow !== Math.floor(currentQuestionIndex / 5)
 
             return (
               <div
